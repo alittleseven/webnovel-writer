@@ -286,7 +286,48 @@ def _sqlite_checks(project_root: Path) -> list[dict[str, Any]]:
                 repair="" if table_ok else "重新运行索引/RAG 构建命令；若 sqlite 损坏，从备份恢复。",
             )
         )
+
+    # P1-9 修复：vectors 表 embedding 完整性扫描——统计 embedding 为 NULL 的行
+    # （embedding 失败只写了 fallback 正文行，语义检索缺失，仅 BM25 可用）。
+    vector_db = cfg.vector_db
+    if vector_db.is_file():
+        null_count = _sqlite_null_embedding_count(vector_db)
+        if null_count is None:
+            return checks
+        if null_count > 0:
+            checks.append(
+                _check(
+                    "sqlite.vector_db.embedding_null",
+                    status=CHECK_WARNING,
+                    severity="warning",
+                    message=f"vectors 表有 {null_count} 个 chunk 缺少语义向量（embedding 失败）",
+                    path=str(vector_db),
+                    expected="所有 chunk 均有 embedding",
+                    actual=f"embedding 为 NULL 的行数={null_count}",
+                    impact="这些 chunk 只能关键词（BM25）检索，语义检索缺失。",
+                    repair="确认 embedding API 可用后，对该书项目补跑 projections replay（或重跑受影响章节）。",
+                )
+            )
     return checks
+
+
+def _sqlite_null_embedding_count(db_path: Path) -> int | None:
+    """统计 vectors 表中 embedding 为 NULL 的行数；表缺失或读取出错返回 None。"""
+    try:
+        import sqlite3
+
+        with sqlite3.connect(str(db_path)) as conn:
+            row = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='vectors'"
+            ).fetchone()
+            if not row:
+                return None
+            count_row = conn.execute(
+                "SELECT COUNT(*) FROM vectors WHERE embedding IS NULL"
+            ).fetchone()
+            return int(count_row[0] or 0) if count_row else 0
+    except sqlite3.Error:
+        return None
 
 
 def _rag_checks(project_root: Path) -> list[dict[str, Any]]:

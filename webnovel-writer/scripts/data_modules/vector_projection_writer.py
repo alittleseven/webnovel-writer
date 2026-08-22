@@ -29,6 +29,7 @@ class VectorProjectionWriter:
 
         try:
             stored = self._store_chunks(chunks)
+            total = len(chunks)
             if stored <= 0:
                 # embedding 全部失败时，store_chunks 的 fallback 分支会把正文行
                 # （embedding 置 NULL）写入 vectors 表并更新 bm25_index，
@@ -40,15 +41,35 @@ class VectorProjectionWriter:
                         "applied": False,
                         "writer": "vector",
                         "stored": stored,
+                        "total": total,
                         "reason": "embedding_degraded_bm25_fallback",
                     }
                 return {
                     "applied": False,
                     "writer": "vector",
                     "stored": stored,
+                    "total": total,
                     "reason": "error:store_failed",
                 }
-            return {"applied": True, "writer": "vector", "stored": stored}
+            if stored < total:
+                # P1-9 修复：部分 chunk embedding 失败（stored>0 但 <total），
+                # 这些 chunk 只有 fallback 正文行（BM25 可用）、无语义向量。
+                # 标记 partial 而非 applied，供 projection_log 与 doctor 暴露告警，
+                # 避免部分检索缺口被静默。
+                logger.warning(
+                    "vector_projection_partial: %s/%s chunks embedded (rest BM25-only)",
+                    stored,
+                    total,
+                )
+                return {
+                    "applied": True,
+                    "writer": "vector",
+                    "stored": stored,
+                    "total": total,
+                    "partial": True,
+                    "reason": "embedding_partial",
+                }
+            return {"applied": True, "writer": "vector", "stored": stored, "total": total}
         except Exception as exc:
             logger.warning("vector_projection_failed: %s", exc)
             return {"applied": False, "writer": "vector", "reason": f"error:{exc}"}

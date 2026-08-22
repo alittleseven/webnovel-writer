@@ -110,3 +110,36 @@ def test_doctor_blocks_pending_projection_log_run(tmp_path, monkeypatch):
     assert matches
     assert matches[0]["status"] == "error"
     assert report["ok"] is False
+
+
+def test_sqlite_null_embedding_count_counts_null_rows(tmp_path):
+    """P1-9：vectors 表 embedding 为 NULL 的行应被统计（语义检索缺失告警）。"""
+    import sqlite3
+
+    db_path = tmp_path / "vectors.db"
+    conn = sqlite3.connect(str(db_path))
+    conn.execute(
+        "CREATE TABLE vectors (chunk_id TEXT PRIMARY KEY, embedding BLOB, content TEXT)"
+    )
+    conn.execute(
+        "INSERT INTO vectors (chunk_id, embedding, content) VALUES ('a', NULL, '仅BM25')"
+    )
+    conn.execute(
+        "INSERT INTO vectors (chunk_id, embedding, content) VALUES ('b', x'0102', '有向量')"
+    )
+    conn.commit()
+    conn.close()
+
+    assert doctor_module._sqlite_null_embedding_count(db_path) == 1
+
+
+def test_sqlite_null_embedding_count_returns_none_when_table_missing(tmp_path):
+    import sqlite3
+
+    db_path = tmp_path / "vectors.db"
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("CREATE TABLE other (id INTEGER)")
+    conn.commit()
+    conn.close()
+
+    assert doctor_module._sqlite_null_embedding_count(db_path) is None

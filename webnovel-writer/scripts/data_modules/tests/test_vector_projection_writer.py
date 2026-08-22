@@ -177,3 +177,46 @@ async def test_run_store_coro_works_inside_active_event_loop():
         return 3
 
     assert writer._run_store_coro(store()) == 3
+
+
+def test_partial_embedding_marks_partial(monkeypatch, tmp_path):
+    """P1-9：stored>0 但 <total 时应标记 partial，而非静默 applied。"""
+    writer = VectorProjectionWriter(tmp_path)
+    # 3 个 chunk，只有 2 个成功 embedding
+    monkeypatch.setattr(writer, "_store_chunks", lambda chunks: 2)
+
+    result = writer.apply(
+        {
+            "meta": {"status": "accepted", "chapter": 47},
+            "summary_text": "摘要",
+            "accepted_events": [
+                {"event_type": "power_breakthrough", "chapter": 47, "subject": "a", "payload": {"new": "筑基"}},
+                {"event_type": "character_state_changed", "chapter": 47, "subject": "b", "payload": {"field": "x", "new": "y"}},
+            ],
+            "entity_deltas": [],
+        }
+    )
+
+    assert result["applied"] is True
+    assert result["partial"] is True
+    assert result["reason"] == "embedding_partial"
+    assert result["stored"] == 2
+    assert result["total"] == 3
+
+
+def test_full_embedding_not_partial(monkeypatch, tmp_path):
+    writer = VectorProjectionWriter(tmp_path)
+    monkeypatch.setattr(writer, "_store_chunks", lambda chunks: 1)
+
+    result = writer.apply(
+        {
+            "meta": {"status": "accepted", "chapter": 47},
+            "summary_text": "摘要",
+            "accepted_events": [],
+            "entity_deltas": [],
+        }
+    )
+
+    assert result["applied"] is True
+    assert "partial" not in result
+    assert result["total"] == 1

@@ -447,13 +447,42 @@ def _add_projection_issues(
         )
 
 
+def _git_tag_exists(project_root: Path, chapter: int) -> bool:
+    """检测 git 主路径是否已为本章打 tag（ch{NNNN}）。
+
+    P1-5 修复：git 备份主路径只打 tag、不写 .webnovel/backups 目录，
+    导致 git 备份成功时 user_report 仍误报"备份状态未确认"。
+    这里直接检查 .git 下的 tag 引用，不依赖 subprocess git。
+    """
+    tag_name = f"ch{chapter:04d}"
+    git_dir = project_root / ".git"
+    if not git_dir.is_dir():
+        return False
+    # 松散 ref 或 packed-refs 两种存储形态都检查。
+    loose_ref = git_dir / "refs" / "tags" / tag_name
+    if loose_ref.is_file():
+        return True
+    packed_refs = git_dir / "packed-refs"
+    if packed_refs.is_file():
+        try:
+            text = packed_refs.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            return False
+        if f"refs/tags/{tag_name}" in text:
+            return True
+    return False
+
+
 def _backup_evidence(project_root: Path, chapter: int) -> tuple[bool, str]:
     backup_dir = project_root / ".webnovel" / "backups"
     if backup_dir.is_dir():
-        patterns = (f"ch{chapter:04d}*", f"*{chapter:04d}*", f"*第{chapter}章*")
+        patterns = (f"ch{chapter:04d}*", f"snapshot_ch{chapter:04d}*", f"*第{chapter}章*")
         for pattern in patterns:
             if any(backup_dir.glob(pattern)):
                 return True, _rel(project_root, backup_dir)
+    # git 主路径：只打 tag，不写 backups 目录，需单独识别。
+    if _git_tag_exists(project_root, chapter):
+        return True, str(project_root / ".git")
     return False, _rel(project_root, backup_dir)
 
 

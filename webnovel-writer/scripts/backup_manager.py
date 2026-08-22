@@ -186,7 +186,13 @@ __pycache__/
         return "\n".join(part.strip() for part in (stderr, stdout) if part.strip())
 
     def _local_backup(self, chapter_num: int) -> bool:
-        """本地备份（Git 不可用时的降级方案）"""
+        """本地备份（Git 不可用时的降级方案）。
+
+        P1-5 修复：原实现只备份正文/大纲/设定集 + state.json，遗漏 .story-system
+        合同树与 index.db/vectors.db 等投影数据库，与 docstring"数据 100% 一致"
+        矛盾。现补全备份范围，并改用临时目录 + 原子 rename，避免中途崩溃留下
+        半套备份。
+        """
         backup_dir = self.project_root / ".webnovel" / "backups"
         backup_dir.mkdir(parents=True, exist_ok=True)
 
@@ -194,22 +200,47 @@ __pycache__/
         backup_name = f"snapshot_ch{chapter_num:04d}_{timestamp}"
         backup_path = backup_dir / backup_name
 
+        # 先写入临时目录，全部成功后原子 rename 到最终路径，避免半套备份。
+        # 注意：Windows MAX_PATH 限制，临时目录名必须短（长名 + 深子目录易超限）。
+        tmp_path = backup_dir / ".tmp_backup"
+
         try:
-            backup_path.mkdir(parents=True, exist_ok=True)
+            if tmp_path.exists():
+                shutil.rmtree(tmp_path)
+            tmp_path.mkdir(parents=True, exist_ok=True)
             copied = []
 
+            # 1. 正文 / 大纲 / 设定集（文本真源）
             for folder_name in ("正文", "大纲", "设定集"):
                 source_dir = self.project_root / folder_name
                 if source_dir.exists():
-                    shutil.copytree(source_dir, backup_path / folder_name)
+                    shutil.copytree(source_dir, tmp_path / folder_name)
                     copied.append(folder_name)
 
-            state_file = self.project_root / ".webnovel" / "state.json"
-            if state_file.exists():
-                target_state_dir = backup_path / ".webnovel"
-                target_state_dir.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(state_file, target_state_dir / "state.json")
-                copied.append(".webnovel/state.json")
+            # 2. .story-system 合同树（写前真源：合同 + 提交链 + 事件审计）
+            story_system_dir = self.project_root / ".story-system"
+            if story_system_dir.exists():
+                shutil.copytree(story_system_dir, tmp_path / ".story-system")
+                copied.append(".story-system")
+
+            # 3. .webnovel 投影层（state.json + SQLite 数据库 + 记忆 scratchpad）
+            webnovel_dir = self.project_root / ".webnovel"
+            if webnovel_dir.exists():
+                target_webnovel_dir = tmp_path / ".webnovel"
+                target_webnovel_dir.mkdir(parents=True, exist_ok=True)
+                for rel in (
+                    "state.json",
+                    "index.db",
+                    "vectors.db",
+                    "memory_scratchpad.json",
+                ):
+                    source_file = webnovel_dir / rel
+                    if source_file.exists():
+                        shutil.copy2(source_file, target_webnovel_dir / rel)
+                        copied.append(f".webnovel/{rel}")
+
+            # 原子提交：临时目录 rename 为最终备份目录。
+            os.replace(tmp_path, backup_path)
 
             snapshots = sorted(
                 (path for path in backup_dir.glob("snapshot_ch*") if path.is_dir()),
@@ -222,9 +253,12 @@ __pycache__/
             if copied:
                 print(f"📦 已备份: {', '.join(copied)}")
             else:
-                print("⚠️  未找到正文/大纲/设定集或 state.json 可备份")
+                print("⚠️  未找到正文/大纲/设定集或 story-system 可备份")
             return True
         except OSError as e:
+            # 失败时清理临时目录，避免残留。
+            if tmp_path.exists():
+                shutil.rmtree(tmp_path, ignore_errors=True)
             print(f"❌ 本地备份失败: {e}")
             return False
 

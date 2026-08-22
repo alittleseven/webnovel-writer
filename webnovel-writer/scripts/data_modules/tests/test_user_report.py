@@ -16,7 +16,12 @@ def _ensure_scripts_on_path() -> None:
 _ensure_scripts_on_path()
 
 from data_modules.projection_log import append_projection_run  # noqa: E402
-from data_modules.user_report import build_user_report, render_user_report_text  # noqa: E402
+from data_modules.user_report import (  # noqa: E402
+    _backup_evidence,
+    _git_tag_exists,
+    build_user_report,
+    render_user_report_text,
+)
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -268,3 +273,42 @@ def test_user_report_includes_log_path_only_on_failure(tmp_path: Path) -> None:
     completed_text = render_user_report_text(completed)
     assert completed["overall_status"] == "completed"
     assert ".webnovel/logs/run_last.log" not in completed_text
+
+
+def test_git_tag_exists_loose_ref(tmp_path: Path) -> None:
+    git_dir = tmp_path / ".git" / "refs" / "tags"
+    git_dir.mkdir(parents=True)
+    (git_dir / "ch0001").write_text("abc", encoding="utf-8")
+    assert _git_tag_exists(tmp_path, 1) is True
+    assert _git_tag_exists(tmp_path, 2) is False
+
+
+def test_git_tag_exists_packed_refs(tmp_path: Path) -> None:
+    git_dir = tmp_path / ".git"
+    git_dir.mkdir(parents=True)
+    (git_dir / "packed-refs").write_text(
+        "abc refs/tags/ch0001\n", encoding="utf-8"
+    )
+    assert _git_tag_exists(tmp_path, 1) is True
+    assert _git_tag_exists(tmp_path, 2) is False
+
+
+def test_git_tag_exists_no_git_dir(tmp_path: Path) -> None:
+    assert _git_tag_exists(tmp_path, 1) is False
+
+
+def test_backup_evidence_detects_git_tag(tmp_path: Path) -> None:
+    git_dir = tmp_path / ".git" / "refs" / "tags"
+    git_dir.mkdir(parents=True)
+    (git_dir / "ch0001").write_text("abc", encoding="utf-8")
+    ok, path = _backup_evidence(tmp_path, 1)
+    assert ok is True
+    assert path.endswith(".git")
+
+
+def test_backup_evidence_detects_local_snapshot(tmp_path: Path) -> None:
+    backup_dir = tmp_path / ".webnovel" / "backups"
+    backup_dir.mkdir(parents=True)
+    (backup_dir / "snapshot_ch0001_20260101").mkdir()
+    ok, _ = _backup_evidence(tmp_path, 1)
+    assert ok is True

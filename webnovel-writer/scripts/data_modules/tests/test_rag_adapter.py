@@ -103,6 +103,31 @@ async def test_store_chunks_with_embedding_failure(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_embedding_failed_chunk_still_searchable_via_bm25(tmp_path, monkeypatch):
+    """P0-2 修复：embedding 失败的 chunk 必须仍能通过 BM25 召回。
+
+    回归点：此前失败 chunk 只写 bm25_index 不写 vectors 表，而 bm25_search
+    从 vectors 表取正文 → 失败 chunk 语义与关键词检索双双丢失。
+    """
+    cfg = DataModulesConfig.from_project_root(tmp_path)
+    cfg.ensure_dirs()
+    monkeypatch.setattr(rag_module, "get_client", lambda config: StubClientWithFailures())
+
+    adapter = RAGAdapter(cfg)
+    # 第一个 chunk embedding 失败（StubClientWithFailures 返回 None），第二个成功
+    chunks = [
+        {"chapter": 1, "scene_index": 1, "content": "神秘玉佩暗藏玄机"},
+        {"chapter": 1, "scene_index": 2, "content": "萧炎修炼斗气"},
+    ]
+    stored = await adapter.store_chunks(chunks)
+    assert stored == 1
+
+    # 失败的 chunk 应能通过 BM25 召回（关键词"玉佩"）
+    bm25_results = adapter.bm25_search("玉佩", top_k=5)
+    assert any("神秘玉佩" in r.content for r in bm25_results)
+
+
+@pytest.mark.asyncio
 async def test_hybrid_search_full_scan(temp_project):
     adapter = RAGAdapter(temp_project)
     await adapter.store_chunks(

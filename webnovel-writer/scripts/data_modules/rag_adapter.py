@@ -414,21 +414,6 @@ class RAGAdapter:
             cursor = conn.cursor()
 
             for chunk, embedding in zip(chunks, embeddings):
-                if embedding is None:
-                    # 嵌入失败，跳过该 chunk（仅存储 BM25 索引供关键词检索）
-                    skipped += 1
-                    chunk_id = chunk.get("chunk_id")
-                    if not chunk_id:
-                        if chunk.get("chunk_type") == "summary":
-                            chunk_id = f"ch{int(chunk['chapter']):04d}_summary"
-                        else:
-                            chunk_id = f"ch{int(chunk['chapter']):04d}_s{int(chunk['scene_index'])}"
-                    try:
-                        self._update_bm25_index(cursor, chunk_id, chunk.get("content", ""))
-                    except Exception as e:
-                        errors.append(f"BM25 index failed for {chunk_id}: {e}")
-                    continue
-
                 chunk_type = chunk.get("chunk_type") or "scene"
                 chunk_id = chunk.get("chunk_id")
                 if not chunk_id:
@@ -436,6 +421,33 @@ class RAGAdapter:
                         chunk_id = f"ch{int(chunk['chapter']):04d}_summary"
                     else:
                         chunk_id = f"ch{int(chunk['chapter']):04d}_s{int(chunk['scene_index'])}"
+
+                if embedding is None:
+                    # 嵌入失败：仍写正文行（embedding 置空），保证 BM25 检索能取到正文。
+                    # 修复：此前失败 chunk 只写 bm25_index 不写 vectors 表，
+                    # 而 bm25_search 从 vectors 表取正文 → 失败 chunk 语义与关键词检索双双丢失。
+                    skipped += 1
+                    try:
+                        cursor.execute("""
+                            INSERT OR REPLACE INTO vectors
+                            (chunk_id, chapter, scene_index, content, embedding, parent_chunk_id, chunk_type, source_file)
+                            VALUES (?, ?, ?, ?, NULL, ?, ?, ?)
+                        """, (
+                            chunk_id,
+                            chunk["chapter"],
+                            chunk.get("scene_index", 0) if chunk_type == "scene" else 0,
+                            chunk.get("content", ""),
+                            chunk.get("parent_chunk_id"),
+                            chunk_type,
+                            chunk.get("source_file"),
+                        ))
+                    except Exception as e:
+                        errors.append(f"vectors fallback write failed for {chunk_id}: {e}")
+                    try:
+                        self._update_bm25_index(cursor, chunk_id, chunk.get("content", ""))
+                    except Exception as e:
+                        errors.append(f"BM25 index failed for {chunk_id}: {e}")
+                    continue
 
                 # 将向量序列化为 bytes
                 embedding_bytes = self._serialize_embedding(embedding)

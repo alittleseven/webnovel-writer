@@ -24,10 +24,17 @@
 - `projections.py`：`retry_projection` 补跑时调用 `write_events_and_proposals`，闭合事件链崩溃窗口。
 - 同步修正固化旧行为的测试 `test_retry_projection_does_not_rewrite_commit_side_effects`（改为断言 retry 后 events 文件存在）。
 
+### 补充修复（2026-08-23 实测写章后发现）
+
+- `rag_adapter.py` `store_chunks`：`embed_batch` 返回**空列表**（整批 embedding 失败，如批次超限 >20）时，原逻辑提前 `return 0` 跳过 fallback 分支，导致失败 chunk 的正文既不入 `vectors` 表也不入 `bm25_index`，BM25 也召回不到。现把空列表视作「所有 chunk 均失败」，统一走 embedding 置 NULL 的 fallback 分支。
+- `vector_projection_writer.py` `apply`：embedding 全部失败但 fallback 已写入 vectors 表（BM25 可用）时，返回 `embedding_degraded_bm25_fallback`（映射为 `skipped` 状态）而非 `error:store_failed`，避免投影被误判为 blocking 失败、阻断下一章写作。
+- 新增测试：`test_embedding_batch_empty_still_searchable_via_bm25`（空列表边界）、`test_store_zero_for_required_chunks_is_error`（无 vectors 数据时仍报 store_failed）。
+
 ### 验证
 
-- 新增测试：伏笔 `promise_paid_off` 闭合、BM25 召回 embedding 失败 chunk、retry 补写 events。
+- 新增测试：伏笔 `promise_paid_off` 闭合、BM25 召回 embedding 失败 chunk、retry 补写 events、embedding 整批失败空列表边界。
 - 相关测试文件（投影 writer / 路由 / projections CLI / RAG / commit service / 事件日志 / 覆写账本）全绿。
+- 实测：`fantasy01` 第 17 章写章后 `projections retry` 将 vector 状态从 `failed:store_failed` 修复为 `skipped`，`project-status` 从 `projection_failed` 回到健康态（`plan_in_progress`）。
 
 ## v6.2.1 - 修复 Windows 下写章提交偶发的「拒绝访问」
 

@@ -48,6 +48,10 @@
 - **Commit**：`c883afc fix(P0-4): data-agent 提取零校验——落地第一步轻校验`
 - **改动**：`chapter_commit_service.py` 新增 `_extraction_warnings` 纯函数，三类规则断言（新实体缺 aliases / state_delta 缺 old-new / event 章号不符）写入 `meta.extraction_warnings`，不阻断
 - **待办**：② 纠错命令 `memory-correction`；③ doctor 抽查比对（留待 v7）
+- **复审发现（2026-08-23，CodeBuddy）**：`chapter_commit_service.py:92` 的 `int(event_chapter)` 未防护。data-agent（LLM 提取，字段类型不可信）产出非整数章号（如 `"五"`、`"3.5"`、`"xian"`）时 `int()` 抛 `ValueError`，`build_commit` 直接崩溃——轻校验本应「不阻断」，反成新阻断点。
+  - **实证**：`int("五")`/`int("xian")`/`int("3.5")` 均抛 `ValueError: invalid literal for int()`
+  - **建议修复**：`try: int(event_chapter) except (TypeError, ValueError): 降级为 warning（code=event_chapter_unparseable）`，不阻断提交
+  - **状态**：`[ ]` 未修复（标记为 P0-4b，归入 P0-4 子项）
 
 ---
 
@@ -91,9 +95,14 @@
 
 ### P1-9 部分 chunk embedding 失败静默
 - **问题**：stored>0 即 applied，部分失败无重试标记，doctor 不校验 embedding 完整性
-- **状态**：`[x]` 已修复
+- **状态**：`[~]` 部分修复（writer 层 partial 标记 + doctor 兜底告警已落地，状态聚合层透出未做）
 - **Commit**：`3ba03fb fix(P1-9): 部分 chunk embedding 失败不再静默，标记 partial 并让 doctor 告警`
 - **改动**：`vector_projection_writer.py` stored<total 标 partial；`doctor.py` 新增 vectors 表 NULL embedding 完整性扫描（`_sqlite_null_embedding_count`）
+- **复审发现（2026-08-23，CodeBuddy）**：partial 信号在状态聚合层被吞。`chapter_commit_service._writer_status`（`:190`）只看 `result.get("applied")` → partial 场景返回 `"done"`；`projection_log._overall_status`（`:30`）只认 `done/skipped/failed/pending`。结果：`commit.projection_status.vector` 与 run 级 `status` 均为 `"done"`，`project-status` 看不出该章有语义缺口，partial 章节永不进 `projections retry` 候选（retry 按 failed 定位）。
+  - **实证**：partial_result（applied=True, partial=True）经 `_writer_status` → `'done'`，经 `_overall_status` → `'done'`
+  - **当前兜底**：doctor 的 NULL embedding 扫描（有效但被动）
+  - **建议修复**：`_writer_status` 识别 `result.get("partial")` 返回独立状态（如 `"partial"` 或 `"done:embedding_partial"`），`_overall_status` 与 `project-status` 聚合相应透出，让缺口在状态层可见、可进 retry 候选
+  - **状态**：`[ ]` 未修复（标记为 P1-9b，归入 P1-9 子项，主项降级为部分修复）
 
 ---
 
@@ -143,16 +152,18 @@
 
 | 类别 | 总数 | 已修复 | 部分修复 | 未修复 |
 |------|------|--------|---------|--------|
-| P0 | 4 | 3 | 1（P0-4） | 0 |
-| P1 | 9 | 3（P1-1/5/9） | 0 | 6 |
+| P0 | 4 | 3 | 1（P0-4，含复审 P0-4b 待修） | 0 |
+| P1 | 9 | 2（P1-1/5） | 1（P1-9，含复审 P1-9b 待修） | 6 |
 | P2 | 7 | 0 | 0 | 7 |
 | EXT | 1 | 1 | 0 | 0 |
+| 复审跟进 | 2 | 0 | 0 | 2（P0-4b / P1-9b） |
 
 ## 建议实施节奏
 
 | 阶段 | 内容 |
 |------|------|
 | 当前（fix/temp） | P0-3b、P0-4 |
+| 复审跟进（fix/temp 或新分支） | P0-4b（int 防护）、P1-9b（partial 状态透出）——详见各条目「复审发现」子块 |
 | v7 前期 | P1-1/P1-2/P1-4（合同 schema 校验与版本、token） |
 | v7 中后期 | P1 其余 + P2 全部 |
 

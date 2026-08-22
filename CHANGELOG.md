@@ -30,6 +30,12 @@
 - `vector_projection_writer.py` `apply`：embedding 全部失败但 fallback 已写入 vectors 表（BM25 可用）时，返回 `embedding_degraded_bm25_fallback`（映射为 `skipped` 状态）而非 `error:store_failed`，避免投影被误判为 blocking 失败、阻断下一章写作。
 - 新增测试：`test_embedding_batch_empty_still_searchable_via_bm25`（空列表边界）、`test_store_zero_for_required_chunks_is_error`（无 vectors 数据时仍报 store_failed）。
 
+### CLI 中文参数乱码修复（2026-08-23 实测发现）
+
+- `runtime_compat.py` `enable_windows_utf8_stdio`：新增 `_fix_sys_argv`，在 Windows 下就地修复 `sys.argv` 中因 PowerShell 传参导致的乱码（UTF-8 字节被 GBK 误解码）。之前只处理了 stdout/stderr 输出编码，未处理 argv 输入编码，导致 `rag search --query "中文"` 这类命令在 PowerShell 下查询到乱码、返回空结果。
+- 新增 `_fix_argv_mojibake` 函数：仅当「GBK 编码 → UTF-8 解码」能无损往返且结果不同于原串时才修复，纯 ASCII、正常中文、路径、参数名不受影响。
+- 新增测试：`webnovel-writer/scripts/tests/test_runtime_compat.py`（11 个用例，覆盖乱码还原、ASCII/中文/路径/混合场景不变性）。
+
 ### 验证
 
 - 新增测试：伏笔 `promise_paid_off` 闭合、BM25 召回 embedding 失败 chunk、retry 补写 events、embedding 整批失败空列表边界。

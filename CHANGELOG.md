@@ -2,6 +2,33 @@
 
 这里记录每个正式版本对作者和维护者的影响。发布说明优先面向中文网文作者：先说写作体验有什么变化，再补维护者关心的技术细节。
 
+## v6.3.0 - 修复伏笔回收、BM25 回退与事件审计链三个核心缺陷（未发布）
+
+> 依据架构审计（2026-08-23，round1/round2）的 P0 缺陷清单落地。尚未发版，待全量验证与 Human Owner 确认。
+
+### 给作者看的变化
+
+- 修复「伏笔账永不闭合」：用 `promise_paid_off`（读者承诺兑现）表回收伏笔时，`state.plot_threads.foreshadowing` 现在会正确标记为已回收，与 `open_loop_closed` 等效。
+- 修复「embedding 失败导致检索缺口」：向量生成失败的场景，现在仍能通过关键词（BM25）检索到正文，不再出现"语义检索 + 关键词检索双双丢失"的静默缺口。
+- 修复「中断后审计链断链」：写章提交后若因崩溃中断，用 `projections retry` 补跑时会补齐事件审计文件与修订提案，不再永久丢失审计记录。
+
+### 是否需要改旧项目
+
+- 已存在的项目，此前因上述缺陷导致伏笔未闭合 / 检索缺块，可分别用 `doctor` 检查、`projections replay` 重放补偿，无需手动迁移。
+
+### 给维护者
+
+- `event_projection_router.py`：`promise_paid_off` 增加 `state` 路由；`state_projection_writer.py` 的伏笔聚合分支识别 `promise_paid_off` 并走闭合路径。
+- `rag_adapter.py`：`store_chunks` 在 embedding 失败时也向 `vectors` 表写正文行（embedding 置 NULL），使 `bm25_search` 能取到正文；`vector_search` 本就跳过空向量行。
+- `chapter_commit_service.py`：抽出 `write_events_and_proposals` 供 `apply_projections` 与 `retry_projection` 复用；`append_projection_run` 失败改为记日志而非静默吞掉。
+- `projections.py`：`retry_projection` 补跑时调用 `write_events_and_proposals`，闭合事件链崩溃窗口。
+- 同步修正固化旧行为的测试 `test_retry_projection_does_not_rewrite_commit_side_effects`（改为断言 retry 后 events 文件存在）。
+
+### 验证
+
+- 新增测试：伏笔 `promise_paid_off` 闭合、BM25 召回 embedding 失败 chunk、retry 补写 events。
+- 相关测试文件（投影 writer / 路由 / projections CLI / RAG / commit service / 事件日志 / 覆写账本）全绿。
+
 ## v6.2.1 - 修复 Windows 下写章提交偶发的「拒绝访问」
 
 发版范围：`v6.2.0..v6.2.1`。

@@ -13,16 +13,54 @@ from pathlib import Path
 from typing import Union
 
 
+def _fix_argv_mojibake(value: str) -> str:
+    """修复 Windows 下 PowerShell 传参时「UTF-8 字节被 GBK 误解码」产生的乱码。
+
+    现象：PowerShell 调用 `python script.py "鼠王"` 时，sys.argv 里可能变成
+    「榧犵帇」这类乱码（UTF-8 字节被按 GBK 解读）。修复方式是把字符串按 GBK
+    编码还原成原始字节，再按 UTF-8 解码。
+
+    安全性：只有当「GBK 编码 → UTF-8 解码」能无损往返、且结果与原串不同
+    时才修复；纯 ASCII、正常中文、路径、参数名等不受影响。
+    """
+    if not value:
+        return value
+    try:
+        raw = value.encode("gbk")
+    except UnicodeEncodeError:
+        return value
+    try:
+        fixed = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return value
+    if fixed == value or "\ufffd" in fixed:
+        return value
+    return fixed
+
+
+def _fix_sys_argv() -> None:
+    """就地修复 sys.argv 中的乱码参数（仅 Windows）。"""
+    if sys.platform != "win32":
+        return
+    try:
+        sys.argv = [_fix_argv_mojibake(a) for a in sys.argv]
+    except Exception:
+        pass
+
+
 def enable_windows_utf8_stdio(*, skip_in_pytest: bool = False) -> bool:
-    """Enable UTF-8 stdio wrappers on Windows.
+    """Enable UTF-8 stdio wrappers and fix argv mojibake on Windows.
 
     Returns:
-        True if wrapping was applied, False otherwise.
+        True if any wrapping/fix was applied, False otherwise.
     """
     if sys.platform != "win32":
         return False
     if skip_in_pytest and os.environ.get("PYTEST_CURRENT_TEST"):
         return False
+
+    # 修复 sys.argv 中因 PowerShell 传参编码导致的乱码（与 stdio 编码相互独立）
+    _fix_sys_argv()
 
     stdout_encoding = str(getattr(sys.stdout, "encoding", "") or "").lower()
     stderr_encoding = str(getattr(sys.stderr, "encoding", "") or "").lower()

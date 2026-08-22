@@ -263,7 +263,7 @@ class StateProjectionWriter:
             for event in extraction_list(commit_payload, "accepted_events")
             if isinstance(event, dict)
             and str(event.get("event_type") or "").strip()
-            in ("open_loop_created", "open_loop_closed")
+            in ("open_loop_created", "open_loop_closed", "promise_paid_off")
         ]
         if not loop_events:
             return 0

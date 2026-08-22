@@ -17,7 +17,9 @@ class EventProjectionRouter:
         "open_loop_created": ["state", "memory"],
         "open_loop_closed": ["state", "memory"],
         "promise_created": ["memory"],
-        "promise_paid_off": ["memory"],
+        # promise_paid_off 表示读者承诺兑现，也可用于回收伏笔（见 data-agent.md:54），
+        # 需路由到 state 以闭合 plot_threads.foreshadowing（issue：伏笔账永不闭合）。
+        "promise_paid_off": ["state", "memory"],
         "artifact_obtained": ["index", "vector"],
     }
 

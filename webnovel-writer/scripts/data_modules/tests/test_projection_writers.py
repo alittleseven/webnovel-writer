@@ -701,3 +701,39 @@ def test_router_routes_open_loop_events_to_state(tmp_path):
     router = EventProjectionRouter()
     assert "state" in router.route({"event_type": "open_loop_created"})
     assert "state" in router.route({"event_type": "open_loop_closed"})
+
+
+def test_promise_paid_off_closes_foreshadowing_in_state(tmp_path):
+    """P0-1 修复：promise_paid_off 必须路由到 state 并闭合伏笔，避免伏笔账永不闭合。"""
+    (tmp_path / ".webnovel").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".webnovel" / "state.json").write_text("{}", encoding="utf-8")
+    writer = StateProjectionWriter(tmp_path)
+
+    writer.apply(
+        _commit_payload(
+            chapter=5,
+            accepted_events=[_loop_event("open_loop_created", "神秘玉佩的来历")],
+        )
+    )
+    rows = _read_state(tmp_path)["plot_threads"]["foreshadowing"]
+    assert rows[0]["status"] == "active"
+
+    # 用 promise_paid_off 表回收伏笔（data-agent.md:54 允许此写法）
+    writer.apply(
+        _commit_payload(
+            chapter=20,
+            accepted_events=[_loop_event("promise_paid_off", "神秘玉佩的来历")],
+        )
+    )
+    rows = _read_state(tmp_path)["plot_threads"]["foreshadowing"]
+    assert len(rows) == 1
+    assert rows[0]["status"] == "resolved"
+    assert rows[0]["resolved_chapter"] == 20
+
+
+def test_router_routes_promise_paid_off_to_state():
+    """P0-1 修复：promise_paid_off 必须路由到 state。"""
+    from data_modules.event_projection_router import EventProjectionRouter
+
+    router = EventProjectionRouter()
+    assert "state" in router.route({"event_type": "promise_paid_off"})

@@ -417,3 +417,78 @@ def test_apply_projections_writes_events_and_amend_proposals(tmp_path):
     assert row["field"] == "world_rule"
     assert row["override_value"] == "短时失控突破"
     assert row["status"] == "pending"
+
+
+def test_build_commit_flags_new_entity_missing_aliases(tmp_path):
+    service = ChapterCommitService(tmp_path)
+    payload = service.build_commit(
+        chapter=3,
+        review_result={"blocking_count": 0},
+        fulfillment_result={"planned_nodes": [], "covered_nodes": [], "missed_nodes": [], "extra_nodes": []},
+        disambiguation_result={"pending": []},
+        extraction_result={
+            "state_deltas": [],
+            "accepted_events": [],
+            "entity_deltas": [
+                {"entity_id": "hongyi_girl", "action": "upsert", "entity_type": "角色", "payload": {"name": "红衣女子"}}
+            ],
+        },
+    )
+    warnings = payload["meta"]["extraction_warnings"]
+    assert any(w["code"] == "new_entity_missing_aliases" for w in warnings)
+    # 轻校验不阻断，仍是 accepted
+    assert payload["meta"]["status"] == "accepted"
+
+
+def test_build_commit_flags_state_delta_missing_old_or_new(tmp_path):
+    service = ChapterCommitService(tmp_path)
+    payload = service.build_commit(
+        chapter=3,
+        review_result={"blocking_count": 0},
+        fulfillment_result={"planned_nodes": [], "covered_nodes": [], "missed_nodes": [], "extra_nodes": []},
+        disambiguation_result={"pending": []},
+        extraction_result={
+            "accepted_events": [],
+            "entity_deltas": [],
+            "state_deltas": [{"entity_id": "xiaoyan", "field": "realm", "new": "斗师"}],
+        },
+    )
+    warnings = payload["meta"]["extraction_warnings"]
+    assert any(w["code"] == "state_delta_missing_old_or_new" for w in warnings)
+
+
+def test_build_commit_flags_event_chapter_mismatch(tmp_path):
+    service = ChapterCommitService(tmp_path)
+    payload = service.build_commit(
+        chapter=3,
+        review_result={"blocking_count": 0},
+        fulfillment_result={"planned_nodes": [], "covered_nodes": [], "missed_nodes": [], "extra_nodes": []},
+        disambiguation_result={"pending": []},
+        extraction_result={
+            "state_deltas": [],
+            "entity_deltas": [],
+            "accepted_events": [
+                {"event_id": "evt-001", "chapter": 5, "event_type": "open_loop_created", "subject": "x", "payload": {"content": "悬念"}}
+            ],
+        },
+    )
+    warnings = payload["meta"]["extraction_warnings"]
+    assert any(w["code"] == "event_chapter_mismatch" for w in warnings)
+
+
+def test_build_commit_no_warnings_when_extraction_clean(tmp_path):
+    service = ChapterCommitService(tmp_path)
+    payload = service.build_commit(
+        chapter=3,
+        review_result={"blocking_count": 0},
+        fulfillment_result={"planned_nodes": [], "covered_nodes": [], "missed_nodes": [], "extra_nodes": []},
+        disambiguation_result={"pending": []},
+        extraction_result={
+            "accepted_events": [],
+            "entity_deltas": [
+                {"entity_id": "hongyi_girl", "action": "upsert", "entity_type": "角色", "payload": {"name": "红衣女子", "aliases": ["红衣"]}}
+            ],
+            "state_deltas": [{"entity_id": "xiaoyan", "field": "realm", "old": "斗者", "new": "斗师"}],
+        },
+    )
+    assert payload["meta"]["extraction_warnings"] == []

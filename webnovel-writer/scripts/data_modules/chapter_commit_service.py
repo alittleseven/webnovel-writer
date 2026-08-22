@@ -34,6 +34,72 @@ class ChapterCommitService:
     def __init__(self, project_root: Path):
         self.project_root = Path(project_root)
 
+    @staticmethod
+    def _extraction_warnings(
+        chapter: int,
+        state_deltas: list[dict[str, Any]],
+        entity_deltas: list[dict[str, Any]],
+        accepted_events: list[dict[str, Any]],
+    ) -> list[dict[str, str]]:
+        """轻量规则校验（P0-4 第一步）：对 data-agent 提取结果做纯结构断言。
+
+        只做可离线判断的规则检查，不阻断提交（标 extraction_warning 供
+        /webnovel-query 与 doctor 暴露），避免引入重 LLM 成本。
+        """
+        warnings: list[dict[str, str]] = []
+
+        # 1. 新实体（upsert 且无别名）——消歧依赖 aliases，缺别名易误分裂。
+        for delta in entity_deltas:
+            if not isinstance(delta, dict):
+                continue
+            action = str(delta.get("action") or "upsert")
+            payload = delta.get("payload") or {}
+            if not isinstance(payload, dict):
+                payload = {}
+            entity_id = str(delta.get("entity_id") or "").strip()
+            has_alias = bool(payload.get("aliases") or payload.get("alias"))
+            if action in {"upsert", "create", "new"} and entity_id and not has_alias:
+                warnings.append(
+                    {
+                        "code": "new_entity_missing_aliases",
+                        "entity_id": entity_id,
+                        "detail": "新增/更新实体缺少 aliases，消歧可能失效",
+                    }
+                )
+
+        # 2. state_delta 缺 old 或 new —— 境界变化必须带旧值才能判断单调性。
+        for delta in state_deltas:
+            if not isinstance(delta, dict):
+                continue
+            field_name = str(delta.get("field") or "").strip()
+            has_old = "old" in delta and str(delta.get("old") or "").strip()
+            has_new = "new" in delta and str(delta.get("new") or "").strip()
+            if field_name and (not has_old or not has_new):
+                warnings.append(
+                    {
+                        "code": "state_delta_missing_old_or_new",
+                        "entity_id": str(delta.get("entity_id") or "").strip(),
+                        "field": field_name,
+                        "detail": "state_delta 缺少 old 或 new，无法校验状态单调性",
+                    }
+                )
+
+        # 3. accepted_event 章号与当前章不符 —— 时间线章号应一致。
+        for event in accepted_events:
+            if not isinstance(event, dict):
+                continue
+            event_chapter = event.get("chapter")
+            if event_chapter is not None and int(event_chapter) != int(chapter):
+                warnings.append(
+                    {
+                        "code": "event_chapter_mismatch",
+                        "event_id": str(event.get("event_id") or "").strip(),
+                        "detail": f"事件章号 {event_chapter} 与当前章 {chapter} 不符",
+                    }
+                )
+
+        return warnings
+
     def build_commit(
         self,
         chapter: int,
@@ -56,11 +122,18 @@ class ChapterCommitService:
         )
         extraction_payload = extraction.model_dump()
         extraction_payload["accepted_events"] = accepted_events
+        extraction_warnings = self._extraction_warnings(
+            chapter=chapter,
+            state_deltas=extraction.state_deltas,
+            entity_deltas=extraction.entity_deltas,
+            accepted_events=accepted_events,
+        )
         return {
             "meta": {
                 "schema_version": "story-system/v1",
                 "chapter": chapter,
                 "status": status,
+                "extraction_warnings": extraction_warnings,
             },
             "contract_refs": {
                 "master": "MASTER_SETTING.json",

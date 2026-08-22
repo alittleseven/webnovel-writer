@@ -89,3 +89,92 @@ def test_persist_amend_proposals_writes_pending_rows(tmp_path):
     assert row["override_value"] == "短时失控突破"
     assert row["source_level"] == "master"
     assert row["status"] == "pending"
+
+
+def test_power_breakthrough_generates_amend_proposal():
+    trigger = AmendProposalTrigger()
+    proposals = trigger.check(
+        chapter=5,
+        events=[
+            {
+                "event_id": "evt-002",
+                "event_type": "power_breakthrough",
+                "subject": "xiaoyan",
+                "payload": {"from": "斗者", "to": "斗师"},
+            }
+        ],
+    )
+    assert len(proposals) == 1
+    assert proposals[0]["target_level"] == "master"
+    assert proposals[0]["reason_tag"] == "power_breakthrough"
+    assert proposals[0]["base_value"] == "斗者"
+    assert proposals[0]["proposed_value"] == "斗师"
+
+
+def test_world_rule_revealed_generates_proposal_from_rule_content():
+    trigger = AmendProposalTrigger()
+    proposals = trigger.check(
+        chapter=5,
+        events=[
+            {
+                "event_id": "evt-003",
+                "event_type": "world_rule_revealed",
+                "subject": "luming",
+                "payload": {"rule_content": "金手指每日限用一次"},
+            }
+        ],
+    )
+    assert len(proposals) == 1
+    assert proposals[0]["reason_tag"] == "world_rule_revealed"
+    assert proposals[0]["proposed_value"] == "金手指每日限用一次"
+
+
+def test_character_state_changed_generates_proposal():
+    trigger = AmendProposalTrigger()
+    proposals = trigger.check(
+        chapter=6,
+        events=[
+            {
+                "event_id": "evt-004",
+                "event_type": "character_state_changed",
+                "subject": "xiaoyan",
+                "payload": {"field": "mood", "old": "躁动", "new": "冷静"},
+            }
+        ],
+    )
+    assert len(proposals) == 1
+    assert proposals[0]["field"] == "mood"
+    assert proposals[0]["base_value"] == "躁动"
+    assert proposals[0]["proposed_value"] == "冷静"
+
+
+def test_event_without_proposed_value_does_not_generate_empty_proposal():
+    trigger = AmendProposalTrigger()
+    proposals = trigger.check(
+        chapter=7,
+        events=[
+            {
+                "event_id": "evt-005",
+                "event_type": "power_breakthrough",
+                "subject": "xiaoyan",
+                "payload": {},  # 无 from/to，不应产出空提案
+            }
+        ],
+    )
+    assert proposals == []
+
+
+def test_open_loop_created_does_not_generate_proposal():
+    trigger = AmendProposalTrigger()
+    proposals = trigger.check(
+        chapter=7,
+        events=[
+            {
+                "event_id": "evt-006",
+                "event_type": "open_loop_created",
+                "subject": "three_year_promise",
+                "payload": {"content": "三年之约提及"},
+            }
+        ],
+    )
+    assert proposals == []

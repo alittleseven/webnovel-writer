@@ -47,18 +47,62 @@ def ensure_override_ledger_columns(conn: sqlite3.Connection) -> None:
 
 
 class AmendProposalTrigger:
+    """事件 → 合同修订提案触发规则。
+
+    审计（P0-3b）发现原 RULES 中 10 个事件类型 9 个映射 None，仅 world_rule_broken
+    产生提案，修订提案机制名存实亡。本实现为会改变世界规则 / 力量体系 / 角色状态的
+    高价值事件补全提案规则，并对 payload 字段缺失做降级（有值才产出，避免空提案）。
+
+    每个规则形如：{"target_level", "reason_tag", "field", "base", "proposed"}，
+    其中 field/base/proposed 是 payload 中字段名的候选列表（按优先级取第一个非空）。
+    """
+
+    # payload 字段候选：优先取明确旧值/新值，其次取语义内容。
     RULES = {
-        "world_rule_broken": {"target_level": "master", "reason_tag": "world_rule_broken"},
+        "world_rule_broken": {
+            "target_level": "master",
+            "reason_tag": "world_rule_broken",
+            "field": ["field", "rule_name", "rule_id"],
+            "base": ["base_value", "old", "old_rule"],
+            "proposed": ["proposed_value", "new", "new_rule", "rule_content"],
+        },
+        "world_rule_revealed": {
+            "target_level": "master",
+            "reason_tag": "world_rule_revealed",
+            "field": ["field", "rule_category", "rule_name"],
+            "base": ["base_value", "old"],
+            "proposed": ["rule_content", "proposed_value", "new"],
+        },
+        "power_breakthrough": {
+            "target_level": "master",
+            "reason_tag": "power_breakthrough",
+            "field": ["field", "power_system", "realm_field"],
+            "base": ["base_value", "from", "old"],
+            "proposed": ["proposed_value", "to", "new"],
+        },
+        "character_state_changed": {
+            "target_level": "master",
+            "reason_tag": "character_state_changed",
+            "field": ["field", "state_field"],
+            "base": ["base_value", "old"],
+            "proposed": ["proposed_value", "new"],
+        },
+        # 以下事件不改变合同事实，不产生提案（保留为显式 None 表意清晰）。
         "relationship_changed": None,
-        "power_breakthrough": None,
         "artifact_obtained": None,
-        "character_state_changed": None,
-        "world_rule_revealed": None,
         "open_loop_created": None,
         "open_loop_closed": None,
         "promise_created": None,
         "promise_paid_off": None,
     }
+
+    @staticmethod
+    def _pick(payload: dict, keys: List[str]) -> str:
+        for key in keys:
+            value = payload.get(key)
+            if value is not None and str(value).strip():
+                return str(value).strip()
+        return ""
 
     def check(self, chapter: int, events: List[dict]) -> List[Dict[str, str | int]]:
         proposals: List[Dict[str, str | int]] = []
@@ -69,13 +113,22 @@ class AmendProposalTrigger:
             if not rule:
                 continue
             payload = dict(event.get("payload") or {})
+            field = self._pick(payload, rule.get("field") or [])
+            base_value = self._pick(payload, rule.get("base") or [])
+            proposed_value = self._pick(payload, rule.get("proposed") or [])
+
+            # 提案三要素（field/base/proposed）至少要有 proposed_value，且 field 可推断，
+            # 否则产出的是无意义的空提案，反而污染覆写账本。
+            if not proposed_value:
+                continue
+
             proposal = AmendProposal(
                 proposal_id=f"amend-{chapter}-{event.get('event_id')}",
                 chapter=chapter,
                 target_level=rule["target_level"],
-                field=str(payload.get("field") or "").strip(),
-                base_value=str(payload.get("base_value") or "").strip(),
-                proposed_value=str(payload.get("proposed_value") or "").strip(),
+                field=field or str(rule.get("reason_tag") or ""),
+                base_value=base_value,
+                proposed_value=proposed_value,
                 reason_tag=rule["reason_tag"],
             )
             proposals.append(proposal.model_dump())

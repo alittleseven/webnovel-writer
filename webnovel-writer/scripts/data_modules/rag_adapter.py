@@ -403,8 +403,12 @@ class RAGAdapter:
         # 调用 API 获取嵌入向量（可能包含 None 表示失败）
         embeddings = await self.api_client.embed_batch(contents)
 
+        # 整批 embedding 失败（返回空列表）时，不能提前 return：
+        # 否则失败 chunk 的正文既不入 vectors 表也不入 bm25_index，
+        # 导致 BM25 关键词检索也召回不到正文（P0-2 补充修复）。
+        # 这里把空列表视作「所有 chunk 均失败」，统一走下方 embedding is None 的 fallback 分支。
         if not embeddings:
-            return 0
+            embeddings = [None] * len(chunks)
 
         # 存储到数据库（跳过嵌入失败的 chunk）
         stored = 0

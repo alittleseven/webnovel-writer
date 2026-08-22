@@ -38,6 +38,13 @@ class StubClientWithFailures(StubClient):
         return [None, [1.0, 0.0]]
 
 
+class StubClientAllFailures(StubClient):
+    """整批 embedding 失败：返回空列表（模拟批次超限/服务整体失败的场景）。"""
+
+    async def embed_batch(self, texts, skip_failures=True):
+        return []
+
+
 class StubEmbedClient401:
     def __init__(self):
         self.last_error_status = 401
@@ -125,6 +132,30 @@ async def test_embedding_failed_chunk_still_searchable_via_bm25(tmp_path, monkey
     # 失败的 chunk 应能通过 BM25 召回（关键词"玉佩"）
     bm25_results = adapter.bm25_search("玉佩", top_k=5)
     assert any("神秘玉佩" in r.content for r in bm25_results)
+
+
+@pytest.mark.asyncio
+async def test_embedding_batch_empty_still_searchable_via_bm25(tmp_path, monkeypatch):
+    """P0-2 补充修复：embed_batch 返回空列表（整批失败）时，失败 chunk 仍能通过 BM25 召回。
+
+    回归点：此前 store_chunks 遇空列表直接 return 0，跳过了 fallback 分支，
+    导致 vectors 表无正文行 → bm25_search（从 vectors 表取正文）搜不到失败 chunk。
+    """
+    cfg = DataModulesConfig.from_project_root(tmp_path)
+    cfg.ensure_dirs()
+    monkeypatch.setattr(rag_module, "get_client", lambda config: StubClientAllFailures())
+
+    adapter = RAGAdapter(cfg)
+    chunks = [
+        {"chapter": 17, "scene_index": 1, "content": "鼠王晶核仓库争夺战"},
+        {"chapter": 17, "scene_index": 2, "content": "老周掩护腿伤"},
+    ]
+    stored = await adapter.store_chunks(chunks)
+    assert stored == 0
+
+    # 失败的 chunk 应能通过 BM25 召回（关键词"鼠王"）
+    bm25_results = adapter.bm25_search("鼠王", top_k=5)
+    assert any("鼠王晶核" in r.content for r in bm25_results)
 
 
 @pytest.mark.asyncio

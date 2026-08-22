@@ -34,17 +34,20 @@
 - **改动**：`rag_adapter.py` `store_chunks` embedding 失败也写正文行（embedding 置 NULL）；空列表边界处理；`vector_projection_writer.py` 降级标记
 
 ### P0-3 事件链崩溃窗口 + 修订提案空转
-- **状态**：`[~]` 部分修复
+- **状态**：`[x]` 已修复
 - **P0-3a 事件链崩溃窗口**：`[x]` 已修复
   - **Commit**：`d23cc58 fix(P0-3a): 闭合事件链崩溃窗口`
   - **改动**：`chapter_commit_service.py` 抽出 `write_events_and_proposals` 供 `apply_projections` 与 `retry_projection` 复用；`projections.py` retry 补跑写 events
-- **P0-3b 修订提案空转**：`[ ]` 未修复
-  - **问题**：`AmendProposalTrigger.RULES` 10 个事件类型 9 个映射 None，只有 `world_rule_broken` 产生提案；且该事件 payload 必备字段仅 `rule_content`，提案的 `base_value/proposed_value` 几乎必为空 → 修订提案机制名存实亡
+- **P0-3b 修订提案空转**：`[x]` 已修复
+  - **Commit**：`6bfa978 fix(P0-3b): 修订提案机制做实，为高价值事件补全触发规则`
+  - **改动**：`override_ledger_service.py` 为 `world_rule_revealed`/`power_breakthrough`/`character_state_changed` 补全提案规则；字段映射降级（proposed_value 为空不产出空提案）；新增 6 测试
 
 ### P0-4 data-agent 提取零校验 + 无纠错回路
 - **问题**：accepted 判定只看 blocking/missed_nodes/pending 三路信号，提取事实正确性零校验；错误事实入库后无修正手段
-- **状态**：`[ ]` 未修复
-- **落地**：① 轻校验先行（chapter-commit 规则断言）；② 纠错命令 `memory-correction`；③ doctor 抽查比对
+- **状态**：`[~]` 部分修复（第一步轻校验已落地）
+- **Commit**：`c883afc fix(P0-4): data-agent 提取零校验——落地第一步轻校验`
+- **改动**：`chapter_commit_service.py` 新增 `_extraction_warnings` 纯函数，三类规则断言（新实体缺 aliases / state_delta 缺 old-new / event 章号不符）写入 `meta.extraction_warnings`，不阻断
+- **待办**：② 纠错命令 `memory-correction`；③ doctor 抽查比对（留待 v7）
 
 ---
 
@@ -52,7 +55,9 @@
 
 ### P1-1 合同 schema 生成侧零校验
 - **问题**：`StorySystemEngine.build()` 返回裸 dict，`persist_story_seed` 直接写盘未经过 `MasterSetting/ChapterBrief` 的 model_validate；`ChapterBrief` 定义了没使用
-- **状态**：`[ ]` 未修复
+- **状态**：`[x]` 已修复
+- **Commit**：`c84f549 fix(P1-1): 合同 schema 生成侧零校验——persist 写盘前做 model_validate`
+- **改动**：`story_contracts.py` persist_story_seed/persist_runtime_contracts 写盘前 model_validate（校验不替换 payload，保留 meta.query）
 
 ### P1-2 合同 schema 无版本演进
 - **问题**：合同 `schema_version` 硬编码 `"story-system/v1"`，无迁移器（对比 RAG 已有）
@@ -68,7 +73,9 @@
 
 ### P1-5 backup 降级漏备份 + 报告误报
 - **问题**：`_local_backup` 非原子且漏 `.story-system/index.db`；git 成功时 user_report 误报
-- **状态**：`[ ]` 未修复
+- **状态**：`[x]` 已修复
+- **Commit**：`47025a6 fix(P1-5): 本地备份补全 .story-system 合同树与投影数据库，修复 git 成功误报`
+- **改动**：`backup_manager.py` 补备份 .story-system + index.db/vectors.db/memory_scratchpad.json，临时目录+os.replace 原子 rename；`user_report.py` 新增 `_git_tag_exists` 识别 git tag 成功形态
 
 ### P1-6 run_logger 失败场景不落盘
 - **问题**：`write_run_log` mode="w" 覆盖，只记 write-start
@@ -84,7 +91,9 @@
 
 ### P1-9 部分 chunk embedding 失败静默
 - **问题**：stored>0 即 applied，部分失败无重试标记，doctor 不校验 embedding 完整性
-- **状态**：`[ ]` 未修复
+- **状态**：`[x]` 已修复
+- **Commit**：`3ba03fb fix(P1-9): 部分 chunk embedding 失败不再静默，标记 partial 并让 doctor 告警`
+- **改动**：`vector_projection_writer.py` stored<total 标 partial；`doctor.py` 新增 vectors 表 NULL embedding 完整性扫描（`_sqlite_null_embedding_count`）
 
 ---
 
@@ -134,8 +143,8 @@
 
 | 类别 | 总数 | 已修复 | 部分修复 | 未修复 |
 |------|------|--------|---------|--------|
-| P0 | 4 | 2 | 1（P0-3） | 1（P0-4） |
-| P1 | 9 | 0 | 0 | 9 |
+| P0 | 4 | 3 | 1（P0-4） | 0 |
+| P1 | 9 | 3（P1-1/5/9） | 0 | 6 |
 | P2 | 7 | 0 | 0 | 7 |
 | EXT | 1 | 1 | 0 | 0 |
 

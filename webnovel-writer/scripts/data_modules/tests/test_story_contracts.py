@@ -68,6 +68,68 @@ def test_read_json_if_exists_raises_value_error_with_path(tmp_path):
     assert str(bad_path) in str(exc.value)
 
 
+def _valid_master_payload() -> dict:
+    return {
+        "meta": {
+            "schema_version": "story-system/v1",
+            "contract_type": "MASTER_SETTING",
+            "generator_version": "phase1",
+            "query": "测试溯源",  # 额外字段，应被校验时容忍、写盘时保留
+        },
+        "route": {"primary_genre": "玄幻"},
+        "master_constraints": {"core_tone": "先压后爆"},
+        "base_context": [],
+        "source_trace": [],
+        "override_policy": {"locked": [], "append_only": [], "override_allowed": []},
+    }
+
+
+def _valid_chapter_payload() -> dict:
+    return {
+        "meta": {
+            "schema_version": "story-system/v1",
+            "contract_type": "CHAPTER_BRIEF",
+            "chapter": 1,
+            "generator_version": "phase1",
+        },
+        "scene_focus": "退婚",
+        "scene_constraints": {},
+    }
+
+
+def test_persist_story_seed_validates_and_preserves_extra_meta_fields(tmp_path):
+    from data_modules.story_contracts import persist_story_seed
+
+    master = _valid_master_payload()
+    chapter = _valid_chapter_payload()
+    persist_story_seed(tmp_path, master, chapter, [])
+
+    # 写盘成功且保留了 meta.query 额外字段（不被 model_validate 丢弃）
+    from data_modules.story_contracts import read_json_if_exists
+
+    paths = StoryContractPaths.from_project_root(tmp_path)
+    written_master = read_json_if_exists(paths.master_json)
+    assert written_master["meta"]["query"] == "测试溯源"
+
+
+def test_persist_story_seed_rejects_missing_required_meta(tmp_path):
+    from data_modules.story_contracts import persist_story_seed
+
+    master = _valid_master_payload()
+    del master["meta"]["contract_type"]  # 缺失必填字段
+    with pytest.raises(Exception):
+        persist_story_seed(tmp_path, master, None, [])
+
+
+def test_persist_story_seed_rejects_wrong_field_type(tmp_path):
+    from data_modules.story_contracts import persist_story_seed
+
+    master = _valid_master_payload()
+    master["master_constraints"] = "not-a-dict"  # 类型错误（应为 dict）
+    with pytest.raises(Exception):
+        persist_story_seed(tmp_path, master, None, [])
+
+
 def test_read_json_if_exists_loads_valid_json(tmp_path):
     path = tmp_path / "payload.json"
     path.write_text(json.dumps({"ok": True}, ensure_ascii=False), encoding="utf-8")

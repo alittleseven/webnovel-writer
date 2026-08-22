@@ -179,6 +179,14 @@ def persist_story_seed(
     chapter_payload: Dict[str, Any] | None,
     anti_patterns: List[Dict[str, Any]],
 ) -> None:
+    # P1-1 修复：写盘前用 schema 校验，拒绝结构不合法的合同种子落盘。
+    # 校验只做合法性断言（不替换 payload），避免丢失 meta.query 等溯源字段。
+    from .story_contract_schema import ChapterBrief, MasterSetting
+
+    MasterSetting.model_validate(master_payload)
+    if chapter_payload is not None:
+        ChapterBrief.model_validate(chapter_payload)
+
     paths = StoryContractPaths.from_project_root(project_root)
     paths.root.mkdir(parents=True, exist_ok=True)
     paths.chapters_dir.mkdir(parents=True, exist_ok=True)
@@ -204,6 +212,12 @@ def persist_runtime_contracts(
     volume_brief: Dict[str, Any],
     review_contract: Dict[str, Any],
 ) -> None:
+    # P1-1 修复：写盘前用 schema 校验，与 RuntimeContractBuilder 用法对齐。
+    from .story_contract_schema import ReviewContract, VolumeBrief
+
+    VolumeBrief.model_validate(volume_brief)
+    ReviewContract.model_validate(review_contract)
+
     paths = StoryContractPaths.from_project_root(project_root)
     volume = volume_num_for_chapter_from_state(paths.project_root, chapter) or 1
     paths.volumes_dir.mkdir(parents=True, exist_ok=True)

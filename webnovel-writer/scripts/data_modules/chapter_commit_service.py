@@ -25,6 +25,10 @@ from .override_ledger_service import (
     persist_amend_proposals,
 )
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class ChapterCommitService:
     def __init__(self, project_root: Path):
@@ -157,34 +161,46 @@ class ChapterCommitService:
                 writer_results,
                 commit_path=commit_path,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            # 审计记录失败不应静默吞掉，至少留痕，避免审计链在无感知下丢失。
+            logger.error("append_projection_run failed: %s", exc)
         return payload
+
+    def write_events_and_proposals(self, payload: Dict[str, Any]) -> None:
+        """写入事件审计链 + 生成修订提案（accepted commit 的写后副作用）。
+
+        从 apply_projections 抽出，供 apply_projections 与 retry_projection 复用，
+        修复"commit persist 后崩溃、retry 补跑不写 events → 审计链断链"的窗口。
+        """
+        status = str((payload.get("meta") or {}).get("status") or "")
+        if status != "accepted":
+            return
+
+        chapter = int((payload.get("meta") or {}).get("chapter") or 0)
+        event_store = EventLogStore(self.project_root)
+        accepted_events = extraction_list(payload, "accepted_events")
+        extraction = payload.setdefault("extraction_result", {})
+        if not isinstance(extraction, dict):
+            extraction = {}
+            payload["extraction_result"] = extraction
+        extraction["accepted_events"] = event_store.normalize_events(
+            chapter, accepted_events
+        )
+        event_store.write_events(chapter, extraction["accepted_events"])
+
+        proposals = AmendProposalTrigger().check(chapter, extraction["accepted_events"])
+        if proposals:
+            manager = IndexManager(DataModulesConfig.from_project_root(self.project_root))
+            with manager._get_conn() as conn:
+                ensure_override_ledger_columns(conn)
+                persist_amend_proposals(conn, chapter, proposals)
+                conn.commit()
 
     def apply_projections(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         status = str((payload.get("meta") or {}).get("status") or "")
         if status not in {"accepted", "rejected"}:
             return payload
 
-        if status == "accepted":
-            chapter = int((payload.get("meta") or {}).get("chapter") or 0)
-            event_store = EventLogStore(self.project_root)
-            accepted_events = extraction_list(payload, "accepted_events")
-            extraction = payload.setdefault("extraction_result", {})
-            if not isinstance(extraction, dict):
-                extraction = {}
-                payload["extraction_result"] = extraction
-            extraction["accepted_events"] = event_store.normalize_events(
-                chapter, accepted_events
-            )
-            event_store.write_events(chapter, extraction["accepted_events"])
-
-            proposals = AmendProposalTrigger().check(chapter, extraction["accepted_events"])
-            if proposals:
-                manager = IndexManager(DataModulesConfig.from_project_root(self.project_root))
-                with manager._get_conn() as conn:
-                    ensure_override_ledger_columns(conn)
-                    persist_amend_proposals(conn, chapter, proposals)
-                    conn.commit()
+        self.write_events_and_proposals(payload)
 
         return self.apply_projection_writers(payload)

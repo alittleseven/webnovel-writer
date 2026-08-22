@@ -66,7 +66,11 @@ def retry_projection(project_root: str | Path, *, chapter: int) -> dict[str, Any
             "latest_projection_run": None,
         }
 
-    projected = ChapterCommitService(root).apply_projection_writers(payload)
+    service = ChapterCommitService(root)
+    # 修复事件链崩溃窗口：retry 补跑时也要写 events + 生成修订提案，
+    # 否则 commit persist 后崩溃会导致 events 文件与 amend 提案永久丢失、审计链断链。
+    service.write_events_and_proposals(payload)
+    projected = service.apply_projection_writers(payload)
     latest_run = latest_projection_run(root, chapter=chapter)
     return {
         "schema_version": SCHEMA_VERSION,

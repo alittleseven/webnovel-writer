@@ -71,7 +71,8 @@ def test_retry_projection_replays_existing_commit(tmp_path):
     assert read_projection_runs(tmp_path, chapter=3)
 
 
-def test_retry_projection_does_not_rewrite_commit_side_effects(tmp_path):
+def test_retry_projection_writes_events_to_close_crash_window(tmp_path):
+    # 修复：retry 补跑时也必须写 events，否则 commit persist 后崩溃会导致审计链断链。
     _make_accepted_commit_with_event(tmp_path, chapter=3)
     event_path = tmp_path / ".story-system" / "events" / "chapter_003.events.json"
     assert not event_path.exists()
@@ -80,7 +81,8 @@ def test_retry_projection_does_not_rewrite_commit_side_effects(tmp_path):
 
     assert report["ok"] is True
     assert report["projection_status"]["memory"] in {"done", "skipped"}
-    assert not event_path.exists()
+    # 关键断言：retry 之后 events 文件应已补齐，审计链闭合。
+    assert event_path.exists()
     assert read_projection_runs(tmp_path, chapter=3)
 
 

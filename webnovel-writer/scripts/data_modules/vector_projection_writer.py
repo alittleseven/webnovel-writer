@@ -30,6 +30,18 @@ class VectorProjectionWriter:
         try:
             stored = self._store_chunks(chunks)
             if stored <= 0:
+                # embedding 全部失败时，store_chunks 的 fallback 分支会把正文行
+                # （embedding 置 NULL）写入 vectors 表并更新 bm25_index，
+                # 此时关键词检索仍可用。这里区分「降级成功」与「完全失败」：
+                # 只要 vectors 表已写入本章 chunk 行，就视为降级成功（skipped），
+                # 避免把 BM25 可用的场景误判为 blocking 失败（P0-2 补充修复）。
+                if self._chunks_present_in_vectors(chunks):
+                    return {
+                        "applied": False,
+                        "writer": "vector",
+                        "stored": stored,
+                        "reason": "embedding_degraded_bm25_fallback",
+                    }
                 return {
                     "applied": False,
                     "writer": "vector",
@@ -40,6 +52,26 @@ class VectorProjectionWriter:
         except Exception as exc:
             logger.warning("vector_projection_failed: %s", exc)
             return {"applied": False, "writer": "vector", "reason": f"error:{exc}"}
+
+    def _chunks_present_in_vectors(self, chunks: List[Dict[str, Any]]) -> bool:
+        """检查 chunk 是否已写入 vectors 表（embedding 置 NULL 也算已写入）。"""
+        import sqlite3
+
+        chapter = int(chunks[0].get("chapter") or 0) if chunks else 0
+        if chapter <= 0:
+            return False
+        try:
+            from .config import DataModulesConfig
+
+            config = DataModulesConfig.from_project_root(self.project_root)
+            with sqlite3.connect(str(config.vector_db)) as conn:
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM vectors WHERE chapter = ?",
+                    (chapter,),
+                ).fetchone()
+            return bool(row and row[0] and int(row[0]) > 0)
+        except Exception:
+            return False
 
     def _collect_chunks(self, commit_payload: dict) -> List[Dict[str, Any]]:
         chunks: List[Dict[str, Any]] = []

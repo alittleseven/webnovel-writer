@@ -47,6 +47,134 @@ def test_upsert_character_state_marks_old_outdated(tmp_path):
     assert len(outdated) == 1
 
 
+def test_upsert_fact_category_same_key_marks_contradicted(tmp_path):
+    """P1-3：事实类（story_fact）同 key 出现不同值 → 旧值标 contradicted。"""
+    manager = ScratchpadManager(_cfg(tmp_path))
+    manager.upsert_item(
+        MemoryItem(
+            id="f1",
+            layer="semantic",
+            category="story_fact",
+            subject="圣物下落",
+            field="描述",
+            value="藏在坊市地窖",
+            source_chapter=3,
+        )
+    )
+    result = manager.upsert_item(
+        MemoryItem(
+            id="f2",
+            layer="semantic",
+            category="story_fact",
+            subject="圣物下落",
+            field="描述",
+            value="已被鼠王夺走",
+            source_chapter=4,
+        )
+    )
+    assert result["contradicted"] == 1
+    contradicted = manager.query(category="story_fact", status="contradicted")
+    assert len(contradicted) == 1
+    assert contradicted[0].value == "藏在坊市地窖"
+    active = manager.query(category="story_fact", status="active")
+    assert len(active) == 1
+    assert active[0].value == "已被鼠王夺走"
+
+
+def test_upsert_world_rule_same_key_marks_contradicted(tmp_path):
+    """P1-3：world_rule 同 key 不同值 → 旧值 contradicted（规则不该被随意改写）。"""
+    manager = ScratchpadManager(_cfg(tmp_path))
+    manager.upsert_item(
+        MemoryItem(
+            id="w1",
+            layer="semantic",
+            category="world_rule",
+            subject="修炼体系",
+            field="境界划分",
+            value="九境",
+            source_chapter=1,
+        )
+    )
+    result = manager.upsert_item(
+        MemoryItem(
+            id="w2",
+            layer="semantic",
+            category="world_rule",
+            subject="修炼体系",
+            field="境界划分",
+            value="十二境",
+            source_chapter=5,
+        )
+    )
+    assert result["contradicted"] == 1
+    assert manager.query(category="world_rule", status="contradicted")
+
+
+def test_upsert_tentative_does_not_demote_active(tmp_path):
+    """P1-3：tentative 候选不降级现有 active 值，两者并存待确认。"""
+    manager = ScratchpadManager(_cfg(tmp_path))
+    manager.upsert_item(
+        MemoryItem(
+            id="t1",
+            layer="semantic",
+            category="character_state",
+            subject="xiaoyan",
+            field="realm",
+            value="斗者",
+            source_chapter=1,
+        )
+    )
+    manager.upsert_item(
+        MemoryItem(
+            id="t2",
+            layer="semantic",
+            category="character_state",
+            subject="xiaoyan",
+            field="realm",
+            value="斗师",
+            status="tentative",
+            source_chapter=2,
+        )
+    )
+    active = manager.query(category="character_state", subject="xiaoyan", status="active")
+    tentative = manager.query(category="character_state", subject="xiaoyan", status="tentative")
+    assert len(active) == 1
+    assert active[0].value == "斗者"
+    assert len(tentative) == 1
+    assert tentative[0].value == "斗师"
+
+
+def test_conflicts_reports_contradicted_items(tmp_path):
+    """P1-3：conflicts() 透出 contradicted 矛盾对（orchestrator warnings 消费）。"""
+    manager = ScratchpadManager(_cfg(tmp_path))
+    manager.upsert_item(
+        MemoryItem(
+            id="c1",
+            layer="semantic",
+            category="world_rule",
+            subject="修炼体系",
+            field="境界划分",
+            value="九境",
+            source_chapter=1,
+        )
+    )
+    manager.upsert_item(
+        MemoryItem(
+            id="c2",
+            layer="semantic",
+            category="world_rule",
+            subject="修炼体系",
+            field="境界划分",
+            value="十二境",
+            source_chapter=5,
+        )
+    )
+    conflicts = manager.conflicts()
+    matches = [row for row in conflicts if row.get("status") == "contradicted"]
+    assert matches
+    assert matches[0]["category"] == "world_rule"
+
+
 def test_upsert_world_rule_with_subject_field_key(tmp_path):
     manager = ScratchpadManager(_cfg(tmp_path))
     manager.upsert_item(

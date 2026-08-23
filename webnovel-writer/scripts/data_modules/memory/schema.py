@@ -13,6 +13,11 @@ from typing import Any, Dict, List
 VALID_LAYERS = {"semantic", "episodic"}
 VALID_STATUSES = {"active", "outdated", "contradicted", "tentative"}
 
+# P1-3：事实类 category——同 key（subject+field）出现不同值不是「状态演进」
+# 而是「矛盾」，旧值应标 contradicted 而非 outdated；状态类（修为提升、关系
+# 变化等）值变化是正常演进，维持 outdated 降级。
+FACT_CATEGORIES = {"story_fact", "world_rule"}
+
 CATEGORY_TO_BUCKET: Dict[str, str] = {
     "character_state": "character_state",
     "story_fact": "story_facts",

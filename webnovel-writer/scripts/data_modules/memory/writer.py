@@ -30,6 +30,24 @@ class MemoryWriter:
         stats["items_added"] += int(result.get("added", 0))
         stats["items_updated"] += int(result.get("updated", 0))
         stats["items_outdated"] += int(result.get("outdated", 0))
+        stats["items_contradicted"] += int(result.get("contradicted", 0))
+
+    def _confidence_status(self, record: Dict[str, Any]) -> str:
+        """P1-3：data-agent 提取记录带 confidence 且低于阈值 → tentative。
+
+        上游不产出 confidence 字段时返回 active（行为与修复前一致）；
+        tentative 记录与同 key active 值并存，确认后可用
+        memory correct --status active 升级。
+        """
+        raw = record.get("confidence")
+        if raw is None:
+            return "active"
+        try:
+            confidence = float(raw)
+        except (TypeError, ValueError):
+            return "active"
+        threshold = float(getattr(self.config, "memory_tentative_confidence_threshold", 0.6))
+        return "tentative" if confidence < threshold else "active"
 
     @staticmethod
     def _coerce_loop_content(payload: Dict[str, Any], event: Dict[str, Any]) -> str:
@@ -63,6 +81,7 @@ class MemoryWriter:
             "items_added": 0,
             "items_updated": 0,
             "items_outdated": 0,
+            "items_contradicted": 0,
             "warnings": [],
         }
 
@@ -94,6 +113,7 @@ class MemoryWriter:
                 field=field,
                 value=str(new_val if new_val is not None else "" or ""),
                 payload={"old_value": old_val},
+                status=self._confidence_status(change),
                 source_chapter=int(chapter),
                 evidence=[f"state_change:{entity_id}:{field}:{chapter}"],
             )
@@ -220,6 +240,7 @@ class MemoryWriter:
                 field=field,
                 value=rule,
                 payload={"scope": row.get("scope"), "rule_text": rule},
+                status=self._confidence_status(row),
                 source_chapter=int(chapter),
                 evidence=[f"memory_facts:world_rule:{chapter}"],
             )

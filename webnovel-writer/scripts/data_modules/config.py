@@ -200,6 +200,8 @@ class DataModulesConfig:
     # ================= 实体提取配置 =================
     extraction_confidence_high: float = 0.8
     extraction_confidence_medium: float = 0.5
+    # P1-3：data-agent 提取记录 confidence 低于该阈值时，写入记忆标 tentative
+    memory_tentative_confidence_threshold: float = 0.6
 
     # ================= 列表截断限制 =================
     max_disambiguation_warnings: int = 500
@@ -240,6 +242,9 @@ class DataModulesConfig:
     context_compact_text_enabled: bool = True
     context_compact_min_budget: int = 120
     context_compact_head_ratio: float = 0.65
+    # P1-4：设定文件注入截断（0 = 不截断）；recent_summaries 默认路径摘要截断
+    context_setting_max_chars: int = 4000
+    context_recent_summary_max_chars: int = 800
     context_writing_guidance_enabled: bool = True
     context_writing_guidance_max_items: int = 6
     context_writing_guidance_low_score_threshold: float = 75.0

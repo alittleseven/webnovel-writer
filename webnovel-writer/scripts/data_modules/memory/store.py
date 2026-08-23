@@ -17,6 +17,7 @@ from .schema import (
     BUCKET_TO_CATEGORY,
     CATEGORY_KEY_RULES,
     CATEGORY_TO_BUCKET,
+    FACT_CATEGORIES,
     VALID_STATUSES,
     MemoryItem,
     ScratchpadData,
@@ -72,13 +73,36 @@ class ScratchpadManager:
             target_key = self._key_for(normalized)
 
             outdated = 0
+            contradicted = 0
             replaced_existing = False
             new_rows: List[MemoryItem] = []
             for row in rows:
                 row_key = self._key_for(row)
                 if row_key == target_key and row.id != normalized.id:
-                    # 同 key 旧值降级为 outdated，保留审计轨迹
-                    if row.status != "outdated":
+                    if normalized.status == "tentative":
+                        # P1-3：tentative 候选不降级现有值（含 active），
+                        # 仅并存记录，等待确认（memory correct --status active）
+                        replaced_existing = True
+                        new_rows.append(row)
+                        continue
+                    if row.status == "active":
+                        old_value = str(row.value or "").strip()
+                        new_value = str(normalized.value or "").strip()
+                        if (
+                            normalized.category in FACT_CATEGORIES
+                            and old_value
+                            and new_value
+                            and old_value != new_value
+                        ):
+                            # P1-3：事实类同 key 出现不同值 → 矛盾嫌疑，
+                            # 旧值标 contradicted（保留审计轨迹，conflicts 可透出）
+                            row = MemoryItem(**{**asdict(row), "status": "contradicted", "updated_at": now_iso()})
+                            contradicted += 1
+                        else:
+                            # 同 key 旧值降级为 outdated，保留审计轨迹
+                            row = MemoryItem(**{**asdict(row), "status": "outdated", "updated_at": now_iso()})
+                            outdated += 1
+                    elif row.status not in {"outdated", "contradicted"}:
                         row = MemoryItem(**{**asdict(row), "status": "outdated", "updated_at": now_iso()})
                         outdated += 1
                     replaced_existing = True
@@ -96,6 +120,7 @@ class ScratchpadManager:
             "added": 0 if replaced_existing else 1,
             "updated": 1 if replaced_existing else 0,
             "outdated": outdated,
+            "contradicted": contradicted,
         }
 
     def mark_status(self, item_id: str, status: str) -> bool:
@@ -258,6 +283,19 @@ class ScratchpadManager:
             key_count: Dict[tuple[Any, ...], int] = {}
             rows: List[MemoryItem] = getattr(data, bucket)
             for row in rows:
+                # P1-3：contradicted 条目本身就是一次已检测到的矛盾，
+                # 直接透出为冲突信号（orchestrator warnings 消费）
+                if row.status == "contradicted":
+                    conflicts.append(
+                        {
+                            "category": category,
+                            "key": list(self._key_for(row)),
+                            "status": "contradicted",
+                            "value": str(row.value or "")[:60],
+                            "source_chapter": row.source_chapter,
+                        }
+                    )
+                    continue
                 if row.status != "active":
                     continue
                 key = self._key_for(row)

@@ -49,3 +49,66 @@ def test_writer_stage4_memory_facts_mapping(tmp_path):
     assert store.query(category="open_loop", status="active")
     assert store.query(category="reader_promise", status="active")
 
+
+def test_writer_low_confidence_marks_tentative(tmp_path):
+    """P1-3：data-agent 提取记录 confidence < 阈值 → 写入即标 tentative。"""
+    cfg = _cfg(tmp_path)
+    writer = MemoryWriter(cfg)
+    result = {
+        "state_changes": [
+            {"entity_id": "xiaoyan", "field": "realm", "old": "斗者", "new": "斗师", "confidence": 0.3},
+        ],
+    }
+    writer.update_from_chapter_result(12, result)
+    store = ScratchpadManager(cfg)
+    tentative = store.query(category="character_state", status="tentative")
+    assert any(x.subject == "xiaoyan" and x.field == "realm" for x in tentative)
+    active = store.query(category="character_state", status="active")
+    assert not any(x.subject == "xiaoyan" and x.field == "realm" for x in active)
+
+
+def test_writer_high_confidence_stays_active(tmp_path):
+    """P1-3：confidence >= 阈值 → 正常 active。"""
+    cfg = _cfg(tmp_path)
+    writer = MemoryWriter(cfg)
+    result = {
+        "state_changes": [
+            {"entity_id": "xiaoyan", "field": "realm", "old": "斗者", "new": "斗师", "confidence": 0.95},
+        ],
+    }
+    writer.update_from_chapter_result(12, result)
+    store = ScratchpadManager(cfg)
+    active = store.query(category="character_state", status="active")
+    assert any(x.subject == "xiaoyan" and x.field == "realm" for x in active)
+
+
+def test_writer_missing_confidence_defaults_active(tmp_path):
+    """P1-3：上游不产出 confidence 字段 → 行为与修复前一致（active）。"""
+    cfg = _cfg(tmp_path)
+    writer = MemoryWriter(cfg)
+    result = {
+        "state_changes": [
+            {"entity_id": "xiaoyan", "field": "realm", "old": "斗者", "new": "斗师"},
+        ],
+    }
+    writer.update_from_chapter_result(12, result)
+    store = ScratchpadManager(cfg)
+    active = store.query(category="character_state", status="active")
+    assert any(x.subject == "xiaoyan" and x.field == "realm" for x in active)
+
+
+def test_writer_low_confidence_world_rule_marks_tentative(tmp_path):
+    """P1-3：world_rules 提取同样支持 confidence → tentative。"""
+    cfg = _cfg(tmp_path)
+    writer = MemoryWriter(cfg)
+    result = {
+        "memory_facts": {
+            "world_rules": [
+                {"rule": "灵石矿脉每月枯竭一次", "scope": "global", "domain": "资源", "field": "灵石", "confidence": 0.2},
+            ],
+        }
+    }
+    writer.update_from_chapter_result(15, result)
+    store = ScratchpadManager(cfg)
+    assert store.query(category="world_rule", status="tentative")
+

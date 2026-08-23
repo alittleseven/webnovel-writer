@@ -53,6 +53,12 @@
 - **P1-3 记忆四态接通生产写入路径**：事实类记忆（story_fact/world_rule）同 key 出现不同值时，旧值标 `contradicted` 而非 `outdated`（矛盾留痕，`conflicts()` 可透出）；data-agent 提取记录带 `confidence` 且低于阈值（默认 0.6）时写入即标 `tentative`，且 tentative 候选不降级现有 active 值（并存待确认，可用 `memory correct --status active` 升级）。
 - **P1-4 token 三漏洞**：设定文件注入按 `context_setting_max_chars`（默认 4000）截断，随书膨胀不再撑爆写章上下文；`ContextRanker` 新增 `apply_budget` 预算截断（消费此前零引用的 4 个压缩配置）；上下文输出改紧凑 JSON（省 15-30% 结构冗余）；`recent_summaries` 默认路径统一 800 字截断。
 
+### P1-6 / P1-7 / P1-8 修复（2026-08-23 第三批）
+
+- **P1-6 run-log 关键步骤追加**：webnovel-write SKILL 新增规范——`write-start` 后每个关键步骤（env/context/draft/review/data/commit）必须追加 `run-log --event <step> --append`，使崩溃后 `run_last.log` 有最后卡点；doctor 新增 `run_log.step_coverage` 诊断（只有 write-start 一条时 warning 提示）。
+- **P1-7 doctor 漏报扩展**：MASTER_SETTING 缺失时若已写多章（`current_chapter > 0`）升级为 error（不再是 SKIPPED）；新增 `_contract_json_checks` 校验 volumes/chapters/reviews 下合同 JSON 合法性；`_sqlite_checks` 扩展 index_db 的 entities/relationships/state_changes 三表完整性检查。
+- **P1-8 precommit 正文版本校验**：`run_ledger` 新增 `verify_review_chapter_alignment` 公共函数（复用已有 sha256 签名机制，比对 review 步骤记录的正文 sha 与当前正文）；`precommit` gate 调用该函数，不一致时阻断提交（防止旧审查结果配新正文通过），无 review 记录时跳过（兼容 `--minimal`）。
+
 ### 验证
 
 - 新增测试：伏笔 `promise_paid_off` 闭合、BM25 召回 embedding 失败 chunk、retry 补写 events、embedding 整批失败空列表边界。

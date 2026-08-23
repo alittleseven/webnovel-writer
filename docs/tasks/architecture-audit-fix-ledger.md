@@ -92,15 +92,21 @@
 
 ### P1-6 run_logger 失败场景不落盘
 - **问题**：`write_run_log` mode="w" 覆盖，只记 write-start
-- **状态**：`[ ]` 未修复
+- **状态**：`[x]` 已修复
+- **Commit**：`5e3a577`
+- **改动**：SKILL 新增规范——每个关键步骤追加 `run-log --event <step> --append`；doctor 新增 `_run_log_checks` 诊断（只有 write-start 一条时 warning）
 
 ### P1-7 doctor 漏报
 - **问题**：不校验卷/章合同 JSON 合法性；SQLite 只查两张表；MASTER_SETTING 缺失标 SKIPPED
-- **状态**：`[ ]` 未修复
+- **状态**：`[x]` 已修复
+- **Commit**：`5e3a577`
+- **改动**：MASTER_SETTING 缺失时已写多章升级 error；新增 `_contract_json_checks`（volumes/chapters/reviews）；_sqlite_checks 扩展 entities/relationships/state_changes 三表
 
 ### P1-8 precommit 不校验 review 与正文版本对应
 - **问题**：旧审查结果可配新正文通过
-- **状态**：`[ ]` 未修复
+- **状态**：`[x]` 已修复
+- **Commit**：`5e3a577`
+- **改动**：run_ledger 新增 `verify_review_chapter_alignment`；precommit 调用，不一致阻断，无 review 记录跳过
 
 ### P1-9 部分 chunk embedding 失败静默
 - **问题**：stored>0 即 applied，部分失败无重试标记，doctor 不校验 embedding 完整性
@@ -165,7 +171,7 @@
 | 类别 | 总数 | 已修复 | 部分修复 | 未修复 |
 |------|------|--------|---------|--------|
 | P0 | 4 | 4 | 0 | 0 |
-| P1 | 9 | 6（P1-1/2/3/4/5/9） | 0 | 3（P1-6/7/8） |
+| P1 | 9 | 9（P1-1/2/3/4/5/6/7/8/9） | 0 | 0 |
 | P2 | 7 | 0 | 0 | 7 |
 | EXT | 1 | 1 | 0 | 0 |
 | 复审跟进 | 2 | 2（P0-4b / P1-9b） | 0 | 0 |

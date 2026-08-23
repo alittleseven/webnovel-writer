@@ -53,3 +53,44 @@ def test_load_chapter_execution_directive_from_volume_outline(tmp_path):
     assert "不得离开宗门" in directive["forbidden_zones"]
     assert "借据" in directive["key_entities"]
     assert directive["chapter_end_open_question"] == "谁改了借据？"
+
+
+def test_load_chapter_outline_truncates_by_field_priority(tmp_path):
+    """P2-2：截断时优先保留 CBN/CPNs/CEN/必须覆盖节点/本章禁区。"""
+    from chapter_outline_loader import load_chapter_outline
+
+    outline_dir = tmp_path / "大纲"
+    outline_dir.mkdir()
+    (tmp_path / ".webnovel").mkdir()
+    (tmp_path / ".webnovel" / "state.json").write_text(
+        json.dumps({"progress": {"volumes_planned": [{"volume": 1, "chapters_range": "1-50"}]}}),
+        encoding="utf-8",
+    )
+    long_desc = "这是很长的描述文本。" * 200
+    (outline_dir / "第1卷-详细大纲.md").write_text(
+        "\n".join([
+            "### 第1章：测试",
+            long_desc,
+            "CBN：关键节点描述",
+            "CPNs：关键节点1；关键节点2",
+            "CEN：章末事件",
+            "必须覆盖节点：节点A；节点B",
+            "本章禁区：不可做某事",
+            "",
+            "### 第2章：下一章",
+        ]),
+        encoding="utf-8",
+    )
+
+    outline = load_chapter_outline(tmp_path, 1, max_chars=500)
+
+    # 关键字段全部保留
+    assert "CBN：关键节点描述" in outline
+    assert "CPNs：" in outline
+    assert "CEN：章末事件" in outline
+    assert "必须覆盖节点" in outline
+    assert "本章禁区" in outline
+    # 截断标记存在
+    assert "已按字段优先级截断" in outline
+    # 总长度受控
+    assert len(outline) <= 600

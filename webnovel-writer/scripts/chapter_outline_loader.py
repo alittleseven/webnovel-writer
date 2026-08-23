@@ -162,8 +162,49 @@ def load_chapter_outline(project_root: Path, chapter_num: int, max_chars: int | 
         return f"⚠️ 未找到第 {chapter_num} 章的大纲"
 
     if max_chars and len(outline) > max_chars:
-        return outline[:max_chars] + "\n...(已截断)"
+        return _truncate_outline_by_field_priority(outline, max_chars)
     return outline
+
+
+# P2-2：关键字段标签——截断时优先保留这些行
+_PRIORITY_FIELD_LABELS = ("cbn", "cpns", "cen", "必须覆盖节点", "本章禁区")
+
+
+def _truncate_outline_by_field_priority(outline: str, max_chars: int) -> str:
+    """P2-2：按字段边界优先截断——先保留 CBN/CPNs/CEN/禁区等关键字段行，
+    再用剩余预算按字符数截断描述文本，避免硬切在关键字段中间。
+    """
+    lines = outline.splitlines(keepends=True)
+    priority_lines: list[str] = []
+    other_lines: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if any(
+            re.match(rf"^{re.escape(label)}\s*[：:]", stripped, re.IGNORECASE)
+            for label in _PRIORITY_FIELD_LABELS
+        ):
+            priority_lines.append(line)
+        else:
+            other_lines.append(line)
+
+    # 关键字段行始终保留
+    result = "".join(priority_lines)
+    # 剩余预算按字符数累积截取其他行
+    remaining = max_chars - len(result)
+    if remaining > 0:
+        accumulated: list[str] = []
+        used = 0
+        for line in other_lines:
+            if used + len(line) > remaining:
+                # 截取该行能放下的部分
+                fit = remaining - used
+                if fit > 0:
+                    accumulated.append(line[:fit])
+                break
+            accumulated.append(line)
+            used += len(line)
+        result += "".join(accumulated)
+    return result.rstrip() + "\n...(已按字段优先级截断)"
 
 _PLOT_SECTION_FIELD_MAP = {
     "cbn": "cbn",

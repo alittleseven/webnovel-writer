@@ -128,31 +128,42 @@
 
 ### P2-1 性能
 - **问题**：`_load_latest_commit` 逐章线性回扫；`_project_total_words` 重扫全部章节；`vector_search` 全表 Python 余弦；graph 候选全表扫描
-- **状态**：`[ ]` 未修复
+- **状态**：`[~]` 部分修复（_project_total_words 增量优化已落地；其余 3 项留 v7）
+- **Commit**：`b1c2572`
+- **改动**：`_project_total_words` 读 state.json 缓存的 total_words + 已缓存章号集合，只算未缓存章节增量；缓存不存在回退全量
+- **待办**：`_load_latest_commit` latest.json 指针方案、vector_search numpy 批量点积、graph 候选 SQL 下推，留 v7
 
 ### P2-2 大纲硬切与字段名不统一
 - **问题**：`load_chapter_outline` 按字符硬切；plot 与 directive 两套字段名
-- **状态**：`[ ]` 未修复
+- **状态**：`[~]` 部分修复（截断优化已落地；字段名统一留 v7）
+- **Commit**：`dc80506`
+- **改动**：`_truncate_outline_by_field_priority` 先保留 CBN/CPNs/CEN/必须覆盖节点/本章禁区，再按剩余预算截断描述文本
+- **待办**：字段名统一（mandatory_nodes/prohibitions vs must_cover_nodes/forbidden_zones）涉及 6+ 文件，prewrite.py 已双向兼容，留 v7
 
 ### P2-3 实体消歧与追读力护栏
 - **问题**：消歧精确匹配无相似度；追读力无 sanity check
-- **状态**：`[ ]` 未修复
+- **状态**：`[~]` 部分修复（warn + sanity 断言已落地；LLM 别名预注册留 v7）
+- **Commit**：`0dfa842`
+- **改动**：`lookup_alias` 一对多时记 warn；`get_entity` compact-id 兜底标 `_compact_id_fallback`；`save_chapter_reading_power` 加 sanity 断言（debt_balance/hook_strength/chapter/override_count）
+- **待办**：新实体入库用 LLM 生成 3-5 别名预注册，留 v7
 
 ### P2-4 题材参考覆盖不均
 - **问题**：genre-tropes 仅 5 题材、genre-profiles 仅 13 profile
-- **状态**：`[ ]` 未修复
+- **状态**：`[ ]` 未修复（数据补充，非代码 bug，留 v7）
 
 ### P2-5 一致性校验 LLM 自判升级为程序校验
 - **问题**：plan 时间线校验靠 LLM 自判
-- **状态**：`[ ]` 未修复
+- **状态**：`[ ]` 未修复（架构升级，留 v7）
 
 ### P2-6 文本侧保护
 - **问题**：正文目录无变更记录，状态漂移无检测
-- **状态**：`[ ]` 未修复
+- **状态**：`[ ]` 未修复（hook 配置，留 v7）
 
 ### P2-7 CSV 检索质量
 - **问题**：`_tokenize` 无中文分词；子串兜底误召回
-- **状态**：`[ ]` 未修复
+- **状态**：`[x]` 已修复
+- **Commit**：`7b740a9`
+- **改动**：`_tokenize` 对 CJK token 生成 bigram；`_bm25_score`/`_compute_idf` 子串兜底收紧（长度 >= 2 才兜底）
 
 ---
 
@@ -172,7 +183,7 @@
 |------|------|--------|---------|--------|
 | P0 | 4 | 4 | 0 | 0 |
 | P1 | 9 | 9（P1-1/2/3/4/5/6/7/8/9） | 0 | 0 |
-| P2 | 7 | 0 | 0 | 7 |
+| P2 | 7 | 1（P2-7） | 3（P2-1/2/3 部分修复） | 3（P2-4/5/6 留 v7） |
 | EXT | 1 | 1 | 0 | 0 |
 | 复审跟进 | 2 | 2（P0-4b / P1-9b） | 0 | 0 |
 

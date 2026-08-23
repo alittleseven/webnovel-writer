@@ -59,6 +59,13 @@
 - **P1-7 doctor 漏报扩展**：MASTER_SETTING 缺失时若已写多章（`current_chapter > 0`）升级为 error（不再是 SKIPPED）；新增 `_contract_json_checks` 校验 volumes/chapters/reviews 下合同 JSON 合法性；`_sqlite_checks` 扩展 index_db 的 entities/relationships/state_changes 三表完整性检查。
 - **P1-8 precommit 正文版本校验**：`run_ledger` 新增 `verify_review_chapter_alignment` 公共函数（复用已有 sha256 签名机制，比对 review 步骤记录的正文 sha 与当前正文）；`precommit` gate 调用该函数，不一致时阻断提交（防止旧审查结果配新正文通过），无 review 记录时跳过（兼容 `--minimal`）。
 
+### P2 优化（2026-08-23 第四批）
+
+- **P2-7 CSV 检索 bigram 分词**：`reference_search._tokenize` 对 CJK token（长度 >= 3）生成 2-gram（如"战斗描写"→["战斗","斗描","描写"]），查询"战斗"直接命中无需子串兜底；子串兜底收紧（长度 >= 2 才生效），消除"金"命中"金币/黄金/金属"等误召回。
+- **P2-2 大纲截断按字段边界优先**：`load_chapter_outline` 截断时先保留 CBN/CPNs/CEN/必须覆盖节点/本章禁区等关键字段行，再用剩余预算按字符数截断描述文本，避免硬切关键字段中间。字段名统一（mandatory_nodes/prohibitions vs must_cover_nodes/forbidden_zones）留 v7。
+- **P2-3 实体消歧 warn + 追读力 sanity**：`lookup_alias` 一对多时记 warning；`get_entity` compact-id 兜底命中标 `_compact_id_fallback` 供 pending 复核；`save_chapter_reading_power` 加 sanity 断言（debt_balance ±100000、hook_strength 标准值、chapter 正数、override_count 非负）。LLM 别名预注册留 v7。
+- **P2-1 \_project_total_words 增量优化**：读 state.json 缓存的 total_words + 已缓存章号集合，只算未缓存章节增量，避免每次 commit 全量重扫。`_load_latest_commit` latest.json 指针方案、vector_search numpy、graph SQL 下推留 v7。
+
 ### 验证
 
 - 新增测试：伏笔 `promise_paid_off` 闭合、BM25 召回 embedding 失败 chunk、retry 补写 events、embedding 整批失败空列表边界。

@@ -627,6 +627,8 @@ class RAGAdapter:
                 )
 
             results = []
+            # P2-1：预计算查询向量 norm（循环外一次），避免每行重复计算
+            query_norm = math.sqrt(sum(x * x for x in query_embedding))
             for row in cursor.fetchall():
                 (
                     chunk_id,
@@ -642,8 +644,13 @@ class RAGAdapter:
                     continue
                 embedding = self._deserialize_embedding(embedding_bytes)
 
-                # 计算余弦相似度
-                score = self._cosine_similarity(query_embedding, embedding)
+                # P2-1：内联余弦相似度——复用查询 norm，只算文档 norm
+                if query_norm == 0:
+                    score = 0.0
+                else:
+                    dot_product = sum(x * y for x, y in zip(query_embedding, embedding))
+                    norm_b = math.sqrt(sum(x * x for x in embedding))
+                    score = 0.0 if norm_b == 0 else dot_product / (query_norm * norm_b)
 
                 results.append(SearchResult(
                     chunk_id=chunk_id,

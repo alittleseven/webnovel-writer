@@ -15,6 +15,7 @@ def _ensure_scripts_on_path() -> None:
 _ensure_scripts_on_path()
 
 from data_modules.timeline_check import (  # noqa: E402
+    _extract_countdown_event,
     _extract_countdown_n,
     _extract_day,
     _extract_year,
@@ -133,3 +134,31 @@ def test_extract_helpers():
     assert _extract_countdown_n("D-7") == 7
     assert _extract_countdown_n("已触发") is None
     assert _extract_countdown_n("-") is None
+
+
+def test_extract_countdown_event_parses_name_and_n():
+    assert _extract_countdown_event("存粮 D-5") == ("存粮", 5)
+    assert _extract_countdown_event("风暴 D-10 启动") == ("风暴", 10)
+    assert _extract_countdown_event("D-7") == ("", 7)
+    assert _extract_countdown_event("已触发") is None
+
+
+def test_check_timeline_multiple_events_no_false_positive(tmp_path):
+    """P2-5：多个并行倒计时事件（存粮 + 风暴）不应跨事件误判回退。"""
+    body = (
+        "## 章节时间轴\n\n"
+        "| 章节 | 时间锚点 | 章内跨度 | 与上章间隔 | 倒计时状态 | 备注 |\n"
+        "|------|---------|---------|-----------|-----------|------|\n"
+        "| 第8章 | 末世第3天 | 5小时 | 跨夜 | 存粮 D-3 | |\n"
+        "| 第9章 | 末世第3天 | 6小时 | 0 | 存粮 D-3 | |\n"
+        "| 第10章 | 末世第3天 | 3小时 | 0 | 存粮倒计时化解 | |\n"
+        "| 第30章 | 末世第14天 | 4小时 | 跨夜 | 风暴 D-10 启动 | |\n"
+        "| 第31章 | 末世第14天 | 3小时 | 0 | 风暴 D-10 | |\n"
+        "| 第32章 | 末世第15天 | 6小时 | 跨夜 | 风暴 D-9 | |\n"
+    )
+    _write_timeline(tmp_path, body)
+
+    report = check_timeline(tmp_path, 1)
+
+    assert report["ok"] is True
+    assert not any(e["code"] == "countdown_violation" for e in report["errors"])

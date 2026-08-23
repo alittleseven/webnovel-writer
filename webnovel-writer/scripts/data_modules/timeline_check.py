@@ -29,7 +29,9 @@ _CHAPTER_ROW_RE = re.compile(
     r"\s*([^|]*?)\s*\|"          # 备注
 )
 # 倒计时状态：如 "物资耗尽 D-7"、"D-7"、"已触发"
-_COUNTDOWN_RE = re.compile(r"D[-−](\d+)")
+# 带事件名的形式："存粮 D-5"、"风暴 D-10 启动"；裸形式："D-7"
+_COUNTDOWN_RE = re.compile(r"(.+?)\s*D[-−](\d+)")
+_COUNTDOWN_BARE_RE = re.compile(r"D[-−](\d+)")
 # 时间锚点中的天数：如 "末世第1天"、"第3日"
 _DAY_RE = re.compile(r"第\s*(\d+)\s*[天日]")
 # 时间锚点中的年份：如 "仙历3021年"、"现代2026年"
@@ -73,12 +75,34 @@ def _extract_year(anchor: str) -> Optional[int]:
 
 
 def _extract_countdown_n(countdown: str) -> Optional[int]:
-    """从倒计时状态提取 D-N 的 N；无 D-N 或"已触发"返回 None。"""
+    """从倒计时状态提取 D-N 的 N；无 D-N 或"已触发"返回 None。
+
+    兼容裸 D-N（如 "D-7"）与带事件名（如 "存粮 D-5"）。
+    """
     text = str(countdown or "").strip()
     if not text or text == "-":
         return None
     match = _COUNTDOWN_RE.search(text)
+    if match:
+        return int(match.group(2))
+    match = _COUNTDOWN_BARE_RE.search(text)
     return int(match.group(1)) if match else None
+
+
+def _extract_countdown_event(countdown: str) -> Optional[tuple[str, int]]:
+    """从倒计时状态提取 (事件名, N)。
+
+    事件名用于区分多个并行倒计时事件（如"存粮"与"风暴"），
+    避免跨事件误判回退/跳跃。裸 D-N 返回事件名为空字符串。
+    """
+    text = str(countdown or "").strip()
+    if not text or text == "-":
+        return None
+    match = _COUNTDOWN_RE.search(text)
+    if match:
+        return match.group(1).strip(), int(match.group(2))
+    match = _COUNTDOWN_BARE_RE.search(text)
+    return ("", int(match.group(1))) if match else None
 
 
 def check_timeline(project_root: Path | str, volume_id: int) -> Dict[str, Any]:
@@ -151,25 +175,29 @@ def check_timeline(project_root: Path | str, volume_id: int) -> Dict[str, Any]:
         errors.append({"code": "time_regression", "issues": anchor_issues})
 
     # 3) 倒计时推进（D-N 单调递减，单章跳跃不超过 1）
+    # P2-5 修复：按倒计时事件名分组比较，避免多个并行倒计时事件
+    # （如"存粮"与"风暴"）之间误判回退/跳跃。
     countdown_ok = True
-    prev_n: Optional[int] = None
+    prev_by_event: Dict[str, int] = {}
     countdown_issues: List[Dict[str, Any]] = []
     for row in rows:
-        n = _extract_countdown_n(row["countdown"])
-        if n is None:
+        parsed = _extract_countdown_event(row["countdown"])
+        if parsed is None:
             continue
+        event, n = parsed
+        prev_n = prev_by_event.get(event)
         if prev_n is not None:
             if n > prev_n:
                 countdown_ok = False
                 countdown_issues.append(
-                    {"chapter": row["chapter"], "issue": f"倒计时回退: D-{n} > D-{prev_n}"}
+                    {"chapter": row["chapter"], "event": event or "(默认)", "issue": f"倒计时回退: D-{n} > D-{prev_n}"}
                 )
             elif prev_n - n > 1:
                 countdown_ok = False
                 countdown_issues.append(
-                    {"chapter": row["chapter"], "issue": f"倒计时跳跃: D-{prev_n} → D-{n}（跨度过大）"}
+                    {"chapter": row["chapter"], "event": event or "(默认)", "issue": f"倒计时跳跃: D-{prev_n} → D-{n}（跨度过大）"}
                 )
-        prev_n = n
+        prev_by_event[event] = n
     checks.append(
         {
             "id": "timeline.countdown",

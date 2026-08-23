@@ -169,6 +169,16 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" mem
 
 必须通过：节拍表 / 时间线表 / 详细大纲均存在且非空；每章时间字段齐全；时间线单调递增；倒计时推进正确；新设定已回写；`BLOCKER=0`；有节点时相邻章节 `CEN -> CBN` 无明显逻辑冲突且每章`必须覆盖节点`不超过 4 个。
 
+时间线单调性与倒计时算术用程序校验（P2-5，替代 LLM 自判）：
+
+```bash
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" timeline-check \
+  --volume {volume_id} \
+  --format text
+```
+
+`timeline-check` 返回非零即时间线未通过（时间锚点缺失 / 时间回跳 / 倒计时回退或跳跃），必须先修正章纲或时间线表再继续。
+
 验证全部通过后，生成显式结构化写回文件 `大纲/第{volume_id}卷-总纲写回.json`（只写规划中显式列出的伏笔 / 开放环，禁止从卷纲自由文本推断）：
 
 ```json

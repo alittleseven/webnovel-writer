@@ -264,6 +264,15 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     return 0 if report.get("ok") else 1
 
 
+def cmd_timeline_check(args: argparse.Namespace) -> int:
+    from .timeline_check import check_timeline, format_timeline_report
+
+    root = _resolve_root(args.project_root)
+    report = check_timeline(root, args.volume)
+    print(format_timeline_report(report, args.format))
+    return 0 if report.get("ok") else 1
+
+
 def cmd_write_gate(args: argparse.Namespace) -> int:
     from .write_gates import format_gate_report, run_write_gate
 
@@ -440,6 +449,11 @@ def main() -> None:
     p_doctor.add_argument("--deep", action="store_true", help="包含 dashboard 等较深检查")
     p_doctor.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_doctor.set_defaults(func=cmd_doctor)
+
+    p_timeline_check = sub.add_parser("timeline-check", help="程序化校验卷时间线（单调递增/倒计时算术）")
+    p_timeline_check.add_argument("--volume", type=int, required=True, help="卷号")
+    p_timeline_check.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    p_timeline_check.set_defaults(func=cmd_timeline_check)
 
     p_write_gate = sub.add_parser("write-gate", help="写章自然边界校验")
     p_write_gate.add_argument("--chapter", type=int, required=True, help="目标章节号")

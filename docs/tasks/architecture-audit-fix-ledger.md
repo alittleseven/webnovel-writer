@@ -128,10 +128,10 @@
 
 ### P2-1 性能
 - **问题**：`_load_latest_commit` 逐章线性回扫；`_project_total_words` 重扫全部章节；`vector_search` 全表 Python 余弦；graph 候选全表扫描
-- **状态**：`[~]` 部分修复（_project_total_words 增量优化已落地；其余 3 项留 v7）
-- **Commit**：`b1c2572`
-- **改动**：`_project_total_words` 读 state.json 缓存的 total_words + 已缓存章号集合，只算未缓存章节增量；缓存不存在回退全量
-- **待办**：`_load_latest_commit` latest.json 指针方案、vector_search numpy 批量点积、graph 候选 SQL 下推，留 v7
+- **状态**：`[~]` 部分修复（_project_total_words 增量 + vector_search norm 预计算已落地；其余 2 项留 v7）
+- **Commit**：`b1c2572` + `a1eb037`
+- **改动**：`_project_total_words` 增量缓存；`vector_search` 查询向量 norm 循环外预计算一次
+- **待办**：`_load_latest_commit` latest.json 指针方案（state current_chapter 起点方案因跳过 commit 风险已回退）、graph 候选 FTS 全文索引（LIKE 无索引收益低），留 v7
 
 ### P2-2 大纲硬切与字段名不统一
 - **问题**：`load_chapter_outline` 按字符硬切；plot 与 directive 两套字段名
@@ -153,7 +153,10 @@
 
 ### P2-5 一致性校验 LLM 自判升级为程序校验
 - **问题**：plan 时间线校验靠 LLM 自判
-- **状态**：`[ ]` 未修复（架构升级，留 v7）
+- **状态**：`[x]` 已修复
+- **Commit**：`f69d03e feat(P2-5): 时间线校验从 LLM 自判升级为程序校验 timeline-check`
+- **改动**：新增 `timeline_check.py`（解析时间线表，校验锚点填写/单调递增/倒计时算术）；`webnovel.py timeline-check` 命令；plan SKILL Step 9 纳入程序校验
+- **实测**：fantasy01 第 1 卷抓出第 30 章倒计时回退（D-10 > D-3）
 
 ### P2-6 文本侧保护
 - **问题**：正文目录无变更记录，状态漂移无检测
@@ -183,7 +186,7 @@
 |------|------|--------|---------|--------|
 | P0 | 4 | 4 | 0 | 0 |
 | P1 | 9 | 9（P1-1/2/3/4/5/6/7/8/9） | 0 | 0 |
-| P2 | 7 | 1（P2-7） | 3（P2-1/2/3 部分修复） | 3（P2-4/5/6 留 v7） |
+| P2 | 7 | 2（P2-5/7） | 3（P2-1/2/3 部分修复） | 2（P2-4/6 留 v7） |
 | EXT | 1 | 1 | 0 | 0 |
 | 复审跟进 | 2 | 2（P0-4b / P1-9b） | 0 | 0 |
 

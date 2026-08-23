@@ -66,6 +66,11 @@
 - **P2-3 实体消歧 warn + 追读力 sanity**：`lookup_alias` 一对多时记 warning；`get_entity` compact-id 兜底命中标 `_compact_id_fallback` 供 pending 复核；`save_chapter_reading_power` 加 sanity 断言（debt_balance ±100000、hook_strength 标准值、chapter 正数、override_count 非负）。LLM 别名预注册留 v7。
 - **P2-1 \_project_total_words 增量优化**：读 state.json 缓存的 total_words + 已缓存章号集合，只算未缓存章节增量，避免每次 commit 全量重扫。`_load_latest_commit` latest.json 指针方案、vector_search numpy、graph SQL 下推留 v7。
 
+### P2-5 / P2-1 追加优化（2026-08-24 第五批）
+
+- **P2-5 时间线程序化校验**：新增 `webnovel.py timeline-check` 命令，解析 `大纲/第N卷-时间线.md` 章节时间轴，程序化校验时间锚点填写/单调递增/倒计时算术（D-N 单调递减、单章跳跃不超过 1），替代 plan 阶段 LLM 自判。实测 fantasy01 第 1 卷抓出第 30 章倒计时回退（D-10 > D-3）。
+- **P2-1 vector_search 查询 norm 预计算**：`vector_search` 循环外预计算查询向量 norm，循环内内联余弦相似度复用查询 norm，消除 O(N) 次重复计算，数值结果与 `_cosine_similarity` 完全等价。
+
 ### 验证
 
 - 新增测试：伏笔 `promise_paid_off` 闭合、BM25 召回 embedding 失败 chunk、retry 补写 events、embedding 整批失败空列表边界。

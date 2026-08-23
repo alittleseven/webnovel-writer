@@ -17,6 +17,7 @@ from .schema import (
     BUCKET_TO_CATEGORY,
     CATEGORY_KEY_RULES,
     CATEGORY_TO_BUCKET,
+    VALID_STATUSES,
     MemoryItem,
     ScratchpadData,
     memory_item_key,
@@ -113,6 +114,89 @@ class ScratchpadManager:
                 self.save(data, _use_lock=False)
         return updated
 
+    def correct(
+        self,
+        *,
+        item_id: Optional[str] = None,
+        category: Optional[str] = None,
+        subject: Optional[str] = None,
+        field: Optional[str] = None,
+        value: Optional[str] = None,
+        status: Optional[str] = None,
+        delete: bool = False,
+    ) -> Dict[str, Any]:
+        """纠错：按 id 或 (category, subject[, field]) 定位条目，修正内容字段、
+        调整状态或删除错误条目。返回变更摘要供 CLI 输出。
+
+        写前校验：定位方式 item_id 与 category+subject 至少给其一；
+        非删除时 value / status 至少给其一。
+        """
+        result: Dict[str, Any] = {
+            "matched": 0,
+            "updated": 0,
+            "deleted": 0,
+            "not_found": False,
+        }
+        if not item_id and not (category and subject):
+            result["error"] = "missing_locator"
+            result["hint"] = "provide --id or (--category + --subject)"
+            return result
+        if not delete and value is None and status is None:
+            result["error"] = "nothing_to_change"
+            result["hint"] = "provide --value / --status / --delete"
+            return result
+        if status is not None and status not in VALID_STATUSES:
+            result["error"] = "invalid_status"
+            result["hint"] = f"status must be one of {sorted(VALID_STATUSES)}"
+            return result
+
+        with self._lock:
+            data = self.load()
+            for bucket in BUCKET_TO_CATEGORY:
+                rows: List[MemoryItem] = getattr(data, bucket)
+                new_rows: List[MemoryItem] = []
+                for row in rows:
+                    hit = self._matches(row, item_id, category, subject, field)
+                    if not hit:
+                        new_rows.append(row)
+                        continue
+                    result["matched"] += 1
+                    if delete:
+                        result["deleted"] += 1
+                        continue
+                    updated = dict(asdict(row))
+                    if value is not None:
+                        updated["value"] = str(value)
+                    if status is not None:
+                        updated["status"] = status
+                    updated["updated_at"] = now_iso()
+                    new_rows.append(MemoryItem(**updated))
+                    result["updated"] += 1
+                setattr(data, bucket, new_rows)
+            if result["matched"] == 0:
+                result["not_found"] = True
+            else:
+                self.save(data, _use_lock=False)
+        return result
+
+    @staticmethod
+    def _matches(
+        row: MemoryItem,
+        item_id: Optional[str],
+        category: Optional[str],
+        subject: Optional[str],
+        field: Optional[str],
+    ) -> bool:
+        if item_id:
+            return row.id == item_id
+        if category and row.category != category:
+            return False
+        if subject and row.subject != subject:
+            return False
+        if field and row.field != field:
+            return False
+        return True
+
     def query(
         self,
         category: Optional[str] = None,
@@ -204,6 +288,15 @@ def main() -> None:
     p_update.add_argument("--chapter", type=int, required=True)
     p_update.add_argument("--data", required=True, help="章节结构化结果 JSON")
 
+    p_correct = sub.add_parser("correct", help="修正已入库记忆条目（改内容/状态/删除）")
+    p_correct.add_argument("--id", dest="item_id", default=None, help="按条目 id 精确定位")
+    p_correct.add_argument("--category", type=str, default=None, help="按分类过滤（需与 --subject 搭配）")
+    p_correct.add_argument("--subject", type=str, default=None, help="按主体过滤（需与 --category 搭配）")
+    p_correct.add_argument("--field", type=str, default=None, help="按字段进一步收窄")
+    p_correct.add_argument("--value", type=str, default=None, help="修正后的内容值")
+    p_correct.add_argument("--status", type=str, default=None, help=f"调整状态：{sorted(VALID_STATUSES)}")
+    p_correct.add_argument("--delete", action="store_true", help="删除匹配条目")
+
     sub.add_parser("bootstrap")
 
     args = parser.parse_args(normalize_global_project_root(sys.argv[1:]))
@@ -238,6 +331,21 @@ def main() -> None:
         writer = MemoryWriter(resolved_config)
         result = writer.update_from_chapter_result(args.chapter, payload)
         print_success(result, message="memory_updated")
+        return
+    if args.command == "correct":
+        result = manager.correct(
+            item_id=args.item_id,
+            category=args.category,
+            subject=args.subject,
+            field=args.field,
+            value=args.value,
+            status=args.status,
+            delete=bool(args.delete),
+        )
+        if result.get("error"):
+            print_error(result["error"], "记忆纠错失败", suggestion=result.get("hint"))
+            sys.exit(1)
+        print_success(result, message="memory_corrected")
         return
     if args.command == "bootstrap":
         from .bootstrap import bootstrap_from_index

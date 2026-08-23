@@ -112,6 +112,60 @@ def test_doctor_blocks_pending_projection_log_run(tmp_path, monkeypatch):
     assert report["ok"] is False
 
 
+def test_doctor_flags_extraction_warnings_in_accepted_commit(tmp_path, monkeypatch):
+    _make_init_ready(tmp_path)
+    _write_json(
+        tmp_path / ".story-system" / "commits" / "chapter_001.commit.json",
+        {
+            "meta": {
+                "chapter": 1,
+                "status": "accepted",
+                "extraction_warnings": [
+                    {"code": "event_chapter_unparseable", "event_id": "evt-1"},
+                ],
+            },
+            "projection_status": {"state": "done"},
+        },
+    )
+    monkeypatch.setattr(doctor_module, "_python_checks", lambda: [])
+
+    report = doctor_module.build_doctor_report(tmp_path)
+
+    matches = [item for item in report["checks"] if item["id"] == "commit.extraction_warnings"]
+    assert matches
+    assert matches[0]["status"] == "warning"
+    assert "event_chapter_unparseable" in matches[0]["actual"]
+
+
+def test_doctor_ok_when_no_extraction_warnings(tmp_path, monkeypatch):
+    _make_init_ready(tmp_path)
+    _write_json(
+        tmp_path / ".story-system" / "commits" / "chapter_001.commit.json",
+        {
+            "meta": {"chapter": 1, "status": "accepted", "extraction_warnings": []},
+            "projection_status": {"state": "done"},
+        },
+    )
+    monkeypatch.setattr(doctor_module, "_python_checks", lambda: [])
+
+    report = doctor_module.build_doctor_report(tmp_path)
+
+    matches = [item for item in report["checks"] if item["id"] == "commit.extraction_warnings"]
+    assert matches
+    assert matches[0]["status"] == "ok"
+
+
+def test_doctor_skips_extraction_check_without_accepted_commit(tmp_path, monkeypatch):
+    _make_init_ready(tmp_path)
+    monkeypatch.setattr(doctor_module, "_python_checks", lambda: [])
+
+    report = doctor_module.build_doctor_report(tmp_path)
+
+    matches = [item for item in report["checks"] if item["id"] == "commit.extraction_warnings"]
+    assert matches
+    assert matches[0]["status"] == "skipped"
+
+
 def test_sqlite_null_embedding_count_counts_null_rows(tmp_path):
     """P1-9：vectors 表 embedding 为 NULL 的行应被统计（语义检索缺失告警）。"""
     import sqlite3

@@ -123,6 +123,88 @@ def test_mark_status_and_stats(tmp_path):
     assert stats["total"] >= 1
 
 
+def test_correct_updates_value_by_id(tmp_path):
+    manager = ScratchpadManager(_cfg(tmp_path))
+    manager.upsert_item(
+        MemoryItem(
+            id="c1",
+            layer="semantic",
+            category="world_rule",
+            subject="修炼体系",
+            field="境界划分",
+            value="九境",
+            source_chapter=1,
+        )
+    )
+    result = manager.correct(item_id="c1", value="十境")
+    assert result["matched"] == 1
+    assert result["updated"] == 1
+    rows = manager.query(category="world_rule", status="active")
+    assert rows[0].value == "十境"
+
+
+def test_correct_adjusts_status_by_category_subject(tmp_path):
+    manager = ScratchpadManager(_cfg(tmp_path))
+    manager.upsert_item(
+        MemoryItem(
+            id="c2",
+            layer="semantic",
+            category="character_state",
+            subject="xiaoyan",
+            field="realm",
+            value="斗者",
+            source_chapter=1,
+        )
+    )
+    result = manager.correct(category="character_state", subject="xiaoyan", status="outdated")
+    assert result["matched"] == 1
+    assert result["updated"] == 1
+    assert manager.query(category="character_state", subject="xiaoyan", status="outdated")
+
+
+def test_correct_deletes_matched_items(tmp_path):
+    manager = ScratchpadManager(_cfg(tmp_path))
+    manager.upsert_item(
+        MemoryItem(
+            id="c3",
+            layer="semantic",
+            category="story_fact",
+            subject="错误事实",
+            field="描述",
+            value="错误内容",
+            source_chapter=1,
+        )
+    )
+    result = manager.correct(item_id="c3", delete=True)
+    assert result["deleted"] == 1
+    assert manager.query(category="story_fact", status="active") == []
+
+
+def test_correct_requires_locator(tmp_path):
+    manager = ScratchpadManager(_cfg(tmp_path))
+    result = manager.correct(value="x")
+    assert result.get("error") == "missing_locator"
+
+
+def test_correct_requires_change(tmp_path):
+    manager = ScratchpadManager(_cfg(tmp_path))
+    result = manager.correct(item_id="missing", )
+    assert result.get("error") == "nothing_to_change"
+
+
+def test_correct_rejects_invalid_status(tmp_path):
+    manager = ScratchpadManager(_cfg(tmp_path))
+    result = manager.correct(item_id="c1", status="bogus")
+    assert result.get("error") == "invalid_status"
+
+
+def test_correct_not_found_when_no_match(tmp_path):
+    manager = ScratchpadManager(_cfg(tmp_path))
+    result = manager.correct(item_id="nonexistent", value="x")
+    assert result["not_found"] is True
+    assert result["matched"] == 0
+
+
 def test_compactor_enforces_global_limit_and_dedupes_timeline_summary(tmp_path):
     cfg = _cfg(tmp_path)
     cfg.memory_compactor_enabled = True

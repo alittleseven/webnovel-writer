@@ -414,6 +414,77 @@ def _projection_log_checks(project_root: Path, snapshot: ProjectPhaseSnapshot) -
     ]
 
 
+def _extraction_warnings_check(project_root: Path, snapshot: ProjectPhaseSnapshot) -> list[dict[str, Any]]:
+    """抽查最新 accepted commit 的 extraction_warnings：非空则提示提取质量信号。
+
+    P0-4 第三步：把 data-agent 提取时的轻校验告警（章号不可解析、事件章号
+    不符、状态/实体字段缺失等）在 doctor 体检里透出，供作者识别是否需要
+    memory-correction 纠错。
+    """
+    latest_commit = snapshot.latest_commit
+    if latest_commit is None or latest_commit.status != "accepted":
+        return [
+            _check(
+                "commit.extraction_warnings",
+                status=CHECK_SKIPPED,
+                severity="info",
+                message="no accepted commit to inspect extraction warnings",
+                path=str(project_root / ".story-system" / "commits"),
+                expected="accepted commit with extraction_warnings",
+                actual="no accepted commit",
+            )
+        ]
+
+    commit_path = Path(latest_commit.path) if latest_commit.path else (
+        project_root / ".story-system" / "commits" / f"chapter_{latest_commit.chapter:03d}.commit.json"
+    )
+    payload, error = _read_json(commit_path)
+    if error:
+        return [
+            _check(
+                "commit.extraction_warnings",
+                status=CHECK_WARNING,
+                severity="warning",
+                message="latest accepted commit unreadable",
+                path=str(commit_path),
+                expected="readable commit json",
+                actual=error,
+                impact="无法抽查提取质量信号。",
+                repair="检查 commit json 是否损坏。",
+            )
+        ]
+
+    meta = payload.get("meta") if isinstance(payload, dict) else {}
+    warnings = meta.get("extraction_warnings") if isinstance(meta, dict) else None
+    if not warnings:
+        return [
+            _check(
+                "commit.extraction_warnings",
+                status=CHECK_OK,
+                severity="info",
+                message="latest accepted commit has no extraction warnings",
+                path=str(commit_path),
+                expected="extraction_warnings empty",
+                actual="empty",
+            )
+        ]
+
+    codes = sorted({str(w.get("code") or "unknown") for w in warnings if isinstance(w, dict)})
+    return [
+        _check(
+            "commit.extraction_warnings",
+            status=CHECK_WARNING,
+            severity="warning",
+            message=f"latest accepted commit has {len(warnings)} extraction warning(s)",
+            path=str(commit_path),
+            expected="extraction_warnings empty",
+            actual=f"codes={codes}",
+            impact="提取质量有缺口：可能有章号不可解析、事件章号不符或字段缺失，记忆库可能存入了错误或缺失事实。",
+            repair="用 webnovel.py memory correct 修正对应记忆条目，或重跑该章的 data-agent 提取。",
+        )
+    ]
+
+
 def _python_checks() -> list[dict[str, Any]]:
     checks = [
         _check(
@@ -548,6 +619,7 @@ def build_doctor_report(
             )
         checks.extend(_sqlite_checks(root))
         checks.extend(_projection_log_checks(root, snapshot))
+        checks.extend(_extraction_warnings_check(root, snapshot))
         checks.extend(_rag_checks(root))
 
     checks.extend(_python_checks())

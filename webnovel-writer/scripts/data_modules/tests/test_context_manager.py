@@ -907,3 +907,54 @@ CEN：决定将计就计
     assert plot_structure.get("cen") == "决定将计就计"
     assert plot_structure.get("mandatory_nodes") == ["发现陷阱"]
     assert plot_structure.get("prohibitions") == ["不能直接翻脸"]
+
+
+def test_load_setting_truncates_long_file(temp_project):
+    """P1-4：设定文件超过 context_setting_max_chars 时截断头部并标记。"""
+    settings_dir = temp_project.settings_dir
+    settings_dir.mkdir(parents=True, exist_ok=True)
+    long_body = "世界观核心设定\n" + "细节描述" * 3000
+    (settings_dir / "世界观.md").write_text(long_body, encoding="utf-8")
+
+    manager = ContextManager(temp_project)
+    text = manager._load_setting("世界观")
+
+    assert len(text) < len(long_body)
+    assert text.startswith("世界观核心设定")
+    assert "已截断" in text
+
+
+def test_load_setting_keeps_short_file(temp_project):
+    """P1-4：短设定文件原样返回。"""
+    settings_dir = temp_project.settings_dir
+    settings_dir.mkdir(parents=True, exist_ok=True)
+    (settings_dir / "力量体系.md").write_text("九境体系", encoding="utf-8")
+
+    manager = ContextManager(temp_project)
+    assert manager._load_setting("力量体系") == "九境体系"
+
+
+def test_load_setting_zero_max_chars_disables_truncation(temp_project):
+    """P1-4：context_setting_max_chars=0 时不截断（兼容长设定场景）。"""
+    temp_project.context_setting_max_chars = 0
+    settings_dir = temp_project.settings_dir
+    settings_dir.mkdir(parents=True, exist_ok=True)
+    long_body = "设定" * 5000
+    (settings_dir / "世界观.md").write_text(long_body, encoding="utf-8")
+
+    manager = ContextManager(temp_project)
+    assert manager._load_setting("世界观") == long_body
+
+
+def test_load_summary_text_truncates_by_default(temp_project):
+    """P1-4：默认路径按 context_recent_summary_max_chars 截断（与 orchestrator 对齐）。"""
+    summaries_dir = temp_project.webnovel_dir / "summaries"
+    summaries_dir.mkdir(parents=True, exist_ok=True)
+    long_summary = "本章梗概" + "情节" * 2000
+    (summaries_dir / "ch0011.md").write_text(long_summary, encoding="utf-8")
+
+    manager = ContextManager(temp_project)
+    result = manager._load_summary_text(11)
+
+    assert result is not None
+    assert len(result["summary"]) < len(long_summary)

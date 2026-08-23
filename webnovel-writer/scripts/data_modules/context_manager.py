@@ -730,14 +730,24 @@ class ContextManager:
         candidates = [
             settings_dir / f"{keyword}.md",
         ]
+        text = ""
         for path in candidates:
             if path.exists():
-                return path.read_text(encoding="utf-8")
-        # fallback: any file containing keyword
-        matches = list(settings_dir.glob(f"*{keyword}*.md"))
-        if matches:
-            return matches[0].read_text(encoding="utf-8")
-        return f"[{keyword}设定未找到]"
+                text = path.read_text(encoding="utf-8")
+                break
+        if not text:
+            # fallback: any file containing keyword
+            matches = list(settings_dir.glob(f"*{keyword}*.md"))
+            if matches:
+                text = matches[0].read_text(encoding="utf-8")
+        if not text:
+            return f"[{keyword}设定未找到]"
+        # P1-4：设定文件随书膨胀是写章最大固定 token 开销，默认按
+        # context_setting_max_chars 截断（保留头部，0 = 不截断）。
+        max_chars = int(getattr(self.config, "context_setting_max_chars", 4000) or 0)
+        if max_chars > 0 and len(text) > max_chars:
+            return text[:max_chars].rstrip() + "\n…（设定过长已截断）"
+        return text
 
     def _extract_summary_excerpt(self, text: str, max_chars: int) -> str:
         if not text:
@@ -756,7 +766,10 @@ class ContextManager:
         if snippet_chars:
             summary_text = self._extract_summary_excerpt(text, snippet_chars)
         else:
-            summary_text = text
+            # P1-4：默认路径读全文（orchestrator 路径才有 text[:800] 截断），
+            # 统一按 context_recent_summary_max_chars 截断对齐。
+            max_chars = int(getattr(self.config, "context_recent_summary_max_chars", 800) or 0)
+            summary_text = self._extract_summary_excerpt(text, max_chars) if max_chars > 0 else text
         return {"chapter": chapter, "summary": summary_text}
 
     def _load_story_skeleton(self, chapter: int) -> List[Dict[str, Any]]:

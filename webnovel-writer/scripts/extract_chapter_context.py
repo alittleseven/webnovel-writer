@@ -355,8 +355,12 @@ def build_chapter_context_payload(project_root: Path, chapter_num: int) -> Dict[
 
 
 def _render_text(payload: Dict[str, Any]) -> str:
-    """JSON 序列化输出，text 渲染由 context-agent 负责。"""
-    return json.dumps(payload, ensure_ascii=False, indent=2)
+    """JSON 序列化输出，text 渲染由 context-agent 负责。
+
+    P1-4：indent=2 的结构冗余占 15-30% token，改紧凑输出（键名不动，
+    下游按 JSON 解析不受影响）。
+    """
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
 
 def main():
@@ -375,7 +379,8 @@ def main():
             else find_project_root()
         )
         payload = build_chapter_context_payload(project_root, args.chapter)
-        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        # P1-4：紧凑输出，降低结构冗余 token 开销
+        print(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
 
     except Exception as exc:
         print(f"❌ 错误: {exc}", file=sys.stderr)

@@ -81,6 +81,21 @@ def test_extract_chapter_outline_prefers_state_volume_mapping(tmp_path):
     assert "V2大纲" in outline
 
 
+def test_render_text_compact_json_no_indent(tmp_path):
+    """P1-4：_render_text 紧凑输出（无 indent 换行），结构冗余 token 下降。"""
+    scripts_dir = Path(__file__).resolve().parents[2]
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+
+    from extract_chapter_context import _render_text
+
+    payload = {"core": {"recent_summaries": [{"chapter": 1, "summary": "梗概"}]}, "meta": {"chapter": 1}}
+    text = _render_text(payload)
+
+    assert "\n" not in text, "紧凑输出不应含换行"
+    assert json.loads(text) == payload, "紧凑输出仍是合法 JSON，内容一致"
+
+
 def test_extract_chapter_outline_falls_back_when_state_has_no_match(tmp_path):
     scripts_dir = Path(__file__).resolve().parents[2]
     if str(scripts_dir) not in sys.path:

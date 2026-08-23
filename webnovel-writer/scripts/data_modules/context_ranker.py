@@ -53,7 +53,72 @@ class ContextRanker:
             "hook_bonus": float(self.config.context_ranker_hook_bonus),
         }
         ranked["meta"] = meta
-        return ranked
+        return self.apply_budget(ranked)
+
+    def apply_budget(self, pack: Dict[str, Any]) -> Dict[str, Any]:
+        """P1-4：ranker 此前只排序不截断——对文本类 section 按预算截断。
+
+        消费此前无引用的压缩配置：
+        - context_compact_text_enabled：总开关（False 时零改动）
+        - context_extra_section_budget：每个 section 的总字符预算
+        - context_compact_min_budget：单条最小保留字符
+        - context_compact_head_ratio：截断时头部保留比例
+
+        截断对象：core.recent_summaries / core.recent_meta /
+        story_skeleton 的文本字段；结构性 section（reader_signal 等
+        dict 数据）不裁剪，避免破坏下游契约。
+        """
+        if not bool(getattr(self.config, "context_compact_text_enabled", True)):
+            return pack
+        budget = max(0, int(getattr(self.config, "context_extra_section_budget", 800) or 0))
+        if budget <= 0:
+            return pack
+
+        compacted = dict(pack)
+
+        core = dict(compacted.get("core") or {})
+        core["recent_summaries"] = self._budget_text_list(
+            core.get("recent_summaries") or [], budget, text_key="summary"
+        )
+        core["recent_meta"] = self._budget_text_list(
+            core.get("recent_meta") or [], budget, text_key="hook"
+        )
+        compacted["core"] = core
+
+        compacted["story_skeleton"] = self._budget_text_list(
+            compacted.get("story_skeleton") or [], budget, text_key="summary"
+        )
+        return compacted
+
+    def _budget_text_list(
+        self, items: List[Any], budget: int, text_key: str
+    ) -> List[Any]:
+        if not items:
+            return items
+        min_budget = max(1, int(getattr(self.config, "context_compact_min_budget", 120) or 1))
+        # 均分预算但不低于单条最小保留，防止条目多时被切到不可读
+        per_item = max(min_budget, budget // max(1, len(items)))
+        result: List[Any] = []
+        for raw in items:
+            if not isinstance(raw, dict):
+                result.append(raw)
+                continue
+            item = dict(raw)
+            text = str(item.get(text_key) or "")
+            if len(text) > per_item:
+                item[text_key] = self._truncate_middle(text, per_item)
+            result.append(item)
+        return result
+
+    def _truncate_middle(self, text: str, limit: int) -> str:
+        if len(text) <= limit:
+            return text
+        head_ratio = float(getattr(self.config, "context_compact_head_ratio", 0.65) or 0.65)
+        head = max(1, int(limit * head_ratio))
+        tail = max(0, limit - head)
+        if tail <= 0:
+            return text[:limit].rstrip() + "…"
+        return text[:head].rstrip() + "…（中略）…" + text[-tail:].lstrip()
 
     def rank_recent_summaries(self, items: List[Dict[str, Any]], current_chapter: int) -> List[Dict[str, Any]]:
         scored = []

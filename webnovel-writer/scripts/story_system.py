@@ -11,6 +11,7 @@ from runtime_compat import enable_windows_utf8_stdio
 
 from data_modules.runtime_contract_builder import RuntimeContractBuilder
 from data_modules.story_contracts import persist_runtime_contracts, persist_story_seed
+from data_modules.contract_migrations import migrate_contracts_if_needed
 from data_modules.story_system_engine import StorySystemEngine, StorySystemRoutingError, is_placeholder_query
 from chapter_outline_loader import load_chapter_execution_directive
 
@@ -88,6 +89,8 @@ def main() -> None:
         parser.exit(2, f"error: {exc}\n")
 
     if args.persist:
+        # P1-2：写入前迁移旧版本合同，避免新版本合同与旧文件结构冲突。
+        migrate_contracts_if_needed(project_root)
         persist_story_seed(
             project_root=project_root,
             master_payload=contract["master_setting"],

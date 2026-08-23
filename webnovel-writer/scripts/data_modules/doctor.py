@@ -485,6 +485,88 @@ def _extraction_warnings_check(project_root: Path, snapshot: ProjectPhaseSnapsho
     ]
 
 
+def _contract_version_checks(project_root: Path) -> list[dict[str, Any]]:
+    """P1-2：检查合同 schema 版本是否落后于当前版本，提示运行迁移。"""
+    from .contract_migrations import (
+        CONTRACT_SCHEMA_VERSION as _CURRENT,
+        _iter_contract_files,
+        _parse_version,
+    )
+
+    files = _iter_contract_files(project_root)
+    if not files:
+        return [
+            _check(
+                "contract.schema_version",
+                status=CHECK_SKIPPED,
+                severity="info",
+                message="no story-system contract files to version-check",
+                path=str(project_root / ".story-system"),
+                expected="contract json files with meta.schema_version",
+                actual="missing",
+            )
+        ]
+
+    current = _parse_version(_CURRENT)
+    outdated: list[str] = []
+    unknown: list[str] = []
+    for path in files:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        meta = payload.get("meta") if isinstance(payload, dict) else {}
+        version_str = str(meta.get("schema_version") or "") if isinstance(meta, dict) else ""
+        version = _parse_version(version_str)
+        if version == 0:
+            # 无版本号视为 v1；当前为 v1 时不告警，未来升 v2 时视为落后。
+            version = 1
+        if 0 < version < current:
+            outdated.append(_rel(project_root, path))
+        elif version > current:
+            unknown.append(_rel(project_root, path))
+
+    if outdated:
+        return [
+            _check(
+                "contract.schema_version",
+                status=CHECK_WARNING,
+                severity="warning",
+                message=f"{len(outdated)} 个合同文件 schema 版本落后于 {_CURRENT}",
+                path=str(project_root / ".story-system"),
+                expected=f"all contracts at {_CURRENT}",
+                actual="outdated=" + ",".join(outdated[:5]),
+                impact="旧版本合同可能缺少新字段，读取/写入时结构不兼容。",
+                repair="运行 story-system 写入（--persist/--emit-runtime-contracts）会自动触发迁移；或调用 contract_migrations.migrate_contracts_if_needed。",
+            )
+        ]
+    if unknown:
+        return [
+            _check(
+                "contract.schema_version",
+                status=CHECK_WARNING,
+                severity="warning",
+                message=f"{len(unknown)} 个合同文件 schema 版本高于当前版本 {_CURRENT}",
+                path=str(project_root / ".story-system"),
+                expected=f"contracts at {_CURRENT}",
+                actual="unknown=" + ",".join(unknown[:5]),
+                impact="文件可能由更新版本插件生成，当前插件无法识别其结构。",
+                repair="升级插件到对应版本，或手动检查这些合同文件。",
+            )
+        ]
+    return [
+        _check(
+            "contract.schema_version",
+            status=CHECK_OK,
+            severity="info",
+            message=f"all contract files at {_CURRENT}",
+            path=str(project_root / ".story-system"),
+            expected=f"contracts at {_CURRENT}",
+            actual=f"{len(files)} files ok",
+        )
+    ]
+
+
 def _python_checks() -> list[dict[str, Any]]:
     checks = [
         _check(
@@ -620,6 +702,7 @@ def build_doctor_report(
         checks.extend(_sqlite_checks(root))
         checks.extend(_projection_log_checks(root, snapshot))
         checks.extend(_extraction_warnings_check(root, snapshot))
+        checks.extend(_contract_version_checks(root))
         checks.extend(_rag_checks(root))
 
     checks.extend(_python_checks())

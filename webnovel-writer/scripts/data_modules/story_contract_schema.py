@@ -7,8 +7,13 @@ from typing import Any, Dict, List
 from pydantic import BaseModel, Field
 
 
+# P1-2：合同 schema 当前版本常量。新增字段/结构变更时递增，并在
+# contract_migrations.CONTRACT_MIGRATIONS 注册迁移函数。
+CONTRACT_SCHEMA_VERSION = "story-system/v1"
+
+
 class ContractMeta(BaseModel):
-    schema_version: str = "story-system/v1"
+    schema_version: str = CONTRACT_SCHEMA_VERSION
     contract_type: str
     generator_version: str = "phase2"
     source_trace: List[Dict[str, Any]] = Field(default_factory=list)

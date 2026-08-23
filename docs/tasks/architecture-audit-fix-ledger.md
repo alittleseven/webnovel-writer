@@ -45,14 +45,15 @@
 
 ### P0-4 data-agent 提取零校验 + 无纠错回路
 - **问题**：accepted 判定只看 blocking/missed_nodes/pending 三路信号，提取事实正确性零校验；错误事实入库后无修正手段
-- **状态**：`[~]` 部分修复（第一步轻校验已落地）
-- **Commit**：`c883afc fix(P0-4): data-agent 提取零校验——落地第一步轻校验`
-- **改动**：`chapter_commit_service.py` 新增 `_extraction_warnings` 纯函数，三类规则断言（新实体缺 aliases / state_delta 缺 old-new / event 章号不符）写入 `meta.extraction_warnings`，不阻断
-- **待办**：② 纠错命令 `memory-correction`；③ doctor 抽查比对（留待 v7）
-- **复审发现（2026-08-23，CodeBuddy）**：`chapter_commit_service.py:92` 的 `int(event_chapter)` 未防护。data-agent（LLM 提取，字段类型不可信）产出非整数章号（如 `"五"`、`"3.5"`、`"xian"`）时 `int()` 抛 `ValueError`，`build_commit` 直接崩溃——轻校验本应「不阻断」，反成新阻断点。
-  - **实证**：`int("五")`/`int("xian")`/`int("3.5")` 均抛 `ValueError: invalid literal for int()`
-  - **建议修复**：`try: int(event_chapter) except (TypeError, ValueError): 降级为 warning（code=event_chapter_unparseable）`，不阻断提交
-  - **状态**：`[ ]` 未修复（标记为 P0-4b，归入 P0-4 子项）
+- **状态**：`[x]` 已修复（三步全部落地）
+- **Commit**：`c883afc`（第一步轻校验）+ `d323cfd`（P0-4b int 防护）+ `9cf396f`（② memory correct 纠错 + ③ doctor 抽查）
+- **改动**：
+  - `chapter_commit_service.py` 新增 `_extraction_warnings` 纯函数，三类规则断言写入 `meta.extraction_warnings`，不阻断
+  - `chapter_commit_schema.py` `normalize_aliases` + `chapter_commit_service.py` 对非整数章号降级为 `event_chapter_unparseable` warning（不崩溃）
+  - `memory/store.py` 新增 `ScratchpadManager.correct()` + memory CLI `correct` 子命令（修正/改状态/删除记忆条目）
+  - `doctor.py` 新增 `_extraction_warnings_check`（抽查最新 accepted commit 的提取质量信号）
+- **复审发现（2026-08-23，CodeBuddy）**：`int(event_chapter)` 未防护，非整数章号导致 `build_commit` 崩溃。
+  - **状态**：`[x]` 已修复（`d323cfd`，P0-4b）
 
 ---
 
@@ -66,7 +67,9 @@
 
 ### P1-2 合同 schema 无版本演进
 - **问题**：合同 `schema_version` 硬编码 `"story-system/v1"`，无迁移器（对比 RAG 已有）
-- **状态**：`[ ]` 未修复
+- **状态**：`[x]` 已修复
+- **Commit**：`dab9dbb feat(P1-2): 合同 schema 版本常量与迁移器框架`
+- **改动**：`story_contract_schema.py` 新增 `CONTRACT_SCHEMA_VERSION` 常量；新增 `contract_migrations.py`（迁移注册表 + `migrate_contracts_if_needed` 扫描检测→备份→逐版本迁移→原子写回）；`story_system.py` 写盘前触发迁移；`doctor.py` 新增 `contract.schema_version` 版本一致性检查
 
 ### P1-3 记忆四态空转
 - **问题**：`contradicted/tentative` 无生产写入路径，矛盾检测空转
@@ -96,14 +99,17 @@
 
 ### P1-9 部分 chunk embedding 失败静默
 - **问题**：stored>0 即 applied，部分失败无重试标记，doctor 不校验 embedding 完整性
-- **状态**：`[~]` 部分修复（writer 层 partial 标记 + doctor 兜底告警已落地，状态聚合层透出未做）
-- **Commit**：`3ba03fb fix(P1-9): 部分 chunk embedding 失败不再静默，标记 partial 并让 doctor 告警`
-- **改动**：`vector_projection_writer.py` stored<total 标 partial；`doctor.py` 新增 vectors 表 NULL embedding 完整性扫描（`_sqlite_null_embedding_count`）
-- **复审发现（2026-08-23，CodeBuddy）**：partial 信号在状态聚合层被吞。`chapter_commit_service._writer_status`（`:190`）只看 `result.get("applied")` → partial 场景返回 `"done"`；`projection_log._overall_status`（`:30`）只认 `done/skipped/failed/pending`。结果：`commit.projection_status.vector` 与 run 级 `status` 均为 `"done"`，`project-status` 看不出该章有语义缺口，partial 章节永不进 `projections retry` 候选（retry 按 failed 定位）。
-  - **实证**：partial_result（applied=True, partial=True）经 `_writer_status` → `'done'`，经 `_overall_status` → `'done'`
-  - **当前兜底**：doctor 的 NULL embedding 扫描（有效但被动）
-  - **建议修复**：`_writer_status` 识别 `result.get("partial")` 返回独立状态（如 `"partial"` 或 `"done:embedding_partial"`），`_overall_status` 与 `project-status` 聚合相应透出，让缺口在状态层可见、可进 retry 候选
-  - **状态**：`[ ]` 未修复（标记为 P1-9b，归入 P1-9 子项，主项降级为部分修复）
+- **状态**：`[x]` 已修复（writer 层 partial 标记 + 状态聚合层透出 + doctor 兜底告警全部落地）
+- **Commit**：`3ba03fb`（writer 层 partial 标记 + doctor NULL embedding 扫描）+ `f369a8a`（P1-9b 状态聚合层透出）
+- **改动**：
+  - `vector_projection_writer.py` stored<total 标 partial
+  - `chapter_commit_service.py` `_writer_status` 识别 `partial` 返回独立状态
+  - `projection_log.py` `_overall_status` 透出 `partial`（failed/pending 仍优先）
+  - `artifact_validator.py` / `postcommit.py` partial 加入 OK 状态集合（不阻断）+ warning 提示
+  - `project_phase.py` latest_commit 含 partial 时追加 `latest_commit_projection_partial` warning
+  - `doctor.py` 新增 vectors 表 NULL embedding 完整性扫描（`_sqlite_null_embedding_count`）
+- **复审发现（2026-08-23，CodeBuddy）**：partial 信号在状态聚合层被吞。
+  - **状态**：`[x]` 已修复（`f369a8a`，P1-9b）
 
 ---
 
@@ -153,11 +159,11 @@
 
 | 类别 | 总数 | 已修复 | 部分修复 | 未修复 |
 |------|------|--------|---------|--------|
-| P0 | 4 | 3 | 1（P0-4，含复审 P0-4b 待修） | 0 |
-| P1 | 9 | 2（P1-1/5） | 1（P1-9，含复审 P1-9b 待修） | 6 |
+| P0 | 4 | 4 | 0 | 0 |
+| P1 | 9 | 4（P1-1/2/5/9） | 0 | 5（P1-3/4/6/7/8） |
 | P2 | 7 | 0 | 0 | 7 |
 | EXT | 1 | 1 | 0 | 0 |
-| 复审跟进 | 2 | 0 | 0 | 2（P0-4b / P1-9b） |
+| 复审跟进 | 2 | 2（P0-4b / P1-9b） | 0 | 0 |
 
 ## 建议实施节奏
 

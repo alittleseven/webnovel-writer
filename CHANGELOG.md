@@ -41,6 +41,13 @@
 - `config.py` `embed_batch_size`：默认值从 `64` 改为 `20`，并支持 `EMBED_BATCH_SIZE` 环境变量覆盖（`field(default_factory=...)` 写法，与同文件 `embed_base_url` 等一致）。百炼（dashscope）embedding 接口单批上限 20，此前硬编码 64 导致 chunk 数 >20 的章节被当成单个 batch 整批 400 拒绝——这是此前反复出现 `projection_failed` / 大量 NULL embedding 的**根因**；P0-2 修复只兜底了「失败后走 BM25」，未消除「为何失败」。
 - 实测：`fantasy01` 补跑 `projections replay 1-17` 后，17 章 `vector` 投影从 12 章 `skipped` 全部转为 `done`；`doctor` 的 `embedding_null` 告警从 23 条清零。
 
+### 复审跟进修复（2026-08-23 复审发现）
+
+- **P0-4b int 章号防护**：`chapter_commit_schema.py` `normalize_aliases` 与 `chapter_commit_service.py` 对 data-agent 产出的非整数章号（`"五"`/`"3.5"`/`"xian"`）降级为 `event_chapter_unparseable` warning，不再因 `int()` 崩溃阻断提交。
+- **P1-9b partial 状态透出**：`_writer_status`/`_overall_status` 识别 `partial`（部分 chunk embedding 失败但 BM25 可用）并透出独立状态，`artifact_validator`/`postcommit` 不阻断但给 warning，`project_phase` 追加 `latest_commit_projection_partial` warning，让语义检索缺口在 `project-status` 可见、可进 retry 候选。
+- **P0-4 纠错回路补齐**：新增 `memory correct` 命令（按 id 或 category+subject 定位，修正内容/改状态/删除）；`doctor` 新增 `commit.extraction_warnings` 抽查，透出最新 accepted commit 的提取质量信号。
+- **P1-2 合同 schema 版本演进**：`story_contract_schema.py` 新增 `CONTRACT_SCHEMA_VERSION` 常量；新增 `contract_migrations.py` 迁移框架（检测→备份→逐版本迁移→原子写回，版本更高时安全跳过）；`story_system.py` 写盘前触发迁移；`doctor` 新增 `contract.schema_version` 版本一致性检查。
+
 ### 验证
 
 - 新增测试：伏笔 `promise_paid_off` 闭合、BM25 召回 embedding 失败 chunk、retry 补写 events、embedding 整批失败空列表边界。

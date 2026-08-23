@@ -73,11 +73,16 @@
 
 ### P1-3 记忆四态空转
 - **问题**：`contradicted/tentative` 无生产写入路径，矛盾检测空转
-- **状态**：`[ ]` 未修复
+- **状态**：`[x]` 已修复
+- **Commit**：`44496d2 fix(P1-3): 记忆四态接通生产写入路径，contradicted/tentative 不再空转`
+- **改动**：`schema.py` 新增 FACT_CATEGORIES；`upsert_item()` 语义比对（事实类同 key 不同值 → contradicted，状态类维持 outdated）；tentative 候选不降级现有 active 值；`writer.py` confidence < 阈值写入即标 tentative；`conflicts()` 透出 contradicted 矛盾对
 
 ### P1-4 token 三漏洞
 - **问题**：① `_load_setting` 整份读设定文件；② 4 个死配置 + ranker 只排序不截断；③ JSON 结构冗余 + recent_summaries 默认全文
-- **状态**：`[ ]` 未修复
+- **状态**：`[x]` 已修复
+- **Commit**：`755ffcf fix(P1-4): 修复 token 三漏洞——设定截断、预算截断、紧凑输出`
+- **改动**：`_load_setting` 按 context_setting_max_chars（默认 4000）截断；`ContextRanker.apply_budget` 消费 4 个死参数对文本 section 预算截断；`_render_text` 紧凑 JSON；`_load_summary_text` 默认 800 截断
+- **遗留**：完整 L0 摘要层（init/plan 生成设定摘要 + 命中实体展开）留 v7
 
 ### P1-5 backup 降级漏备份 + 报告误报
 - **问题**：`_local_backup` 非原子且漏 `.story-system/index.db`；git 成功时 user_report 误报
@@ -160,7 +165,7 @@
 | 类别 | 总数 | 已修复 | 部分修复 | 未修复 |
 |------|------|--------|---------|--------|
 | P0 | 4 | 4 | 0 | 0 |
-| P1 | 9 | 4（P1-1/2/5/9） | 0 | 5（P1-3/4/6/7/8） |
+| P1 | 9 | 6（P1-1/2/3/4/5/9） | 0 | 3（P1-6/7/8） |
 | P2 | 7 | 0 | 0 | 7 |
 | EXT | 1 | 1 | 0 | 0 |
 | 复审跟进 | 2 | 2（P0-4b / P1-9b） | 0 | 0 |

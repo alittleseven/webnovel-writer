@@ -48,6 +48,11 @@
 - **P0-4 纠错回路补齐**：新增 `memory correct` 命令（按 id 或 category+subject 定位，修正内容/改状态/删除）；`doctor` 新增 `commit.extraction_warnings` 抽查，透出最新 accepted commit 的提取质量信号。
 - **P1-2 合同 schema 版本演进**：`story_contract_schema.py` 新增 `CONTRACT_SCHEMA_VERSION` 常量；新增 `contract_migrations.py` 迁移框架（检测→备份→逐版本迁移→原子写回，版本更高时安全跳过）；`story_system.py` 写盘前触发迁移；`doctor` 新增 `contract.schema_version` 版本一致性检查。
 
+### P1-3 / P1-4 修复（2026-08-23 第二批）
+
+- **P1-3 记忆四态接通生产写入路径**：事实类记忆（story_fact/world_rule）同 key 出现不同值时，旧值标 `contradicted` 而非 `outdated`（矛盾留痕，`conflicts()` 可透出）；data-agent 提取记录带 `confidence` 且低于阈值（默认 0.6）时写入即标 `tentative`，且 tentative 候选不降级现有 active 值（并存待确认，可用 `memory correct --status active` 升级）。
+- **P1-4 token 三漏洞**：设定文件注入按 `context_setting_max_chars`（默认 4000）截断，随书膨胀不再撑爆写章上下文；`ContextRanker` 新增 `apply_budget` 预算截断（消费此前零引用的 4 个压缩配置）；上下文输出改紧凑 JSON（省 15-30% 结构冗余）；`recent_summaries` 默认路径统一 800 字截断。
+
 ### 验证
 
 - 新增测试：伏笔 `promise_paid_off` 闭合、BM25 召回 embedding 失败 chunk、retry 补写 events、embedding 整批失败空列表边界。

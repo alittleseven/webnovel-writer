@@ -31,10 +31,14 @@ def _overall_status(writers: dict[str, dict[str, Any]]) -> str:
     statuses = {str(item.get("status") or "") for item in writers.values()}
     if any(status.startswith("failed") or status == "failed" for status in statuses):
         return "failed"
-    if statuses and statuses <= {"skipped"}:
-        return "skipped"
     if "pending" in statuses:
         return "pending"
+    # P1-9b：存在 partial（部分 embedding 失败但 BM25 可用）时，run 级状态
+    # 透出 partial，而非吞成 done。failed/pending 仍优先（更严重）。
+    if "partial" in statuses:
+        return "partial"
+    if statuses and statuses <= {"skipped"}:
+        return "skipped"
     return "done"
 
 

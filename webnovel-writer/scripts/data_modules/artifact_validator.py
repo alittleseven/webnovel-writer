@@ -27,7 +27,9 @@ ERROR_PROJECTION_FAILURE = "projection_failure"
 ERROR_PROJECTION_INCOMPLETE = "projection_incomplete"
 
 REQUIRED_PROJECTION_WRITERS = ("state", "index", "summary", "memory", "vector")
-OK_PROJECTION_STATUSES = {"done", "skipped"}
+# P1-9b：partial（部分 chunk embedding 失败但 BM25 可用）是「可接受的降级状态」，
+# 不是 blocker，但需要在状态层可见（warning 而非 error）。
+OK_PROJECTION_STATUSES = {"done", "skipped", "partial"}
 
 ARTIFACT_SCHEMAS = {
     "review_result": ReviewResult,
@@ -303,6 +305,18 @@ def validate_chapter_commit(path: str | Path) -> dict[str, Any]:
                     field=f"projection_status.{writer}",
                     impact="提交事实已生成，但 read-model 投影不完整。",
                     repair="修复失败原因后补跑 projection retry/replay。",
+                )
+            )
+        elif status == "partial":
+            report["warnings"].append(
+                _issue(
+                    ERROR_PROJECTION_INCOMPLETE,
+                    message=f"projection {writer} partial: 部分 chunk 语义向量缺失（BM25 仍可用）",
+                    path=str(commit_path),
+                    field=f"projection_status.{writer}",
+                    severity="warning",
+                    impact="本章部分内容无语义向量，关键词检索可用但语义检索有缺口。",
+                    repair="补跑 projections retry/replay 以补齐 embedding。",
                 )
             )
         elif status not in OK_PROJECTION_STATUSES:

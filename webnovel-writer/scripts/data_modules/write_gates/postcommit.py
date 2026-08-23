@@ -109,6 +109,19 @@ def run_postcommit_gate(project_root: Path, chapter: int) -> dict:
                         repair="重新运行 chapter-commit 或后续 projection retry/replay。",
                     )
                 )
+            elif status_text == "partial":
+                # P1-9b：partial 是「可接受的降级状态」，不阻断，但要在
+                # postcommit 提示语义检索缺口，让用户可主动 retry 补齐。
+                warnings.append(
+                    issue(
+                        "projection_partial",
+                        message=f"projection {writer} partial: 部分 chunk 语义向量缺失（BM25 仍可用）",
+                        path=str(commit_path),
+                        severity="warning",
+                        impact="本章部分内容无语义向量，关键词检索可用但语义检索有缺口。",
+                        repair="补跑 projections retry/replay 以补齐 embedding。",
+                    )
+                )
             elif status_text not in OK_PROJECTION_STATUSES:
                 errors.append(
                     issue(

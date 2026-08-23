@@ -206,6 +206,10 @@ class ChapterCommitService:
 
     def _writer_status(self, result: dict[str, Any]) -> str:
         if result.get("applied"):
+            # P1-9b：applied 但 partial（部分 chunk embedding 失败，仅 BM25 可用）
+            # 时透出独立状态，而非吞成 "done"，让缺口在状态层可见、可进 retry。
+            if result.get("partial"):
+                return "partial"
             return "done"
         reason = str(result.get("reason") or "").strip()
         if reason in {"not_required", "commit_rejected"}:

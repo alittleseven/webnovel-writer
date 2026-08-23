@@ -15,6 +15,7 @@ _ensure_scripts_on_path()
 
 from data_modules.chapter_commit_service import ChapterCommitService  # noqa: E402
 from data_modules.projection_log import (  # noqa: E402
+    _overall_status,
     append_projection_run,
     latest_projection_run,
     projection_log_path,
@@ -81,6 +82,35 @@ def test_projection_log_skips_bad_chapter_when_filtering(tmp_path):
 def test_projection_run_pending_detects_overall_and_writer_pending():
     assert projection_run_pending({"status": "pending", "writers": {}}) is True
     assert projection_run_pending({"writers": {"state": {"status": "pending"}}}) is True
+
+
+def test_overall_status_returns_partial_when_any_writer_partial():
+    writers = {
+        "state": {"status": "done"},
+        "vector": {"status": "partial", "partial": True, "stored": 2, "total": 3},
+    }
+    assert _overall_status(writers) == "partial"
+
+
+def test_overall_status_prioritizes_failed_over_partial():
+    writers = {
+        "vector": {"status": "partial", "partial": True},
+        "memory": {"status": "failed:timeout"},
+    }
+    assert _overall_status(writers) == "failed"
+
+
+def test_overall_status_prioritizes_pending_over_partial():
+    writers = {
+        "vector": {"status": "partial", "partial": True},
+        "memory": {"status": "pending"},
+    }
+    assert _overall_status(writers) == "pending"
+
+
+def test_overall_status_returns_done_without_partial():
+    writers = {"state": {"status": "done"}, "index": {"status": "done"}}
+    assert _overall_status(writers) == "done"
 
 
 def test_chapter_commit_service_writes_projection_log(tmp_path):

@@ -355,6 +355,13 @@ def resolve_project_phase(project_root: str | Path | None, chapter: int | None =
     if state_chapter > latest_accepted:
         warnings.append("state_projection_ahead_of_latest_accepted_commit")
 
+    # P1-9b：partial 投影（部分 embedding 失败但 BM25 可用）不阻断写下一章，
+    # 但要在 project-status 透出语义检索缺口，让用户可主动 retry 补齐。
+    if latest_commit and any(
+        str(value) == "partial" for value in (latest_commit.projection_status or {}).values()
+    ):
+        warnings.append("latest_commit_projection_partial")
+
     if has_projection_blocker(latest_commit):
         phase = PHASE_PROJECTION_FAILED
         latest_statuses = [str(value) for value in (latest_commit.projection_status or {}).values()]

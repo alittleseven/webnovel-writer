@@ -457,6 +457,18 @@ def test_build_commit_flags_state_delta_missing_old_or_new(tmp_path):
     assert any(w["code"] == "state_delta_missing_old_or_new" for w in warnings)
 
 
+def test_writer_status_returns_partial_when_applied_partial(tmp_path):
+    service = ChapterCommitService(tmp_path)
+    result = {"applied": True, "partial": True, "writer": "vector", "stored": 2, "total": 3}
+    assert service._writer_status(result) == "partial"
+
+
+def test_writer_status_returns_done_when_applied_not_partial(tmp_path):
+    service = ChapterCommitService(tmp_path)
+    result = {"applied": True, "writer": "vector", "stored": 3, "total": 3}
+    assert service._writer_status(result) == "done"
+
+
 def test_build_commit_flags_event_chapter_mismatch(tmp_path):
     service = ChapterCommitService(tmp_path)
     payload = service.build_commit(

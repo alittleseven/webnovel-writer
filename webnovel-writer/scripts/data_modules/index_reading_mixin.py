@@ -14,7 +14,15 @@ from typing import Any, Dict, List, Optional
 
 class IndexReadingMixin:
     def save_chapter_reading_power(self, meta: ChapterReadingPowerMeta):
-        """保存章节追读力元数据"""
+        """保存章节追读力元数据
+
+        P2-3：写入前做 sanity 断言——违规值不阻断写入，但追加到
+        soft_suggestions 供后续 review 关注。
+        """
+        warnings = self._validate_reading_power(meta)
+        if warnings:
+            meta.soft_suggestions = list(meta.soft_suggestions) + warnings
+
         with self._get_conn() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -39,6 +47,28 @@ class IndexReadingMixin:
                 ),
             )
             conn.commit()
+
+    @staticmethod
+    def _validate_reading_power(meta: ChapterReadingPowerMeta) -> list[str]:
+        """P2-3：追读力 sanity check——检查数值合理性。"""
+        warnings: list[str] = []
+        # debt_balance 应在合理范围（-100000~100000，负数=盈余）
+        try:
+            debt = float(meta.debt_balance or 0)
+            if abs(debt) > 100000:
+                warnings.append(f"debt_balance 异常: {debt}（超出 ±100000 范围）")
+        except (TypeError, ValueError):
+            warnings.append(f"debt_balance 非数值: {meta.debt_balance}")
+        # hook_strength 应为 strong/medium/weak
+        if meta.hook_strength and meta.hook_strength not in ("strong", "medium", "weak"):
+            warnings.append(f"hook_strength 非标准值: {meta.hook_strength}")
+        # chapter 应 > 0
+        if int(meta.chapter or 0) <= 0:
+            warnings.append(f"chapter 非正数: {meta.chapter}")
+        # override_count 应 >= 0
+        if int(meta.override_count or 0) < 0:
+            warnings.append(f"override_count 为负: {meta.override_count}")
+        return warnings
 
     def get_chapter_reading_power(self, chapter: int) -> Optional[Dict]:
         """获取章节追读力元数据"""

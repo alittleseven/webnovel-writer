@@ -184,10 +184,17 @@ class IndexEntityMixin:
                 cursor.execute("SELECT * FROM entities WHERE id = ?", (compact,))
                 row = cursor.fetchone()
                 if row:
-                    return self._row_to_dict(row, parse_json=["current_json"])
+                    result = self._row_to_dict(row, parse_json=["current_json"])
+                    # P2-3：compact-id 兜底命中标 pending 复核（命名风格不一致）
+                    result["_compact_id_fallback"] = True
+                    result["_original_query_id"] = entity_id
+                    return result
             alias_matches = self.get_entities_by_alias(compact)
             if alias_matches:
-                return alias_matches[0]
+                result = dict(alias_matches[0])
+                result["_compact_id_fallback"] = True
+                result["_original_query_id"] = entity_id
+                return result
 
         return None
 

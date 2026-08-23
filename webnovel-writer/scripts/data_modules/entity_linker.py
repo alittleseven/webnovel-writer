@@ -49,7 +49,10 @@ class EntityLinker:
         return self._index_manager.register_alias(alias, entity_id, entity_type)
 
     def lookup_alias(self, mention: str, entity_type: str = None) -> Optional[str]:
-        """查找别名对应的实体ID（返回第一个匹配，可选按类型过滤）"""
+        """查找别名对应的实体ID（返回第一个匹配，可选按类型过滤）
+
+        P2-3：无类型且多个匹配时取排序第一个，记 warning（一对多歧义未消解）。
+        """
         entries = self._index_manager.get_entities_by_alias(mention)
         if not entries:
             return None
@@ -60,6 +63,15 @@ class EntityLinker:
                     return entry.get("id")
             return None
         else:
+            if len(entries) > 1:
+                # P2-3：无类型取第一个时记 warn，提示一对多歧义未消解
+                import logging
+                logger = logging.getLogger("entity_linker")
+                logger.warning(
+                    "alias_ambiguous: mention=%r matched %d entities, took first (type filter recommended)",
+                    mention,
+                    len(entries),
+                )
             return entries[0].get("id") if entries else None
 
     def lookup_alias_all(self, mention: str) -> List[Dict]:

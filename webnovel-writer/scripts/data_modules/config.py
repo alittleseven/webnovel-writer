@@ -164,7 +164,9 @@ class DataModulesConfig:
     # ================= 并发配置 =================
     embed_concurrency: int = 64
     rerank_concurrency: int = 32
-    embed_batch_size: int = 64
+    # 百炼（dashscope）等 embedding 服务单批上限通常为 20，超出会被 400 拒绝；
+    # 默认 20 并支持 EMBED_BATCH_SIZE 环境变量覆盖（此前硬编码 64 导致 chunk>20 的章节整批失败）。
+    embed_batch_size: int = field(default_factory=lambda: int(os.getenv("EMBED_BATCH_SIZE", "20")))
 
     # ================= 超时配置 =================
     cold_start_timeout: int = 300

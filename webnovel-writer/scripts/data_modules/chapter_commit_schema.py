@@ -188,7 +188,18 @@ class AcceptedEventInput(BaseModel):
 
         payload = dict(value)
         context = info.context or {}
-        chapter = int(payload.get("chapter") or context.get("chapter") or 0)
+        raw_chapter = payload.get("chapter")
+        if raw_chapter is None or raw_chapter == "":
+            chapter = int(context.get("chapter") or 0)
+        else:
+            try:
+                chapter = int(raw_chapter)
+            except (TypeError, ValueError):
+                # P0-4b：data-agent 产出非整数章号（如 "五"/"3.5"/"xian"）时
+                # 回退到当前章，不崩溃；原始非整数章号由
+                # ChapterCommitService._extraction_warnings 基于原始事件检出为
+                # event_chapter_unparseable warning。
+                chapter = int(context.get("chapter") or 0)
         payload["chapter"] = chapter
 
         event_type = str(payload.get("event_type") or payload.get("type") or "").strip()

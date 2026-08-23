@@ -476,6 +476,48 @@ def test_build_commit_flags_event_chapter_mismatch(tmp_path):
     assert any(w["code"] == "event_chapter_mismatch" for w in warnings)
 
 
+def test_build_commit_flags_event_chapter_unparseable_not_crash(tmp_path):
+    service = ChapterCommitService(tmp_path)
+    for bad_chapter in ("五", "3.5", "xian"):
+        payload = service.build_commit(
+            chapter=3,
+            review_result={"blocking_count": 0},
+            fulfillment_result={"planned_nodes": [], "covered_nodes": [], "missed_nodes": [], "extra_nodes": []},
+            disambiguation_result={"pending": []},
+            extraction_result={
+                "state_deltas": [],
+                "entity_deltas": [],
+                "accepted_events": [
+                    {"event_id": "evt-001", "chapter": bad_chapter, "event_type": "open_loop_created", "subject": "x", "payload": {"content": "悬念"}}
+                ],
+            },
+        )
+        warnings = payload["meta"]["extraction_warnings"]
+        # 非整数章号降级为 warning，不崩溃、不阻断
+        assert any(w["code"] == "event_chapter_unparseable" for w in warnings)
+        assert payload["meta"]["status"] == "accepted"
+
+
+def test_build_commit_event_chapter_none_skips_comparison(tmp_path):
+    service = ChapterCommitService(tmp_path)
+    payload = service.build_commit(
+        chapter=3,
+        review_result={"blocking_count": 0},
+        fulfillment_result={"planned_nodes": [], "covered_nodes": [], "missed_nodes": [], "extra_nodes": []},
+        disambiguation_result={"pending": []},
+        extraction_result={
+            "state_deltas": [],
+            "entity_deltas": [],
+            "accepted_events": [
+                {"event_id": "evt-001", "event_type": "open_loop_created", "subject": "x", "payload": {"content": "悬念"}}
+            ],
+        },
+    )
+    warnings = payload["meta"]["extraction_warnings"]
+    # 缺 chapter 字段不产生章号相关 warning
+    assert not any(w["code"] in ("event_chapter_mismatch", "event_chapter_unparseable") for w in warnings)
+
+
 def test_build_commit_no_warnings_when_extraction_clean(tmp_path):
     service = ChapterCommitService(tmp_path)
     payload = service.build_commit(

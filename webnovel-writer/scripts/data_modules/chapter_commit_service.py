@@ -85,11 +85,26 @@ class ChapterCommitService:
                 )
 
         # 3. accepted_event 章号与当前章不符 —— 时间线章号应一致。
+        #    P0-4b：data-agent 产出非整数章号（如 "五"/"3.5"/"xian"）时降级为
+        #    warning 而非崩溃，避免轻校验反成新阻断点。
         for event in accepted_events:
             if not isinstance(event, dict):
                 continue
             event_chapter = event.get("chapter")
-            if event_chapter is not None and int(event_chapter) != int(chapter):
+            if event_chapter is None:
+                continue
+            try:
+                parsed_event_chapter = int(event_chapter)
+            except (TypeError, ValueError):
+                warnings.append(
+                    {
+                        "code": "event_chapter_unparseable",
+                        "event_id": str(event.get("event_id") or "").strip(),
+                        "detail": f"事件章号 {event_chapter!r} 无法解析为整数，跳过章号比对",
+                    }
+                )
+                continue
+            if parsed_event_chapter != int(chapter):
                 warnings.append(
                     {
                         "code": "event_chapter_mismatch",
@@ -126,7 +141,9 @@ class ChapterCommitService:
             chapter=chapter,
             state_deltas=extraction.state_deltas,
             entity_deltas=extraction.entity_deltas,
-            accepted_events=accepted_events,
+            # 用原始事件做章号检查：normalize 会把非整数章号回退为当前章，
+            # 用原始值才能捕获 event_chapter_unparseable / event_chapter_mismatch。
+            accepted_events=extraction.accepted_events,
         )
         return {
             "meta": {

@@ -403,6 +403,75 @@ class StateProjectionWriter:
         return strand if strand in {"quest", "fire", "constellation"} else ""
 
     def _project_total_words(self, chapter_status: dict) -> int:
+        # P2-1：优先用增量模式——读 state 缓存的 total_words，只算新提交章节增量
+        cached_total = self._load_cached_total_words()
+        if cached_total is not None:
+            return self._project_total_words_incremental(chapter_status, cached_total)
+        # 缓存不存在时回退全量重扫
+        return self._project_total_words_full(chapter_status)
+
+    def _load_cached_total_words(self) -> int | None:
+        """P2-1：读 state.json 缓存的 total_words。"""
+        try:
+            import json
+            state_path = self.project_root / ".webnovel" / "state.json"
+            if not state_path.is_file():
+                return None
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            progress = state.get("progress") if isinstance(state, dict) else {}
+            if isinstance(progress, dict):
+                total = int(progress.get("total_words") or 0)
+                return total if total > 0 else None
+        except (json.JSONDecodeError, OSError, ValueError):
+            pass
+        return None
+
+    def _project_total_words_incremental(self, chapter_status: dict, cached_total: int) -> int:
+        """P2-1：增量模式——只算字数未缓存的章节，加到缓存值上。"""
+        # 读已缓存的章号集合（从 state.json 的 chapter_word_cache 读，如果有）
+        cached_chapters = self._load_cached_word_chapters()
+        total = cached_total
+        for raw_chapter, raw_status in chapter_status.items():
+            if raw_status != "chapter_committed":
+                continue
+            chapter = self._safe_int(raw_chapter)
+            if chapter <= 0 or chapter in cached_chapters:
+                continue
+            chapter_file = find_chapter_file(self.project_root, chapter)
+            if chapter_file is None:
+                continue
+            try:
+                total += self._count_chapter_words(chapter_file.read_text(encoding="utf-8"))
+            except OSError:
+                continue
+        return total
+
+    def _load_cached_word_chapters(self) -> set[int]:
+        """P2-1：读已缓存字数的章号集合（避免重复计算）。"""
+        try:
+            import json
+            state_path = self.project_root / ".webnovel" / "state.json"
+            if not state_path.is_file():
+                return set()
+            state = json.loads(state_path.read_text(encoding="utf-8"))
+            progress = state.get("progress") if isinstance(state, dict) else {}
+            if isinstance(progress, dict):
+                cached = progress.get("word_counted_chapters")
+                if isinstance(cached, list):
+                    return {int(ch) for ch in cached if ch}
+                # 回退：用 chapter_status 中已 committed 的章号
+                chapter_status = progress.get("chapter_status") or {}
+                if isinstance(chapter_status, dict):
+                    return {
+                        int(ch) for ch, st in chapter_status.items()
+                        if st == "chapter_committed" and ch
+                    }
+        except (json.JSONDecodeError, OSError, ValueError):
+            pass
+        return set()
+
+    def _project_total_words_full(self, chapter_status: dict) -> int:
+        """全量重扫（缓存不存在时回退路径）。"""
         total = 0
         for raw_chapter, raw_status in chapter_status.items():
             if raw_status != "chapter_committed":

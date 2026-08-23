@@ -35,7 +35,7 @@ def _volume_for_chapter(project_root: Path, chapter: int) -> int:
     return volume_num_for_chapter_from_state(project_root, chapter) or 1
 
 
-def _load_latest_commit(paths: StoryContractPaths, chapter: int) -> dict[str, Any] | None:
+def _load_latest_commit(paths: StoryContractPaths, chapter: int, project_root: Path | None = None) -> dict[str, Any] | None:
     for current in range(chapter, 0, -1):
         payload = read_json_if_exists(paths.commit_json(current))
         if payload:
@@ -43,7 +43,7 @@ def _load_latest_commit(paths: StoryContractPaths, chapter: int) -> dict[str, An
     return None
 
 
-def _load_latest_accepted_commit(paths: StoryContractPaths, chapter: int) -> dict[str, Any] | None:
+def _load_latest_accepted_commit(paths: StoryContractPaths, chapter: int, project_root: Path | None = None) -> dict[str, Any] | None:
     for current in range(chapter, 0, -1):
         payload = read_json_if_exists(paths.commit_json(current))
         if payload and (payload.get("meta") or {}).get("status") == "accepted":
@@ -62,8 +62,8 @@ def load_runtime_sources(project_root: Path, chapter: int) -> RuntimeSourceSnaps
         "chapter": read_json_if_exists(paths.chapter_json(chapter)) or {},
         "review": read_json_if_exists(paths.review_json(chapter)) or {},
     }
-    latest_commit = _load_latest_commit(paths, chapter)
-    latest_accepted_commit = _load_latest_accepted_commit(paths, chapter)
+    latest_commit = _load_latest_commit(paths, chapter, project_root=project_root)
+    latest_accepted_commit = _load_latest_accepted_commit(paths, chapter, project_root=project_root)
 
     fallback_sources: list[str] = []
     for key, payload in contracts.items():

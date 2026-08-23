@@ -166,6 +166,103 @@ def test_doctor_skips_extraction_check_without_accepted_commit(tmp_path, monkeyp
     assert matches[0]["status"] == "skipped"
 
 
+def test_doctor_master_setting_missing_blocks_when_chapters_exist(tmp_path, monkeypatch):
+    """P1-7：已写多章但 MASTER_SETTING 缺失 → error（不再是 SKIPPED）。"""
+    _make_init_ready(tmp_path)
+    _make_contracts(tmp_path, chapter=1)
+    # 模拟已写多章
+    state_path = tmp_path / ".webnovel" / "state.json"
+    import json
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["progress"] = {"current_chapter": 5}
+    state_path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+    # 删除 MASTER_SETTING
+    master_path = tmp_path / ".story-system" / "MASTER_SETTING.json"
+    if master_path.exists():
+        master_path.unlink()
+    monkeypatch.setattr(doctor_module, "_python_checks", lambda: [])
+
+    report = doctor_module.build_doctor_report(tmp_path)
+
+    matches = [
+        item for item in report["checks"]
+        if "MASTER_SETTING" in str(item.get("id") or "")
+    ]
+    assert matches
+    assert matches[0]["status"] == "error"
+    assert matches[0]["severity"] == "blocker"
+
+
+def test_doctor_master_setting_missing_skipped_when_no_chapters(tmp_path, monkeypatch):
+    """P1-7：无正文时 MASTER_SETTING 缺失仍为 SKIPPED（init 阶段正常）。"""
+    _make_init_ready(tmp_path)
+    # _make_init_ready 不创建 MASTER_SETTING，本来就不存在
+    monkeypatch.setattr(doctor_module, "_python_checks", lambda: [])
+
+    report = doctor_module.build_doctor_report(tmp_path)
+
+    matches = [
+        item for item in report["checks"]
+        if "MASTER_SETTING" in str(item.get("id") or "")
+    ]
+    assert matches
+    assert matches[0]["status"] == "skipped"
+
+
+def test_doctor_flags_broken_contract_json(tmp_path, monkeypatch):
+    """P1-7：合同 JSON 损坏 → error。"""
+    _make_init_ready(tmp_path)
+    _make_contracts(tmp_path, chapter=1)
+    # 写一个损坏的 chapter 合同
+    chapter_dir = tmp_path / ".story-system" / "chapters"
+    chapter_dir.mkdir(parents=True, exist_ok=True)
+    (chapter_dir / "chapter_002.json").write_text("{broken json", encoding="utf-8")
+    monkeypatch.setattr(doctor_module, "_python_checks", lambda: [])
+
+    report = doctor_module.build_doctor_report(tmp_path)
+
+    matches = [item for item in report["checks"] if item["id"] == "json.contracts.chapters"]
+    assert matches
+    assert matches[0]["status"] == "error"
+
+
+def test_doctor_run_log_warns_when_only_write_start(tmp_path, monkeypatch):
+    """P1-6 诊断：run_last.log 只有 write-start → warning。"""
+    _make_init_ready(tmp_path)
+    log_dir = tmp_path / ".webnovel" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    (log_dir / "run_last.log").write_text(
+        '[2026-08-23] event=write-start chapter=1\n', encoding="utf-8"
+    )
+    monkeypatch.setattr(doctor_module, "_python_checks", lambda: [])
+
+    report = doctor_module.build_doctor_report(tmp_path)
+
+    matches = [item for item in report["checks"] if item["id"] == "run_log.step_coverage"]
+    assert matches
+    assert matches[0]["status"] == "warning"
+
+
+def test_doctor_run_log_ok_when_step_logs_present(tmp_path, monkeypatch):
+    """P1-6 诊断：run_last.log 含关键步骤日志 → ok。"""
+    _make_init_ready(tmp_path)
+    log_dir = tmp_path / ".webnovel" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    (log_dir / "run_last.log").write_text(
+        '[2026-08-23] event=write-start chapter=1\n'
+        '[2026-08-23] event=step-draft chapter=1 status=completed\n'
+        '[2026-08-23] event=step-review chapter=1 status=completed\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(doctor_module, "_python_checks", lambda: [])
+
+    report = doctor_module.build_doctor_report(tmp_path)
+
+    matches = [item for item in report["checks"] if item["id"] == "run_log.step_coverage"]
+    assert matches
+    assert matches[0]["status"] == "ok"
+
+
 def test_sqlite_null_embedding_count_counts_null_rows(tmp_path):
     """P1-9：vectors 表 embedding 为 NULL 的行应被统计（语义检索缺失告警）。"""
     import sqlite3

@@ -186,17 +186,34 @@ def _json_checks(project_root: Path) -> list[dict[str, Any]]:
         project_root / ".webnovel" / "state.json",
         project_root / ".story-system" / "MASTER_SETTING.json",
     ]
+
+    # P1-7：判断是否已是「写多章项目」——此时 MASTER_SETTING 缺失应升级为 error
+    state_path = project_root / ".webnovel" / "state.json"
+    has_chapters = False
+    if state_path.is_file():
+        state_payload, _ = _read_json(state_path)
+        if isinstance(state_payload, dict):
+            progress = state_payload.get("progress") or {}
+            current_chapter = int(progress.get("current_chapter") or 0)
+            has_chapters = current_chapter > 0
+
     for path in json_files:
         if not path.exists():
+            # P1-7：MASTER_SETTING 缺失时，若已写多章则升级为 error（不再是 SKIPPED）
+            is_master = path.name == "MASTER_SETTING.json"
+            status = CHECK_ERROR if (is_master and has_chapters) else CHECK_SKIPPED
+            severity = "blocker" if (is_master and has_chapters) else "info"
             checks.append(
                 _check(
                     f"json.{_rel(project_root, path)}",
-                    status=CHECK_SKIPPED,
-                    severity="info",
+                    status=status,
+                    severity=severity,
                     message=f"{_rel(project_root, path)} not present",
                     path=str(path),
                     expected="valid JSON object when present",
                     actual="missing",
+                    impact="" if not (is_master and has_chapters) else "已写多章但 MASTER_SETTING 缺失，合同体系断裂，写章/检索/续写都会受影响。",
+                    repair="" if not (is_master and has_chapters) else "运行 story-system --persist 重建 MASTER_SETTING，或从 git/backup 恢复。",
                 )
             )
             continue
@@ -229,6 +246,60 @@ def _json_checks(project_root: Path) -> list[dict[str, Any]]:
                         repair="" if isinstance(payload.get(key), dict) else "运行 webnovel.py init 到同一目录可增量补齐 schema。",
                     )
                 )
+
+    # P1-7：扩展校验合同体系 JSON 合法性（volumes/chapters/reviews）
+    checks.extend(_contract_json_checks(project_root))
+    return checks
+
+
+def _contract_json_checks(project_root: Path) -> list[dict[str, Any]]:
+    """P1-7：校验 .story-system 下合同 JSON 合法性（此前只查 MASTER_SETTING）。"""
+    checks: list[dict[str, Any]] = []
+    story_root = project_root / ".story-system"
+    contract_dirs = [
+        ("volumes", "volume_*.json"),
+        ("chapters", "chapter_*.json"),
+        ("reviews", "chapter_*.review.json"),
+    ]
+    for sub_dir, pattern in contract_dirs:
+        target_dir = story_root / sub_dir
+        if not target_dir.is_dir():
+            continue
+        files = sorted(target_dir.glob(pattern))
+        if not files:
+            continue
+        broken = []
+        for path in files:
+            _, error = _read_json(path)
+            if error:
+                broken.append({"path": _rel(project_root, path), "error": error})
+        check_id = f"json.contracts.{sub_dir}"
+        if broken:
+            checks.append(
+                _check(
+                    check_id,
+                    status=CHECK_ERROR,
+                    severity="blocker",
+                    message=f"{sub_dir}/ 下 {len(broken)} 个合同 JSON 损坏",
+                    path=str(target_dir),
+                    expected=f"{len(files)} 个合法 JSON",
+                    actual=f"broken={broken[:3]}",
+                    impact="损坏的合同会导致 story-system 解析失败，影响写章上下文与续写。",
+                    repair="用 UTF-8 修复 JSON 格式；必要时从 git/backup 恢复。",
+                )
+            )
+        else:
+            checks.append(
+                _check(
+                    check_id,
+                    status=CHECK_OK,
+                    severity="info",
+                    message=f"{sub_dir}/ 下 {len(files)} 个合同 JSON 合法",
+                    path=str(target_dir),
+                    expected=f"{len(files)} 个合法 JSON",
+                    actual=f"{len(files)} files ok",
+                )
+            )
     return checks
 
 
@@ -252,8 +323,13 @@ def _sqlite_table_count(path: Path, table: str) -> tuple[bool, int, str]:
 def _sqlite_checks(project_root: Path) -> list[dict[str, Any]]:
     checks: list[dict[str, Any]] = []
     cfg = DataModulesConfig.from_project_root(project_root)
+    # P1-7：扩展 index_db 检查范围——entities/relationships/state_changes
+    # 此前只查 chapters 表，遗漏实体图谱与状态变更完整性
     for db_path, table, check_id, impact in (
         (cfg.index_db, "chapters", "sqlite.index_db.chapters", "查询、关系图谱和 dashboard 章节统计会降级。"),
+        (cfg.index_db, "entities", "sqlite.index_db.entities", "实体查询、角色卡和 dashboard 角色统计会降级。"),
+        (cfg.index_db, "relationships", "sqlite.index_db.relationships", "关系图谱查询不可用，影响角色关系追溯。"),
+        (cfg.index_db, "state_changes", "sqlite.index_db.state_changes", "状态演进查询不可用，影响 continuity 校验。"),
         (cfg.vector_db, "vectors", "sqlite.vector_db.vectors", "RAG 向量召回不可用，会退化为关键词或空召回。"),
     ):
         exists = db_path.is_file()
@@ -567,6 +643,87 @@ def _contract_version_checks(project_root: Path) -> list[dict[str, Any]]:
     ]
 
 
+def _run_log_checks(project_root: Path) -> list[dict[str, Any]]:
+    """P1-6 诊断：检查 run_last.log 是否只有 write-start 一条（未追加关键步骤）。
+
+    P1-7：同时检查 run_last.log 是否存在（init/plan 阶段可缺失，写章后应存在）。
+    """
+    log_path = project_root / ".webnovel" / "logs" / "run_last.log"
+    if not log_path.is_file():
+        return [
+            _check(
+                "run_log.existence",
+                status=CHECK_SKIPPED,
+                severity="info",
+                message="run_last.log not present (init/plan 阶段正常)",
+                path=str(log_path),
+                expected="run_last.log after write-start",
+                actual="missing",
+            )
+        ]
+
+    try:
+        content = log_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return [
+            _check(
+                "run_log.existence",
+                status=CHECK_ERROR,
+                severity="blocker",
+                message=f"run_last.log 读取失败: {exc}",
+                path=str(log_path),
+                expected="readable text log",
+                actual=str(exc),
+            )
+        ]
+
+    lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
+    if not lines:
+        return [
+            _check(
+                "run_log.existence",
+                status=CHECK_WARNING,
+                severity="warning",
+                message="run_last.log 为空",
+                path=str(log_path),
+                expected="非空日志",
+                actual="empty",
+            )
+        ]
+
+    # P1-6：只有 write-start 一条 → 未追加关键步骤日志，崩溃后无法定位断点
+    has_write_start = any("write-start" in ln for ln in lines)
+    has_step_logs = any(
+        any(event in ln for event in ("step-env", "step-context", "step-draft", "step-review", "step-data", "step-commit"))
+        for ln in lines
+    )
+    if has_write_start and not has_step_logs and len(lines) <= 2:
+        return [
+            _check(
+                "run_log.step_coverage",
+                status=CHECK_WARNING,
+                severity="warning",
+                message="run_last.log 只有 write-start，未追加关键步骤日志",
+                path=str(log_path),
+                expected="write-start + 各关键步骤追加日志",
+                actual=f"{len(lines)} 行（仅 write-start）",
+                impact="P1-6：写章崩溃后 run_last.log 无法定位最后卡点，排障困难。",
+                repair="确认 SKILL 按规范在每个关键步骤后调用 run-log --event <step> --append。",
+            )
+        ]
+    return [
+        _check(
+            "run_log.step_coverage",
+            status=CHECK_OK,
+            severity="info",
+            message=f"run_last.log 含 {len(lines)} 行，关键步骤日志覆盖正常",
+            path=str(log_path),
+            expected="write-start + 各关键步骤追加日志",
+            actual=f"{len(lines)} 行",
+        )
+    ]
+
+
 def _python_checks() -> list[dict[str, Any]]:
     checks = [
         _check(
@@ -703,6 +860,7 @@ def build_doctor_report(
         checks.extend(_projection_log_checks(root, snapshot))
         checks.extend(_extraction_warnings_check(root, snapshot))
         checks.extend(_contract_version_checks(root))
+        checks.extend(_run_log_checks(root))
         checks.extend(_rag_checks(root))
 
     checks.extend(_python_checks())

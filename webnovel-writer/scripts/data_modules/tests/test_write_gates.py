@@ -291,3 +291,55 @@ def test_postcommit_gate_accepts_done_or_skipped_projection(tmp_path):
     report = run_write_gate(tmp_path, chapter=1, stage="postcommit")
 
     assert report["ok"] is True
+
+
+def test_precommit_gate_blocks_when_chapter_changed_after_review(tmp_path):
+    """P1-8：审查后正文被修改 → precommit 阻止提交（防止旧审查配新正文）。"""
+    from data_modules.run_ledger import record_write_step
+
+    _make_init_ready(tmp_path)
+    _make_contracts(tmp_path, chapter=1)
+    chapter_file = tmp_path / "正文" / "第0001章.md"
+    chapter_file.write_text("原始正文\n", encoding="utf-8")
+    _write_valid_artifacts(tmp_path)
+
+    # 记录 review 步骤（inputs 含 chapter_file 签名）
+    record_write_step(
+        tmp_path,
+        chapter=1,
+        step="review",
+        status="completed",
+        inputs={"chapter_file": chapter_file},
+    )
+
+    # 审查后修改正文
+    chapter_file.write_text("修改后的正文\n", encoding="utf-8")
+
+    report = run_write_gate(tmp_path, chapter=1, stage="precommit")
+
+    assert report["ok"] is False
+    assert any(item["code"] == "review_chapter_mismatch" for item in report["errors"])
+
+
+def test_precommit_gate_passes_when_chapter_unchanged_after_review(tmp_path):
+    """P1-8：正文与 review 记录一致 → precommit 不报 mismatch。"""
+    from data_modules.run_ledger import record_write_step
+
+    _make_init_ready(tmp_path)
+    _make_contracts(tmp_path, chapter=1)
+    chapter_file = tmp_path / "正文" / "第0001章.md"
+    chapter_file.write_text("正文内容\n", encoding="utf-8")
+    _write_valid_artifacts(tmp_path)
+
+    record_write_step(
+        tmp_path,
+        chapter=1,
+        step="review",
+        status="completed",
+        inputs={"chapter_file": chapter_file},
+    )
+
+    report = run_write_gate(tmp_path, chapter=1, stage="precommit")
+
+    # 不应出现 review_chapter_mismatch 错误
+    assert not any(item["code"] == "review_chapter_mismatch" for item in report.get("errors", []))

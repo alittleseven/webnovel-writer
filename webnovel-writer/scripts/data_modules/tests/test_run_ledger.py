@@ -15,7 +15,7 @@ def _ensure_scripts_on_path() -> None:
 
 _ensure_scripts_on_path()
 
-from data_modules.run_ledger import build_write_resume_plan, record_write_step  # noqa: E402
+from data_modules.run_ledger import build_write_resume_plan, record_write_step, verify_review_chapter_alignment  # noqa: E402
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -169,3 +169,69 @@ def test_write_resume_reruns_commit_after_rejected_commit(tmp_path: Path) -> Non
     assert actions["projection"] == "run"
     assert plan["resume_from"] == "commit"
     assert any(item["code"] == "chapter_commit_rejected" for item in plan["needs_user_confirmation"])
+
+
+def test_verify_review_chapter_alignment_returns_none_when_consistent(tmp_path: Path) -> None:
+    """P1-8：正文与 review 记录一致 → None（不阻断）。"""
+    _make_project(tmp_path)
+    chapter_file = tmp_path / "正文" / "第0001章.md"
+    chapter_file.write_text("正文内容\n", encoding="utf-8")
+
+    record_write_step(
+        tmp_path,
+        chapter=1,
+        step="review",
+        status="completed",
+        inputs={"chapter_file": chapter_file},
+    )
+
+    assert verify_review_chapter_alignment(tmp_path, 1, chapter_file) is None
+
+
+def test_verify_review_chapter_alignment_detects_mismatch(tmp_path: Path) -> None:
+    """P1-8：审查后正文被修改 → 返回 mismatch 详情。"""
+    _make_project(tmp_path)
+    chapter_file = tmp_path / "正文" / "第0001章.md"
+    chapter_file.write_text("原始正文\n", encoding="utf-8")
+
+    record_write_step(
+        tmp_path,
+        chapter=1,
+        step="review",
+        status="completed",
+        inputs={"chapter_file": chapter_file},
+    )
+
+    # 审查后修改正文
+    chapter_file.write_text("修改后的正文\n", encoding="utf-8")
+
+    result = verify_review_chapter_alignment(tmp_path, 1, chapter_file)
+    assert result is not None
+    assert result["code"] == "review_chapter_mismatch"
+    assert result["expected_sha256"] != result["actual"]["sha256"]
+
+
+def test_verify_review_chapter_alignment_skips_without_review_record(tmp_path: Path) -> None:
+    """P1-8：无 review 步骤记录（--minimal 等）→ None（不阻断）。"""
+    _make_project(tmp_path)
+    chapter_file = tmp_path / "正文" / "第0001章.md"
+    chapter_file.write_text("正文\n", encoding="utf-8")
+
+    assert verify_review_chapter_alignment(tmp_path, 1, chapter_file) is None
+
+
+def test_verify_review_chapter_alignment_skips_when_review_not_completed(tmp_path: Path) -> None:
+    """P1-8：review 步骤未完成 → None（不阻断）。"""
+    _make_project(tmp_path)
+    chapter_file = tmp_path / "正文" / "第0001章.md"
+    chapter_file.write_text("正文\n", encoding="utf-8")
+
+    record_write_step(
+        tmp_path,
+        chapter=1,
+        step="review",
+        status="failed",
+        inputs={"chapter_file": chapter_file},
+    )
+
+    assert verify_review_chapter_alignment(tmp_path, 1, chapter_file) is None

@@ -19,6 +19,7 @@ from ..project_phase import (
     PHASE_PROJECTION_FAILED,
     resolve_project_phase,
 )
+from ..run_ledger import verify_review_chapter_alignment
 from . import gate_report, issue
 
 
@@ -77,6 +78,21 @@ def run_precommit_gate(project_root: Path, chapter: int) -> dict:
                 repair="补齐正文内容后再提交。",
             )
         )
+
+    # P1-8：校验正文与 review 步骤记录的 sha 一致——防止旧审查结果配新正文通过
+    if chapter_file is not None and chapter_file.read_text(encoding="utf-8").strip():
+        mismatch = verify_review_chapter_alignment(project_root, chapter, chapter_file)
+        if mismatch is not None:
+            errors.append(
+                issue(
+                    "review_chapter_mismatch",
+                    message=mismatch.get("message", "正文与审查记录不一致"),
+                    path=str(chapter_file),
+                    impact="审查后正文被修改，当前审查结果可能已失效，提交会固化未经审查的事实。",
+                    repair="重跑审查步骤（/webnovel-write 的 Step 4），让审查结果与最新正文对齐后再提交。",
+                    details=mismatch,
+                )
+            )
 
     paths = _artifact_paths(project_root)
     artifact_report = validate_commit_artifact_files(

@@ -285,14 +285,23 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" run
   --format text
 ```
 
-写章过程节点（最多 6 个）：
+P1-6：`write-start` 用覆盖模式（清空旧日志开新一次写章）。此后每个关键步骤完成后必须追加 `run-log --event <step> --append`，使失败时 `run_last.log` 有最后卡点（否则崩溃后只有 write-start，无法定位断点）：
 
-1. 检查项目环境：确认项目、占位符和本章要求可用。
-2. 整理写作依据：读取章纲、最近剧情和未回收伏笔。
-3. 起草正文：根据写作任务书生成本章正文。
-4. 写作检查：审查阻断问题和高收益修改建议。
-5. 保存本章故事事实：提取本章目标完成情况、歧义和新事实。
-6. 提交备份：把本章事实入账、更新故事资料并备份。
+```bash
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" run-log \
+  --event {step_event} --append \
+  --payload-json "{\"chapter\": {chapter_num}, \"step\": \"{step_name}\", \"status\": \"{completed|failed|skipped}\"}" \
+  --format text
+```
+
+写章过程节点（最多 6 个），每个节点完成后追加 run-log（event 见括号）：
+
+1. 检查项目环境：确认项目、占位符和本章要求可用。（`step-env`）
+2. 整理写作依据：读取章纲、最近剧情和未回收伏笔。（`step-context`）
+3. 起草正文：根据写作任务书生成本章正文。（`step-draft`）
+4. 写作检查：审查阻断问题和高收益修改建议。（`step-review`）
+5. 保存本章故事事实：提取本章目标完成情况、歧义和新事实。（`step-data`）
+6. 提交备份：把本章事实入账、更新故事资料并备份。（`step-commit`）
 
 重复执行同一章时，先读取可信断点：
 

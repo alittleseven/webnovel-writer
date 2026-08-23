@@ -173,6 +173,40 @@ def _trusted_input(entry: dict[str, Any] | None, name: str, path: Path | None) -
     return _same_signature(expected, file_signature(path))
 
 
+def verify_review_chapter_alignment(
+    project_root: str | Path,
+    chapter: int,
+    chapter_file: Path | None,
+) -> dict[str, Any] | None:
+    """P1-8：校验 precommit 时的正文与 review 步骤记录的正文 sha 是否一致。
+
+    返回 None 表示一致（或无 review 记录可比对，如 --minimal 模式）；
+    返回 dict 表示不一致，含 mismatch 详情供 precommit gate 报告。
+    """
+    if chapter_file is None:
+        return None
+    root = Path(project_root)
+    ledger = load_ledger(root)
+    run = ((ledger.get("write") or {}).get(_chapter_key(int(chapter))) or {})
+    if not isinstance(run, dict):
+        return None
+    review_entry = _step_completed(run, "review")
+    if review_entry is None:
+        # 无 completed 的 review 步骤记录（--minimal 跳过审查等），不阻断
+        return None
+    if _trusted_input(review_entry, "chapter_file", chapter_file):
+        return None
+    inputs = review_entry.get("inputs") if isinstance(review_entry.get("inputs"), dict) else {}
+    expected = inputs.get("chapter_file") or {}
+    return {
+        "code": "review_chapter_mismatch",
+        "message": "正文与审查记录不一致：审查后正文被修改，当前审查结果可能已失效",
+        "expected_sha256": expected.get("sha256") if isinstance(expected, dict) else None,
+        "expected_mtime": expected.get("mtime_ns") if isinstance(expected, dict) else None,
+        "actual": file_signature(chapter_file),
+    }
+
+
 def _commit_path(project_root: Path, chapter: int) -> Path:
     return project_root / ".story-system" / "commits" / f"chapter_{chapter:03d}.commit.json"
 

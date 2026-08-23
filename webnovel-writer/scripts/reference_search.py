@@ -236,7 +236,12 @@ _DEFAULT_SEARCH_WEIGHTS = {
 
 
 def _tokenize(text: str) -> List[str]:
-    """Split text into reusable search terms without requiring a segmenter."""
+    """Split text into reusable search terms without requiring a segmenter.
+
+    P2-7：对中文 token 生成 2-gram（bigram），让"战斗描写"分解为
+    "战斗"/"斗描"/"描写"，查询"战斗"可直接命中，无需依赖子串兜底。
+    英文 token 保持原样（单词本身就是有效词元）。
+    """
     if not text:
         return []
     tokens: List[str] = []
@@ -247,8 +252,27 @@ def _tokenize(text: str) -> List[str]:
         # 过滤 don't -> t 这类单字符英文噪声，避免触发子串兜底误召回。
         if len(token) == 1 and token.isascii():
             continue
-        tokens.append(token)
+        # P2-7：中文 token 生成 bigram（长度 >= 3 时才拆，2 字词本身就是 bigram）
+        if _is_cjk(token) and len(token) >= 3:
+            tokens.extend(_bigrams(token))
+        else:
+            tokens.append(token)
     return tokens
+
+
+def _is_cjk(text: str) -> bool:
+    """判断 token 是否包含 CJK 字符（需要 bigram 分词）。"""
+    return any("\u4e00" <= ch <= "\u9fff" for ch in text)
+
+
+def _bigrams(text: str) -> List[str]:
+    """生成 2-gram 列表。如 "战斗描写" → ["战斗", "斗描", "描写"]。
+
+    2 字 token 直接返回自身（它本身就是一个 bigram）。
+    """
+    if len(text) <= 2:
+        return [text]
+    return [text[i:i + 2] for i in range(len(text) - 1)]
 
 
 def _build_doc_terms(row: Dict[str, str], search_weights: Optional[Dict[str, int]] = None) -> List[str]:
@@ -281,11 +305,14 @@ def _bm25_score(query_terms: List[str], doc_terms: List[str],
     for qt in query_terms:
         tf = tf_map.get(qt, 0)
         if tf == 0:
-            # Also check substring match (important for Chinese compound words)
-            for dt in tf_map:
-                if qt in dt or dt in qt:
-                    tf = max(tf, 1)
-                    break
+            # P2-7：收紧子串兜底——仅当查询词长度 >= 2 时才做子串匹配，
+            # 避免单字（如"金"）命中"金币/黄金/金属"等大量误召回。
+            # bigram 分词后单字查询已极少，但保留 2+ 字子串兜底作为补充。
+            if len(qt) >= 2:
+                for dt in tf_map:
+                    if len(dt) >= 2 and (qt in dt or dt in qt):
+                        tf = max(tf, 1)
+                        break
         if tf == 0:
             continue
         idf = idf_map.get(qt, 1.0) if idf_map else 1.0
@@ -305,7 +332,8 @@ def _compute_idf(query_terms: List[str], all_docs: List[List[str]]) -> Dict[str,
         df = 0
         for doc in all_docs:
             for dt in doc:
-                if qt in dt or dt in qt:
+                # P2-7：同步收紧 IDF 子串匹配——长度 >= 2 才兜底
+                if qt == dt or (len(qt) >= 2 and len(dt) >= 2 and (qt in dt or dt in qt)):
                     df += 1
                     break
         # BM25 IDF: log((N - df + 0.5) / (df + 0.5) + 1)

@@ -392,3 +392,60 @@ class TestEndToEndSmoke:
         assert result.returncode == 0, result.stderr
         data = json.loads(result.stdout)
         assert len(data["errors"]) == 0, f"CSV validation errors: {data['errors']}"
+
+
+class TestBigramTokenization:
+    """P2-7：_tokenize 引入 bigram 分词 + 收紧子串兜底。"""
+
+    def test_tokenize_generates_bigrams_for_cjk(self):
+        from reference_search import _tokenize
+        tokens = _tokenize("战斗描写技巧")
+        # "战斗描写技巧" (6 字) → bigrams: 战斗, 斗描, 描写, 写技, 技巧
+        assert "战斗" in tokens
+        assert "描写" in tokens
+        assert "技巧" in tokens
+        # 原始长 token 不应出现（已被 bigram 拆分）
+        assert "战斗描写技巧" not in tokens
+
+    def test_tokenize_keeps_short_cjk_as_is(self):
+        from reference_search import _tokenize
+        # 2 字 token 本身就是 bigram，不拆分
+        tokens = _tokenize("战斗")
+        assert tokens == ["战斗"]
+
+    def test_tokenize_keeps_english_tokens(self):
+        from reference_search import _tokenize
+        tokens = _tokenize("BM25 search")
+        assert "BM25" in tokens
+        assert "search" in tokens
+
+    def test_tokenize_filters_single_ascii_char(self):
+        from reference_search import _tokenize
+        tokens = _tokenize("a b c")
+        assert tokens == []
+
+    def test_bigrams_function(self):
+        from reference_search import _bigrams
+        assert _bigrams("战斗") == ["战斗"]
+        assert _bigrams("战斗描写") == ["战斗", "斗描", "描写"]
+        assert _bigrams("一") == ["一"]
+
+
+class TestSubstringFallbackTightened:
+    """P2-7：子串兜底收紧——单字不兜底，2+ 字才兜底。"""
+
+    def test_single_char_query_no_substring_match(self):
+        """单字查询不应通过子串兜底命中含该字的词。"""
+        from reference_search import _bm25_score
+        # doc_terms 含"金币/黄金/金属"，查询"金"不应命中
+        doc_terms = ["金币", "黄金", "金属"]
+        score = _bm25_score(["金"], doc_terms, avg_dl=3.0)
+        assert score == 0.0
+
+    def test_two_char_query_still_substring_matches(self):
+        """2 字查询仍可通过子串兜底命中。"""
+        from reference_search import _bm25_score
+        doc_terms = ["金币系统"]
+        # "金币" 是 "金币系统" 的子串，应命中
+        score = _bm25_score(["金币"], doc_terms, avg_dl=4.0)
+        assert score > 0.0

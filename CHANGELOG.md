@@ -36,6 +36,11 @@
 - 新增 `_fix_argv_mojibake` 函数：仅当「GBK 编码 → UTF-8 解码」能无损往返且结果不同于原串时才修复，纯 ASCII、正常中文、路径、参数名不受影响。
 - 新增测试：`webnovel-writer/scripts/tests/test_runtime_compat.py`（11 个用例，覆盖乱码还原、ASCII/中文/路径/混合场景不变性）。
 
+### embedding 批次超限根因修复（2026-08-23 补跑投影时发现）
+
+- `config.py` `embed_batch_size`：默认值从 `64` 改为 `20`，并支持 `EMBED_BATCH_SIZE` 环境变量覆盖（`field(default_factory=...)` 写法，与同文件 `embed_base_url` 等一致）。百炼（dashscope）embedding 接口单批上限 20，此前硬编码 64 导致 chunk 数 >20 的章节被当成单个 batch 整批 400 拒绝——这是此前反复出现 `projection_failed` / 大量 NULL embedding 的**根因**；P0-2 修复只兜底了「失败后走 BM25」，未消除「为何失败」。
+- 实测：`fantasy01` 补跑 `projections replay 1-17` 后，17 章 `vector` 投影从 12 章 `skipped` 全部转为 `done`；`doctor` 的 `embedding_null` 告警从 23 条清零。
+
 ### 验证
 
 - 新增测试：伏笔 `promise_paid_off` 闭合、BM25 召回 embedding 失败 chunk、retry 补写 events、embedding 整批失败空列表边界。

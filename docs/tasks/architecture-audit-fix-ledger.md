@@ -32,6 +32,7 @@
 - **状态**：`[x]` 已修复
 - **Commit**：`94f1d5b` + 补充修复 `338ce56`/`57cfed3`/`84c8f0b`
 - **改动**：`rag_adapter.py` `store_chunks` embedding 失败也写正文行（embedding 置 NULL）；空列表边界处理；`vector_projection_writer.py` 降级标记
+- **根因修复（P0-2c）**：`config.py` `embed_batch_size` 硬编码 64 → 改默认 20 + `EMBED_BATCH_SIZE` env 覆盖（`0851196`）。百炼单批上限 20，此前 chunk>20 章节整批 400 拒绝——这才是反复 `projection_failed`/大量 NULL embedding 的根因，此前只兜底「失败后走 BM25」未消根因
 
 ### P0-3 事件链崩溃窗口 + 修订提案空转
 - **状态**：`[x]` 已修复

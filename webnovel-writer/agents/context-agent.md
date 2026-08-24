@@ -35,6 +35,8 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" inde
 
 load-context 已含（不要重复查）：`story_contracts`（MASTER/volume/chapter/review）、`recent_summaries`、`urgent_loops`、`active_rules`、`protagonist`、`memory_pack`（追读力）、`genre_profile_excerpt`、`author_style_patterns`（/webnovel-learn 累积的作者文风修正）、`style_contract`（设定集/风格契约）。只有返回空 contracts 时才直接 Read `.story-system/*.json`。
 
+设定增强卡按需读取：如果项目存在 `设定集/增强设定/索引.md`，先读取索引，再只读取本章关键实体对应的卡片。卡片只补充机制、代价、克制和战力边界，不覆盖 Story System 合同或已确认设定；`规划设定` 与 `待确认` 不得写成已经发生的事实。目录不存在时跳过，不报错。
+
 裁决层（chapter 合同的 `reasoning` 对象）：`style_priority`、`pacing_strategy`、`genre`，必须在第 4 段消费。`chapter_focus` / `dynamic_context` 等 CSV 派生项仅作写法参考，不得覆盖章纲与 `chapter_directive.goal` 约束。
 
 ## 3. 执行流程

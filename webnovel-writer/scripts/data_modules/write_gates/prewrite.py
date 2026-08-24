@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from ..prewrite_validator import PrewriteValidator
+from ..timeline_check import check_timeline
+from . import gate_report, issue
 from ..project_phase import (
     PHASE_CHAPTER_CONTRACT_READY,
     PHASE_DRAFT_IN_PROGRESS,
@@ -13,7 +15,6 @@ from ..project_phase import (
     resolve_project_phase,
 )
 from ..story_runtime_sources import load_runtime_sources
-from . import gate_report, issue
 
 
 ALLOWED_PREWRITE_PHASES = {
@@ -99,6 +100,24 @@ def run_prewrite_gate(project_root: Path, chapter: int) -> dict[str, Any]:
             )
         )
 
+    # P0-4: programmatic timeline check
+    volume_num = 1  # default; could be inferred from chapter number in future
+    try:
+        timeline_report = check_timeline(project_root, volume_num)
+        if not timeline_report.get("ok"):
+            warnings.append(
+                issue(
+                    "timeline_check_failed",
+                    message="volume timeline check reported issues",
+                    severity="warning",
+                    impact="时间线可能存在回跳或倒计时错误，影响叙事一致性。",
+                    repair="运行 webnovel.py timeline-check --volume {N} 查看详情并修正大纲。",
+                    details=timeline_report,
+                )
+            )
+    except Exception:
+        pass  # timeline check failure should not crash the gate
+
     return gate_report(
         stage="prewrite",
         project_root=project_root,
@@ -110,5 +129,11 @@ def run_prewrite_gate(project_root: Path, chapter: int) -> dict[str, Any]:
             "phase": snapshot.to_dict(),
             "story_runtime": runtime.to_dict(),
             "prewrite_validation": validation,
+            "timeline": timeline_report if "timeline_report" in dir() else None,
         },
     )
+
+
+
+
+

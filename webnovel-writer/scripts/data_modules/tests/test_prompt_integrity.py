@@ -172,6 +172,25 @@ def test_all_references_exist(prompt_file: Path):
     assert not missing, f"{prompt_file.name}: 引用了不存在的文件 {missing}"
 
 
+def test_setting_cards_are_optional_and_status_aware():
+    """设定增强卡必须按需读取，并明确不能覆盖主链事实。"""
+    context_text = _read_text(AGENTS_DIR / "context-agent.md")
+    reviewer_text = _read_text(AGENTS_DIR / "reviewer.md")
+    plan_text = _read_text(SKILLS_DIR / "webnovel-plan" / "SKILL.md")
+    write_text = _read_text(SKILLS_DIR / "webnovel-write" / "SKILL.md")
+
+    for text in (context_text, reviewer_text, plan_text, write_text):
+        assert "设定集/增强设定/索引.md" in text
+        assert "按需" in text
+
+    for text in (context_text, plan_text, write_text):
+        assert "规划设定" in text
+        assert "待确认" in text
+
+    assert "已确认事实" in reviewer_text
+    assert "不能自行升级为正文事实" in reviewer_text
+
+
 # ---------------------------------------------------------------------------
 # 4. CLI 命令有效性
 # ---------------------------------------------------------------------------
@@ -853,4 +872,3 @@ def test_reviewer_has_no_react_meta_narrative():
     text = _read_text(AGENTS_DIR / "reviewer.md")
     assert "ReAct" not in text, "reviewer 不应出现 ReAct 字样"
     assert "思维链" not in text, "reviewer 不应保留思维链元叙述"
-

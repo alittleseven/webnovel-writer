@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -105,7 +105,7 @@ def _looks_like_direct_projection_write(command: str) -> bool:
     if _command_is_runtime_safe(lowered):
         return False
     protected_hit = any(suffix in lowered for suffix in PROTECTED_SUFFIXES)
-    if protected_hit and re.search(r"\b(>|out-file|set-content|add-content|copy-item|move-item|python|python3)\b", lowered):
+    if protected_hit and re.search(r"(?:^|\s)(>|>>|out-file|set-content|add-content|copy-item|move-item|python|python3)(?=\s|$)", lowered):
         return True
     if "chapter_commit.py" in lowered and "webnovel.py" not in lowered:
         return True
@@ -138,3 +138,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+

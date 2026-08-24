@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Style Sampler - 风格样本管理模块
@@ -11,6 +11,7 @@ Style Sampler - 风格样本管理模块
 
 import json
 import sqlite3
+from .db import connect
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -80,7 +81,7 @@ class StyleSampler:
     def _get_conn(self):
         """获取数据库连接（确保关闭，避免 Windows 下文件句柄泄漏导致无法清理临时目录）"""
         db_path = self.config.webnovel_dir / "style_samples.db"
-        conn = sqlite3.connect(str(db_path))
+        conn = connect(db_path)
         try:
             yield conn
         finally:

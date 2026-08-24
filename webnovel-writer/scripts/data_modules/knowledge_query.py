@@ -1,8 +1,9 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
 import sqlite3
+from .db import connect
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -14,7 +15,7 @@ class KnowledgeQuery:
 
     def entity_state_at_chapter(self, entity_id: str, chapter: int) -> Dict[str, Any]:
         """查询实体在指定章节时的状态（从 state_changes 反推）。"""
-        conn = sqlite3.connect(str(self._db_path))
+        conn = connect(self._db_path)
         conn.row_factory = sqlite3.Row
         try:
             rows = conn.execute(
@@ -43,7 +44,7 @@ class KnowledgeQuery:
 
     def entity_relationships_at_chapter(self, entity_id: str, chapter: int) -> Dict[str, Any]:
         """查询实体在指定章节时的所有关系。"""
-        conn = sqlite3.connect(str(self._db_path))
+        conn = connect(self._db_path)
         conn.row_factory = sqlite3.Row
         try:
             rows = conn.execute(
@@ -76,3 +77,4 @@ class KnowledgeQuery:
             }
         finally:
             conn.close()
+

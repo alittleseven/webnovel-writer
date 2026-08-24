@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 RAG Adapter - RAG 检索适配模块
@@ -29,6 +29,7 @@ import time
 from datetime import datetime
 
 from .config import get_config
+from .db import connect
 from .api_client import get_client
 from .index_manager import IndexManager
 from .query_router import QueryRouter
@@ -246,7 +247,7 @@ class RAGAdapter:
     @contextmanager
     def _get_conn(self):
         """获取数据库连接（确保关闭，避免 Windows 下文件句柄泄漏）"""
-        conn = sqlite3.connect(str(self.config.vector_db))
+        conn = connect(self.config.vector_db)
         try:
             yield conn
         finally:
@@ -1603,3 +1604,4 @@ if __name__ == "__main__":
     if sys.platform == "win32":
         enable_windows_utf8_stdio()
     main()
+

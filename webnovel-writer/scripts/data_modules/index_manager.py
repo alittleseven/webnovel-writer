@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Index Manager - 索引管理模块 (v5.4)
@@ -44,6 +44,7 @@ from contextlib import contextmanager
 from datetime import datetime
 
 from .config import get_config
+from .db import connect
 from .index_chapter_mixin import IndexChapterMixin
 from .index_entity_mixin import IndexEntityMixin
 from .index_debt_mixin import IndexDebtMixin
@@ -626,7 +627,7 @@ class IndexManager(IndexChapterMixin, IndexEntityMixin, IndexDebtMixin, IndexRea
     @contextmanager
     def _get_conn(self):
         """获取数据库连接"""
-        conn = sqlite3.connect(str(self.config.index_db))
+        conn = connect(self.config.index_db)
         conn.row_factory = sqlite3.Row
         try:
             yield conn
@@ -1409,3 +1410,4 @@ if __name__ == "__main__":
     if sys.platform == "win32":
         enable_windows_utf8_stdio()
     main()
+

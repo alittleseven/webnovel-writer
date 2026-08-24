@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterator, List
 
+from .db import connect
 from .chapter_commit_schema import normalize_accepted_events
 from .story_contracts import StoryContractPaths, read_json_if_exists, write_json
 
@@ -23,7 +24,7 @@ class EventLogStore:
         """统一 SQLite 连接管理，确保连接始终关闭。"""
         db_path = self.project_root / ".webnovel" / "index.db"
         db_path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(str(db_path))
+        conn = connect(db_path)
         if row_factory:
             conn.row_factory = sqlite3.Row
         try:
@@ -144,3 +145,5 @@ class EventLogStore:
                 ],
             )
             conn.commit()
+
+

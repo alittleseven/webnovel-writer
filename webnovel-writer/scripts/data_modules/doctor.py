@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from .config import DataModulesConfig
+from .db import connect
 from .project_phase import (
     INIT_REQUIRED_DIRS,
     INIT_REQUIRED_FILES,
@@ -307,7 +308,7 @@ def _sqlite_table_count(path: Path, table: str) -> tuple[bool, int, str]:
     if not path.is_file():
         return False, 0, "missing"
     try:
-        with sqlite3.connect(str(path)) as conn:
+        with connect(path) as conn:
             row = conn.execute(
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
                 (table,),
@@ -392,7 +393,7 @@ def _sqlite_null_embedding_count(db_path: Path) -> int | None:
     try:
         import sqlite3
 
-        with sqlite3.connect(str(db_path)) as conn:
+        with connect(db_path) as conn:
             row = conn.execute(
                 "SELECT 1 FROM sqlite_master WHERE type='table' AND name='vectors'"
             ).fetchone()
@@ -928,3 +929,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

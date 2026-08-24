@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from .commit_artifacts import extraction_list, extraction_text
+from .db import connect
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,7 @@ class VectorProjectionWriter:
             from .config import DataModulesConfig
 
             config = DataModulesConfig.from_project_root(self.project_root)
-            with sqlite3.connect(str(config.vector_db)) as conn:
+            with connect(config.vector_db) as conn:
                 row = conn.execute(
                     "SELECT COUNT(*) FROM vectors WHERE chapter = ?",
                     (chapter,),
@@ -297,3 +298,5 @@ class VectorProjectionWriter:
         except Exception as exc:
             logger.warning("vector_store_failed: %s", exc)
             return 0
+
+

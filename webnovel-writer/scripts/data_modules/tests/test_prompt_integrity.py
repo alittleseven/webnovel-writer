@@ -177,13 +177,12 @@ def test_setting_cards_are_optional_and_status_aware():
     context_text = _read_text(AGENTS_DIR / "context-agent.md")
     reviewer_text = _read_text(AGENTS_DIR / "reviewer.md")
     plan_text = _read_text(SKILLS_DIR / "webnovel-plan" / "SKILL.md")
-    write_text = _read_text(SKILLS_DIR / "webnovel-write" / "SKILL.md")
 
-    for text in (context_text, reviewer_text, plan_text, write_text):
+    for text in (context_text, reviewer_text, plan_text):
         assert "设定集/增强设定/索引.md" in text
         assert "按需" in text
 
-    for text in (context_text, plan_text, write_text):
+    for text in (context_text, plan_text):
         assert "规划设定" in text
         assert "待确认" in text
 

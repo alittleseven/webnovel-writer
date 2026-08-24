@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 from __future__ import annotations
@@ -267,9 +267,14 @@ _DIRECTIVE_LIST_FIELDS = {"cpns", "must_cover_nodes", "forbidden_zones", "key_en
 
 def _clean_plot_line(line: str) -> str:
     text = str(line or "").strip()
-    text = re.sub(r"^[\-\*•]+\s*", "", text)
-    text = re.sub(r"^\d+[\.、]\s*", "", text)
+    # P0-2: strip markdown heading hashes at line start
+    text = re.sub(r"^#{1,6}\s*", "", text)
+    # P0-2: strip list bullets AND bold markers (**)
+    text = re.sub(r"^[\-\*\u2022]+\s*", "", text)
+    text = re.sub(r"\*+", "", text)  # strip remaining ** anywhere
+    text = re.sub(r"^\d+[\.\u3001]\s*", "", text)
     return text.strip()
+
 
 
 def _append_plot_value(target: Dict[str, Any], field: str, value: str) -> None:
@@ -341,6 +346,13 @@ def parse_chapter_plot_structure(outline_text: str) -> Dict[str, Any]:
                 matched_value = match.group(1).strip()
                 break
 
+        # P0-2: bare heading/label line (no colon value) enters collection mode
+        if not matched_field:
+            for lbl, fld in _PLOT_SECTION_FIELD_MAP.items():
+                if re.match(rf"^{re.escape(lbl)}$", cleaned, re.IGNORECASE):
+                    current_field = fld
+                    break
+
         if matched_field:
             current_field = matched_field
             _append_plot_value(structure, matched_field, matched_value)
@@ -396,6 +408,19 @@ def parse_chapter_execution_directive(outline_text: str) -> Dict[str, Any]:
                 matched_value = match.group(1).strip()
                 break
 
+        # P0-2: heading line that is just a field name (no colon) enters collection mode
+        if not matched_field:
+            for label, field in _PLOT_SECTION_FIELD_MAP.items():
+                if re.match(rf"^{re.escape(label)}$", cleaned, re.IGNORECASE):
+                    current_field = field
+                    break
+            else:
+                pass
+            if current_field and not matched_field:
+                # If we just set current_field from a bare heading label,
+                # skip appending this heading line itself as a value.
+                continue
+
         if matched_field:
             current_field = matched_field
             _append_directive_value(directive, matched_field, matched_value)
@@ -432,3 +457,7 @@ def load_chapter_execution_directive(project_root: Path, chapter_num: int) -> Di
     if section is None:
         return {}
     return parse_chapter_execution_directive(section)
+
+
+
+

@@ -80,6 +80,8 @@ GENRE="$(python -X utf8 -c "import json; s=json.load(open('${PROJECT_ROOT}/.webn
 
 按需读取设定集：`设定集/世界观.md`、`设定集/力量体系.md`、`设定集/主角卡.md`、`设定集/反派设计.md`、`.webnovel/idea_bank.json`。
 
+如果项目存在 `设定集/增强设定/索引.md`，仅在本卷涉及能力、物品、资源或战力边界时读取索引及相关卡片。卡片用于补充规划约束，不得覆盖总纲、Story System 合同或已确认设定；`规划设定` 和 `待确认` 内容必须保留其状态。
+
 **跨卷状态读取**（已有已完成卷，即 `.webnovel/summaries/` 下有文件时必须执行）：
 
 ```bash

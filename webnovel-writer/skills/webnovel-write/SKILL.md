@@ -302,6 +302,9 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" run
 4. 写作检查：审查阻断问题和高收益修改建议。（`step-review`）
 5. 保存本章故事事实：提取本章目标完成情况、歧义和新事实。（`step-data`）
 6. 提交备份：把本章事实入账、更新故事资料并备份。（`step-commit`）
+> **run-ledger 步骤映射**：`step-env` 和 `step-context` 不记入 run-ledger（无对应枚举）。
+> `step-draft`→`--step draft`、`step-review`→`--step review`、`step-data`→`--step data`、
+> `step-commit` 需依次调用三次：`--step commit`、`--step projection`、`--step backup`。
 
 重复执行同一章时，先读取可信断点：
 
@@ -392,3 +395,4 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" use
 ```
 
 不写 token 统计；如需排查故障，只给日志路径或建议运行 `/webnovel-doctor`。
+

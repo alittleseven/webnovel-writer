@@ -344,6 +344,25 @@ class AtomicWriteError(Exception):
     pass
 
 
+_WIN_EXTENDED_PREFIX = "\\\\?\\"
+
+
+def _win_long_abs(path: Union[str, Path]) -> str:
+    """绝对化路径；Windows 上接近 MAX_PATH(260) 时加扩展前缀保证可用。
+
+    中文书名、深层项目目录很容易让最终路径超过 260 字符；系统未开启
+    LongPathsEnabled 时 Win32 调用会以 ENOENT 或拒绝访问失败。
+    阈值取 200：调用方还会在目录后拼接临时文件名/前后缀（约 30-40 字符），
+    必须在目录阶段就预留增长空间；短路径行为完全不变。
+    """
+    s = str(path)
+    if not s.startswith(_WIN_EXTENDED_PREFIX):
+        s = os.path.abspath(s)
+    if os.name == "nt" and len(s) >= 200 and not s.startswith(_WIN_EXTENDED_PREFIX):
+        s = _WIN_EXTENDED_PREFIX + s
+    return s
+
+
 def _replace_with_retry(
     temp_path: Union[str, Path],
     file_path: Union[str, Path],
@@ -412,7 +431,7 @@ def atomic_write_json(
     """
     file_path = Path(file_path)
     parent_dir = file_path.parent
-    parent_dir.mkdir(parents=True, exist_ok=True)
+    os.makedirs(_win_long_abs(parent_dir), exist_ok=True)
 
     # 准备 JSON 内容
     try:
@@ -428,7 +447,7 @@ def atomic_write_json(
     fd, temp_path = tempfile.mkstemp(
         suffix='.tmp',
         prefix=file_path.stem + '_',
-        dir=parent_dir
+        dir=_win_long_abs(parent_dir)
     )
 
     try:
@@ -441,27 +460,27 @@ def atomic_write_json(
         # Step 2: 获取锁（如果可用且启用）
         lock = None
         if use_lock and HAS_FILELOCK:
-            lock = FileLock(str(lock_path), timeout=10)
+            lock = FileLock(_win_long_abs(lock_path), timeout=10)
             lock.acquire()
 
         try:
             # Step 3: 备份原文件（如果存在且启用备份）
-            if backup and file_path.exists():
+            if backup and os.path.exists(_win_long_abs(file_path)):
                 try:
                     import shutil
-                    shutil.copy2(file_path, backup_path)
+                    shutil.copy2(_win_long_abs(file_path), _win_long_abs(backup_path))
                 except OSError:
                     pass  # 备份失败不阻止写入
 
             # Step 4: 原子重命名（Windows 上目标被瞬时占用会 WinError 5，带退避重试）
             try:
-                _replace_with_retry(temp_path, file_path)
+                _replace_with_retry(temp_path, _win_long_abs(file_path))
                 temp_path = None  # 标记已成功，不需要清理
             except PermissionError:
                 if os.environ.get("WEBNOVEL_TEST_RELAX_ATOMIC_REPLACE") != "1":
                     raise
                 # 测试沙箱可能允许写入但拒绝替换/删除既有文件；生产环境不启用该降级。
-                with open(file_path, "w", encoding="utf-8") as f:
+                with open(_win_long_abs(file_path), "w", encoding="utf-8") as f:
                     f.write(json_content)
                     f.flush()
                     os.fsync(f.fileno())
@@ -503,11 +522,11 @@ def read_json_safe(
     if default is None:
         default = {}
 
-    if not file_path.exists():
+    if not os.path.exists(_win_long_abs(file_path)):
         return default
 
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(_win_long_abs(file_path), 'r', encoding='utf-8') as f:
             return json.load(f)
     except (json.JSONDecodeError, OSError) as e:
         print(f"⚠️ 读取 JSON 失败 ({file_path}): {e}", file=sys.stderr)
@@ -531,13 +550,13 @@ def restore_from_backup(file_path: Union[str, Path]) -> bool:
     file_path = Path(file_path)
     backup_path = file_path.with_suffix(file_path.suffix + '.bak')
 
-    if not backup_path.exists():
+    if not os.path.exists(_win_long_abs(backup_path)):
         print(f"⚠️ 备份文件不存在: {backup_path}", file=sys.stderr)
         return False
 
     try:
         import shutil
-        shutil.copy2(backup_path, file_path)
+        shutil.copy2(_win_long_abs(backup_path), _win_long_abs(file_path))
         print(f"✅ 已从备份恢复: {file_path}")
         return True
     except OSError as e:

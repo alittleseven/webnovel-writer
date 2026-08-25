@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 import threading
 import time
@@ -71,6 +72,31 @@ def test_atomic_write_relaxed_fallback_still_writes(tmp_path, monkeypatch):
     atomic_write_json(target, {"x": 1}, use_lock=False, backup=False)
 
     assert read_json_safe(target) == {"x": 1}
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows MAX_PATH 限制场景")
+def test_atomic_write_json_beyond_max_path(tmp_path):
+    """超过 MAX_PATH(260) 的目标路径仍可原子写入/读取/备份（扩展前缀长路径保护）。
+
+    复现：pytest 长测试名 + 深层 .story-system 目录下 mkstemp 报 ENOENT，
+    根因是最终文件路径 261 字符 > 260 且系统未开启 LongPathsEnabled。
+    """
+    target_dir = tmp_path
+    while len(str(target_dir / "state.json")) < 262:
+        target_dir = target_dir / ("d" * 40)
+    target_file = target_dir / "state.json"
+    assert len(str(target_file)) > 260
+
+    atomic_write_json(target_file, {"deep": 1}, use_lock=False, backup=False)
+    assert read_json_safe(target_file) == {"deep": 1}
+
+    # 第二次写入触发备份分支：exists/copy2 也必须走长路径安全封装
+    atomic_write_json(target_file, {"deep": 2}, use_lock=False, backup=True)
+    assert read_json_safe(target_file) == {"deep": 2}
+    backup_file = target_file.with_suffix(".json.bak")
+    assert os.path.exists(security_utils._win_long_abs(backup_file))
+
+    assert not list(Path(target_dir).glob("*.tmp"))  # 成功后无临时文件残留
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows 独有的 replace 共享冲突")

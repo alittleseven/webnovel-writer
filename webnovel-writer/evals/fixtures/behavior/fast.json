@@ -154,6 +154,30 @@
       "type": "user_report_probe",
       "scenario": "review_blocking_must_handle",
       "description": "Reviewer blocking issues are reported as must-handle."
+    },
+    {
+      "id": "author_workflow_subagent_failure_visible",
+      "type": "author_workflow_probe",
+      "scenario": "subagent_failure_visible",
+      "description": "A failed subagent run is persisted and surfaced in the author report."
+    },
+    {
+      "id": "author_workflow_subagent_warning_visible",
+      "type": "author_workflow_probe",
+      "scenario": "subagent_warning_visible",
+      "description": "Completed subagent warnings and auto-handled details remain visible in the author report."
+    },
+    {
+      "id": "author_workflow_resume_boundary",
+      "type": "author_workflow_probe",
+      "scenario": "resume_boundary",
+      "description": "A changed chapter body requires confirmation before write resume."
+    },
+    {
+      "id": "author_workflow_missing_artifacts_visible",
+      "type": "author_workflow_probe",
+      "scenario": "missing_artifacts_visible",
+      "description": "Missing write artifacts remain visible as must-handle errors."
     }
   ]
 }

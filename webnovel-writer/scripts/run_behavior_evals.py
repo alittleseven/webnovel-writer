@@ -392,6 +392,101 @@ def _eval_user_report_probe(root: Path, case: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _eval_author_workflow_probe(root: Path, case: dict[str, Any]) -> dict[str, Any]:
+    """验证作者体验关键边界，不依赖真实 Claude Code 或外部 API。"""
+    scripts_dir = _plugin_root(root) / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    from data_modules.run_ledger import build_write_resume_plan, record_subagent_run, record_write_step
+    from data_modules.user_report import build_user_report, render_user_report_text
+
+    scenario = str(case.get("scenario") or "")
+    with tempfile.TemporaryDirectory() as tmp:
+        project_root = Path(tmp)
+        _make_report_project(project_root)
+        chapter_file = project_root / "正文" / "第0001章.md"
+        chapter_file.write_text("正文 v1\n", encoding="utf-8")
+        commit_path = project_root / ".story-system" / "commits" / "chapter_001.commit.json"
+
+        if scenario == "subagent_failure_visible":
+            _write_report_artifacts(project_root, chapter=1)
+            record_subagent_run(
+                project_root,
+                run_id="write-0001-review-1",
+                name="reviewer",
+                user_label="写作检查",
+                status="failed",
+                command="webnovel-write",
+                stage="write",
+                chapter=1,
+                problems=["输出不完整"],
+                needs_user_action=True,
+            )
+            report = build_user_report(project_root, stage="write", chapter=1)
+            text = render_user_report_text(report)
+            ok = (
+                report["overall_status"] == "needs_user"
+                and any(item.get("code") == "subagent_failed" for item in report["issues"]["must_handle"])
+                and "写作检查" in text
+            )
+            evidence = [json.dumps(report["subagent_runs"], ensure_ascii=False), text]
+        elif scenario == "subagent_warning_visible":
+            _write_report_artifacts(project_root, chapter=1)
+            _write_json(commit_path, _commit_payload())
+            (project_root / ".webnovel" / "backups" / "ch0001_ok").mkdir(parents=True, exist_ok=True)
+            record_subagent_run(
+                project_root,
+                run_id="write-0001-context-1",
+                name="context-agent",
+                user_label="整理写作依据",
+                status="completed",
+                command="webnovel-write",
+                stage="write",
+                chapter=1,
+                problems=["部分参考资料不可用"],
+                auto_handled=["已改用本地资料"],
+            )
+            report = build_user_report(project_root, stage="write", chapter=1)
+            text = render_user_report_text(report)
+            ok = (
+                report["overall_status"] == "partial"
+                and any(item.get("code") == "subagent_warning" for item in report["issues"]["needs_confirmation"])
+                and any(item.get("code") == "subagent_auto_handled" for item in report["issues"]["auto_handled"])
+                and "已自动处理" in text
+            )
+            evidence = [json.dumps(report["issues"], ensure_ascii=False), text]
+        elif scenario == "resume_boundary":
+            record_write_step(
+                project_root,
+                chapter=1,
+                step="draft",
+                status="completed",
+                outputs={"chapter_file": chapter_file},
+            )
+            chapter_file.write_text("正文 v2\n", encoding="utf-8")
+            plan = build_write_resume_plan(project_root, chapter=1)
+            actions = {item["step"]: item["action"] for item in plan["steps"]}
+            ok = (
+                actions.get("draft") == "run"
+                and actions.get("review") == "run"
+                and any(item.get("code") == "chapter_file_changed" for item in plan["needs_user_confirmation"])
+            )
+            evidence = [json.dumps(plan, ensure_ascii=False)]
+        elif scenario == "missing_artifacts_visible":
+            report = build_user_report(project_root, stage="write", chapter=1)
+            text = render_user_report_text(report)
+            ok = report["overall_status"] != "completed" and report["issues"]["must_handle"] and "必须处理" in text
+            evidence = [json.dumps(report["issues"], ensure_ascii=False), text]
+        else:
+            return _result(case, passed=False, reason=f"unknown author workflow scenario: {scenario}")
+    return _result(
+        case,
+        passed=bool(ok),
+        reason=f"author workflow probe {scenario} passed" if ok else f"author workflow probe {scenario} failed",
+        evidence=evidence,
+    )
+
+
 EVALUATORS = {
     "skill_frontmatter": _eval_skill_frontmatter,
     "skill_contract": _eval_skill_contract,
@@ -401,6 +496,7 @@ EVALUATORS = {
     "commit_projection_runtime": _eval_commit_projection_runtime,
     "dashboard_read_only": _eval_dashboard_read_only,
     "user_report_probe": _eval_user_report_probe,
+    "author_workflow_probe": _eval_author_workflow_probe,
 }
 
 

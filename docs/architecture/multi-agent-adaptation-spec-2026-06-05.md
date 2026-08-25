@@ -1,10 +1,11 @@
 # Webnovel Writer 多宿主与多智能体适配 Spec
 
 > 日期：2026-06-05
-> 状态：草案 v2
+> 状态：目标规格，尚未启动多宿主实现（2026-08-25 核对）
 > 基线：`master` 当前插件形态，`.claude-plugin/plugin.json` 与 marketplace 版本为 `6.1.0`
 > 来源：基于 PR #110 的 review 结论重写，修正过期的 7 Skill / hooks / doctor / runtime 状态描述
 > 定位：把 Webnovel Writer 在不破坏 Claude Code 现有体验的前提下，演进为可验证、可生成、可降级的多宿主写作插件
+> 当前状态：Claude Code 仍是唯一实际支持宿主；`adapters/`、registry、生成器和跨宿主 smoke/eval 尚未形成实现。进入条件与剩余工作见 `docs/plans/2026-08-25-status-and-pending-work.md`。
 
 ---
 

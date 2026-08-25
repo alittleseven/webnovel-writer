@@ -1,7 +1,9 @@
 # Genre Taxonomy Convergence Plan
 
 日期：2026-06-04
-状态：二次修订版
+状态：输入归一化基础已存在；taxonomy index 与全链路统一仍待完成（2026-08-25 核对）
+
+当前代码已具备 `resolve_genre()`、`_normalize_genre_key()` 和 `GENRE_INPUT_ALIASES` 等分散归一化逻辑，但尚未完成单一 taxonomy index 和所有入口统一。剩余工作以 `docs/plans/2026-08-25-status-and-pending-work.md` 为准。
 
 ## 目标
 

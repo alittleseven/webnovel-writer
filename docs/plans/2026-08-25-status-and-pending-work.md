@@ -44,16 +44,22 @@
 
 ### P0：先恢复可验证基线
 
-- `[ ]` `webnovel-writer/scripts/data_modules/tests/test_webnovel_unified_cli.py`：修复 runtime contract 集成测试失败，确保测试夹具创建完整的 `.story-system/volumes/`、`chapters/`、`reviews/` 目录，并确认测试加载的是当前 checkout。
-  - 目的：避免全量测试无法作为发布依据。
-  - 验收：全量 `python -m pytest -q --no-cov` 通过，且不依赖另一份工作区 checkout。
-- `[ ]` 版本状态统一：核对 `AGENTS.md` 的 v6.3.0 未发布描述、`plugin.json`/marketplace 的 6.2.1 和 release 文档；未决定发布版本前只登记差异，不擅自改版本号。
-  - 验收：明确当前基线版本、开发分支和发布版本，package validator 与文档口径一致。
+- `[x]` 修复 Windows 长路径导致的投影写入失败与备份瞬时占用误报（2026-08-26）。
+  - 根因一：`LongPathsEnabled=0` 时 >260 字符路径 `mkstemp`/`os.replace` 报 ENOENT/WinError 5；`security_utils.atomic_write_json` 系列已加 `_win_long_abs()` 扩展前缀保护（阈值 200 字符，预留文件名增长），新增回归测试 `test_atomic_write_json_beyond_max_path`。
+  - 根因二：本地备份目录 rename 遇杀毒/索引器瞬时占用；复用 issue #125 退避重试（`_replace_with_retry`）。
+  - 证据：commit `1e1b4ac`、`ecc24de`；全量 `python -m pytest -q --no-cov` 通过。
+  - 附带发现（环境项，非代码缺陷）：仓库曾被整树复制，陈旧 `__pycache__` 内嵌旧 checkout 源码路径并通过 mtime/size 校验，导致 traceback 指向 `tencent_opc` 且测试加载旧模块；已清理全部 `__pycache__` 与 `.coverage`。若再次出现异仓帧，优先清缓存排查。
+- `[~]` 版本状态统一（2026-08-26 登记差异）：
+  - 已核实：`.claude-plugin/marketplace.json`、`webnovel-writer/.claude-plugin/plugin.json`、README badge 均为 `6.2.1`；项目 `AGENTS.md` 记录本地改造版本为 `v6.3.0（未发布）`，即 manifest 尚未随开发分支 bump——属"未发布前保持 6.2.1"的预期状态，非数据漂移。
+  - 待作者决策后执行：发布 v6.3.0 时按发版流程同步三处版本号与 release notes；在此之前不改任何版本字段。
+  - 决策入口：`[ ]` 确定并统一发布版本号（依赖作者拍板）。
 
 ### P1：完成 v6 必要收尾，不再扩张 v6
 
-- `[ ]` 隐私出网守卫：无 `EMBED_API_KEY` 时向量投影零 HTTP 请求，并补齐文档说明。对应旧审计 Task 25。
-- `[ ]` CI 最小权限、release 输入校验和 action pin。对应旧审计 Task 28。
+- `[x]` 隐私出网守卫（2026-08-26）：无 `EMBED_API_KEY` 时向量投影在进入网络路径前直接跳过（原因 `no_api_key`），零 HTTP 请求；检索退回 BM25。
+  - 证据：`vector_projection_writer.apply()` 前置守卫；测试 `test_no_api_key_skips_without_network`（触达 `_store_chunks` 即失败）；文档新增「数据出网说明」（`docs/guides/rag-and-config.md`）与 README 提示。
+- `[x]` CI 加固（2026-08-26）：`plugin-version.yml` 顶层 `permissions: contents: read`；release 的 `workflow_dispatch.version` 增加 semver 前置校验；`softprops/action-gh-release` pin 到已验证 commit `3bb1273…`（v2.6.2）；`git ls-remote` 区分"查询失败"与"标签不存在"，查询异常时显式报错而非静默建 tag。
+  - 证据：两个 workflow YAML 通过 `yaml.safe_load` 解析；线上行为需待下次 push/release 触发验证。
 - `[ ]` 对 v6 作者体验计划的未完成项逐项核账：完整 Skill 接入、未知错误降级、自动处理说明和续跑边界；已实现项在原计划中改为 `[x]` 或在条目旁注明代码证据。
 
 ### P2：v7 Story Repo 迁移
@@ -65,6 +71,7 @@
 
 ### P2：支撑能力
 
+- `[ ]` 长路径防护收口：`security_utils` 已覆盖原子写入/读取/备份恢复，但 `run_ledger.file_signature`、dashboard 文件读取、`chapter_paths.find_chapter_file` 等触点仍走原生路径，>260 字符场景会失败；统一封装后再移除散点转换。
 - `[ ]` 题材 taxonomy：把现有 `resolve_genre()`、模板归一化和 alias 逻辑收敛到单一 taxonomy index，并补全入口测试。
 - `[ ]` 设定增强通用化：先根据 `fantasy01` 实验结果抽象 Markdown 卡片契约，再决定是否引入 Pydantic 子模型；暂不直接引入三套 JSON Schema。
 - `[ ]` `fantasy01` 验证：生成第 23 章合同后，用第 23-25 章确认设定卡确实改善能力代价、战力边界和资源设定一致性。

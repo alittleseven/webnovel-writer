@@ -44,6 +44,7 @@ if __package__ in {None, ""}:  # pragma: no cover - direct script entry
         read_projection_runs,
     )
     from data_modules.review_author_view import build_review_author_view
+    from data_modules.run_ledger import read_subagent_runs
 else:
     from .artifact_validator import (
         OK_PROJECTION_STATUSES,
@@ -70,6 +71,7 @@ else:
         read_projection_runs,
     )
     from .review_author_view import build_review_author_view
+    from .run_ledger import read_subagent_runs
 
 
 SCHEMA_VERSION = "webnovel-user-report/v1"
@@ -137,6 +139,58 @@ def _new_report(
         },
         "next_actions": [],
     }
+
+
+def _attach_subagent_runs(
+    report: dict[str, Any],
+    project_root: Path,
+    *,
+    stage: str,
+    chapter: int | None,
+) -> None:
+    runs = read_subagent_runs(
+        project_root,
+        command="webnovel-write" if stage == "write" else None,
+        stage=stage,
+        chapter=chapter,
+        latest_only=True,
+    )
+    report["subagent_runs"] = runs
+    if not runs:
+        return
+    initial_must_handle = len(report["issues"]["must_handle"])
+    initial_needs_confirmation = len(report["issues"]["needs_confirmation"])
+    for run in runs:
+        status = str(run.get("status") or "")
+        label = str(run.get("user_label") or run.get("name") or "写作助手")
+        if status == "failed" or bool(run.get("needs_user_action")):
+            _add_manual_issue(
+                report,
+                "must_handle",
+                code="subagent_failed" if status == "failed" else "subagent_needs_user_action",
+                title=f"{label}未完成",
+                reason="写作助手没有产出可直接使用的完整结果。",
+                impact="当前流程不能把这次助手结果当作已完成。",
+                next_action="重新运行对应步骤，或确认后手动处理当前结果。",
+                source=str(run.get("name") or "subagent"),
+            )
+        elif status in {"partial", "skipped"}:
+            _add_manual_issue(
+                report,
+                "needs_confirmation",
+                code="subagent_partial" if status == "partial" else "subagent_skipped",
+                title=f"{label}{'部分完成' if status == 'partial' else '已跳过'}",
+                reason="这次写作助手没有完整执行原定职责。",
+                impact="结果可以保留，但继续流程前需要确认影响。",
+                next_action="查看本次运行记录，必要时重新运行对应步骤。",
+                source=str(run.get("name") or "subagent"),
+            )
+
+    if len(report["issues"]["must_handle"]) > initial_must_handle:
+        if report["overall_status"] != STATUS_FAILED:
+            report["overall_status"] = STATUS_NEEDS_USER if report.get("files") else STATUS_FAILED
+    elif len(report["issues"]["needs_confirmation"]) > initial_needs_confirmation and report["overall_status"] == STATUS_COMPLETED:
+        report["overall_status"] = STATUS_PARTIAL
 
 
 def _add_file(
@@ -820,15 +874,19 @@ def build_user_report(
         if not chapter:
             status = build_project_status(root)
             chapter = int(status.get("target_chapter") or 0)
-        return build_write_report(root, chapter=int(chapter or 0), volume=volume)
-    if stage == "review":
+        report = build_write_report(root, chapter=int(chapter or 0), volume=volume)
+    elif stage == "review":
         if not chapter:
             status = build_project_status(root)
             chapter = int(status.get("target_chapter") or 0)
-        return build_review_report(root, chapter=int(chapter or 0), volume=volume)
-    if stage == "init":
-        return build_init_report(root, chapter=chapter, volume=volume)
-    return build_plan_report(root, chapter=chapter, volume=volume)
+        report = build_review_report(root, chapter=int(chapter or 0), volume=volume)
+    elif stage == "init":
+        report = build_init_report(root, chapter=chapter, volume=volume)
+    else:
+        report = build_plan_report(root, chapter=chapter, volume=volume)
+
+    _attach_subagent_runs(report, root, stage=stage, chapter=chapter)
+    return report
 
 
 def _format_issue_item(item: dict[str, Any]) -> str:
@@ -871,6 +929,16 @@ def render_user_report_text(report: dict[str, Any]) -> str:
             lines.append(f"- {label}：{path_part}{status_text}{suffix}")
     else:
         lines.append("- 暂无可确认的产物。")
+
+    subagent_runs = report.get("subagent_runs") or []
+    if subagent_runs:
+        lines.extend(["", "写作助手状态"])
+        for run in subagent_runs:
+            label = str(run.get("user_label") or run.get("name") or "写作助手")
+            run_status = str(run.get("status") or "unknown")
+            duration_ms = int(run.get("duration_ms") or 0)
+            duration = f"，耗时 {duration_ms}ms" if duration_ms else ""
+            lines.append(f"- {label}：{run_status}{duration}")
 
     issues = report.get("issues") or {}
     lines.extend(["", "二、过程中遇到的问题与异常耗时"])

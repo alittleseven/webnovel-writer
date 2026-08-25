@@ -158,6 +158,43 @@ def test_render_write_report_success(tmp_path: Path) -> None:
     assert "三、下一步建议" in text
 
 
+def test_render_write_report_includes_subagent_runs_and_surfaces_failure(tmp_path: Path) -> None:
+    _write_success_case(tmp_path, chapter=1)
+    ledger_path = tmp_path / ".webnovel" / "run_ledger.json"
+    _write_json(
+        ledger_path,
+        {
+            "schema_version": "webnovel-run-ledger/v1",
+            "subagent_runs": [
+                {
+                    "schema_version": "webnovel-subagent-run/v1",
+                    "run_id": "write-0001-review-1",
+                    "name": "reviewer",
+                    "user_label": "写作检查",
+                    "status": "failed",
+                    "command": "webnovel-write",
+                    "stage": "write",
+                    "chapter": 1,
+                    "problems": ["输出不完整"],
+                    "auto_handled": [],
+                    "needs_user_action": True,
+                    "duration_ms": 20,
+                    "outputs": [],
+                    "recorded_at": "2026-08-26T00:00:00+00:00",
+                }
+            ],
+        },
+    )
+
+    report = build_user_report(tmp_path, stage="write", chapter=1)
+    text = render_user_report_text(report)
+
+    assert report["subagent_runs"][0]["name"] == "reviewer"
+    assert report["overall_status"] == "needs_user"
+    assert any(item["code"] == "subagent_failed" for item in report["issues"]["must_handle"])
+    assert "写作检查" in text
+
+
 def test_render_write_report_uses_commit_snapshots_when_tmp_artifacts_are_cleaned(tmp_path: Path) -> None:
     _write_success_case(tmp_path, chapter=1)
     for path in (tmp_path / ".webnovel" / "tmp").glob("*_result.json"):

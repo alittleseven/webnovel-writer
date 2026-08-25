@@ -46,20 +46,20 @@
 | 计划区段 | 逐项核账结论 | 代码 / 测试证据 | 剩余工作 |
 |---|---|---|---|
 | Phase 0：基线审计（0.1-0.7） | `[x]` | 本计划、统一 backlog、四个主 Skill、四个 Agent、runtime 命令和测试已完成交叉盘点 | 后续新增字段或错误码需继续登记 |
-| Phase 1：四个主 Skill 最终报告（1.1-1.4，共 13 项） | `[x]` | `skills/webnovel-{init,plan,write,review}/SKILL.md` 均包含作者友好报告契约；`test_prompt_integrity.py`、18/18 behavior eval 通过 | 暂无本阶段阻断项 |
-| Phase 2：SubagentRun 返回协议（2.1-2.5，共 5 项） | `[~]` | 四个 Agent 文档均声明 `status/problems/auto_handled/needs_user_action/duration_ms/outputs`；主流程提示也要求汇总 | 当前没有独立 runtime telemetry / 持久化 `subagent_runs`，主要依赖主流程遵守提示协议 |
+| Phase 1：四个主 Skill 最终报告（1.1-1.4，共 13 项） | `[x]` | `skills/webnovel-{init,plan,write,review}/SKILL.md` 均包含作者友好报告契约；`test_prompt_integrity.py`、22/22 behavior eval 通过 | 暂无本阶段阻断项 |
+| Phase 2：SubagentRun 返回协议（2.1-2.5，共 5 项） | `[x]` | 四个 Agent 文档均声明 `status/problems/auto_handled/needs_user_action/duration_ms/outputs`；`run_ledger.py` 已持久化 `subagent_runs`，CLI 提供 `record-subagent` / `get-subagent-runs`，`user_report.py` 已消费并按状态归类 | 后续可按真实宿主运行记录补充指标，不再缺 runtime 落点 |
 | Phase 3：异常分类与耗时呈现（3.1-3.7，共 7 项） | `[x]` | `author_error_catalog.json`、`error_catalog.py`、`user_report.py` 已实现；`test_error_catalog.py`、`test_user_report.py` 通过；token 不进入作者报告 | 新增错误码时需同步错误目录 |
 | Phase 4：Runtime 报告 Helper（4.1-4.8，共 8 项） | `[x]` | `review_author_view.py` 已被 `review_pipeline.py` 调用；`user_report` CLI 已在统一入口注册；相关 helper 测试通过 | 暂无本阶段阻断项 |
 | Phase 5A：过程提示与 Prompt integrity（5A.1-5A.8） | `[x]` | 四个主 Skill 有过程节点、恢复说明、有限裁决和日志约定；Prompt integrity 通过 | 文案变更仍需保持行为级断言 |
 | Phase 5B：运行账本与续跑测试（5B.1-5B.6，共 6 项） | `[x]` | `run_ledger.py`、`run_logger.py` 已实现；六个计划测试均存在并通过，全量 pytest 通过 | 其他长路径触点的统一封装列入总 backlog |
-| Phase 5C：行为验证（5C.1-5C.8，共 8 项） | `[~]` | fast behavior eval 18/18 通过，覆盖报告分类、缺 artifact、projection retry、blocking 等 fixture | 尚缺真实 Claude Code 会话级端到端验证，以及全部交互裁决分支的自动回放 |
+| Phase 5C：行为验证（5C.1-5C.8，共 8 项） | `[~]` | fast behavior eval 已扩展为 22/22，覆盖子代理失败/警告/自动处理可见、断点边界、缺 artifact、projection retry、blocking 等本地兼容场景 | 真实 Claude Code 会话级端到端验证和全部交互裁决分支自动回放仍待宿主测试环境；当前不伪造通过 |
 | Phase 6：测试与行为验证（6.1-6.4，共 15 项） | `[x]` | Prompt integrity、helper/runtime tests、package validator、behavior eval 均已存在并通过 | 发布前仍需按环境运行真实冒烟 |
 | Phase 7：文档与 README（7.1-7.4，共 8 项） | `[x]` | README、`docs/guides/commands.md`、`docs/operations/operations.md` 已包含报告状态、恢复、日志和自动处理说明 | 文档新增命令时继续同步索引 |
 
 ### 核账结论
 
 - `[x]` 已完成：Phase 0、1、3、4、5A、5B、6、7 的计划交付物和本地验证已具备证据。
-- `[~]` 部分完成：Phase 2 的 subagent runtime 汇总，以及 Phase 5C 的真实宿主/交互行为验证。
+- `[~]` 部分完成：Phase 5C 的真实宿主/交互行为验证；Phase 2 的 runtime 汇总已完成。
 - `[ ]` 当前新增待办：只保留在统一 backlog 中，不在本计划重复维护第二套未来任务清单。
 - 总体状态为：**部分完成**。这不影响已有作者报告 helper 和静态行为验证，但不能宣称完整作者体验闭环已完成。
 

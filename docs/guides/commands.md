@@ -214,6 +214,8 @@ python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJE
 | `projections replay --from-chapter A --to-chapter B` | 按章节范围重放 projection |
 | `user-report --stage write --chapter N` | 汇总本次写章产物、问题和下一步建议 |
 | `run-ledger record-write-step --chapter N` | 记录写章关键步骤的状态、输入输出、问题和耗时 |
+| `run-ledger record-subagent --run-id <id> --name <agent> --status <status>` | 持久化一次 Agent 的状态、问题、自动处理、耗时和输出 |
+| `run-ledger get-subagent-runs [--stage <stage>] [--chapter N]` | 查询作者报告使用的 Agent 运行记录 |
 | `run-ledger write-resume --chapter N` | 根据可信断点输出续跑建议，不自动覆盖文件 |
 | `run-log --event <name>` | 写入脱敏日志，供不可恢复故障排查 |
 | `story-events --chapter N` | 查询指定章节事件 |

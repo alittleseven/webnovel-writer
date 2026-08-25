@@ -60,8 +60,8 @@
   - 证据：`vector_projection_writer.apply()` 前置守卫；测试 `test_no_api_key_skips_without_network`（触达 `_store_chunks` 即失败）；文档新增「数据出网说明」（`docs/guides/rag-and-config.md`）与 README 提示。
 - `[x]` CI 加固（2026-08-26）：`plugin-version.yml` 顶层 `permissions: contents: read`；release 的 `workflow_dispatch.version` 增加 semver 前置校验；`softprops/action-gh-release` pin 到已验证 commit `3bb1273…`（v2.6.2）；`git ls-remote` 区分"查询失败"与"标签不存在"，查询异常时显式报错而非静默建 tag。
   - 证据：两个 workflow YAML 通过 `yaml.safe_load` 解析；线上行为需待下次 push/release 触发验证。
-- `[x]` 作者体验计划逐项核账（2026-08-26）：已在 `docs/architecture/author-friendly-reporting-plan-2026-06-07.md` 增加 Phase 0-7 状态审计表。Phase 0、1、3、4、5A、5B、6、7 标记完成；Phase 2 SubagentRun runtime telemetry、Phase 5C 真实宿主/交互验证标记部分完成。
-  - 后续只继续推进上述两个 `[~]` 缺口，避免重新维护一份重复的作者体验任务列表。
+- `[x]` 作者体验计划逐项核账（2026-08-26）：已在 `docs/architecture/author-friendly-reporting-plan-2026-06-07.md` 增加 Phase 0-7 状态审计表；Phase 2 runtime telemetry 已补齐，Phase 5C 已补齐本地兼容 behavior probes。
+  - `[~]` 仍待真实 Claude Code 会话级端到端验证和完整交互裁决回放；不将本地 fixture 结果冒充宿主级通过。
 
 ### P2：v7 Story Repo 迁移
 

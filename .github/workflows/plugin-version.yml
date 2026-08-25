@@ -22,6 +22,9 @@ on:
       - 'releases/**'
       - '.github/workflows/plugin-version.yml'
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest

@@ -8,14 +8,14 @@
 
 | 类型 | 数量 | 位置 |
 |------|------|------|
-| Skills（斜杠命令） | 7 | `skills/<name>/SKILL.md` |
+| Skills（斜杠命令） | 8 | `skills/<name>/SKILL.md` |
 | Agents（子代理） | 4 | `agents/*.md` |
 | Python 工具 | 统一入口 | `scripts/webnovel.py` |
 | 题材/写法数据 | 9 CSV | `references/csv/*.csv` |
 | 题材模板 | 按题材 | `templates/genres/*.md` |
 | Dashboard 前端 | 预打包 | `dashboard/frontend/dist/`（随包发布，无需本地构建） |
 
-### 7 个 Skill
+### 8 个 Skill
 
 | 命令 | 用途 |
 |------|------|
@@ -26,6 +26,7 @@
 | `/webnovel-query` | 查询设定、角色、伏笔、运行时信息（只读） |
 | `/webnovel-learn` | 把有效写法沉淀进项目长期记忆 |
 | `/webnovel-dashboard` | 启动只读可视化面板 |
+| `/webnovel-doctor` | 体检项目文件、数据库、RAG、依赖和 Dashboard 产物 |
 
 ### 4 个 Agent
 

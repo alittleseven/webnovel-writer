@@ -1,9 +1,10 @@
 # Plugin Runtime Hardening Implementation Plan
 
 > 日期：2026-06-04
-> 状态：草案 v1
+> 状态：v6 核心能力已落地；P2 收尾与 v7 迁移保留为待办（2026-08-25 核对）
 > 对应 spec：`docs/architecture/plugin-runtime-hardening-spec-2026-06-04.md`
 > 范围：把 spec 拆成可实施、可验收、可回退的工程计划，重点说明修改范围与影响面
+> 当前实现证据：`project_phase.py`、`project_status.py`、`doctor.py`、`artifact_validator.py`、`write_gates/`、`projection_log.py`、`projections.py`、`validate_plugin_package.py`、`run_behavior_evals.py` 均已存在并有对应测试。未完成项以 `docs/plans/2026-08-25-status-and-pending-work.md` 为准。
 
 ---
 

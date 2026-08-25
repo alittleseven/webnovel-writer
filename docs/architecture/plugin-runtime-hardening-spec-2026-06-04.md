@@ -1,7 +1,7 @@
 # Plugin Runtime Hardening Spec
 
 > 日期：2026-06-04
-> 状态：草案 v1
+> 状态：v6 Runtime 基线已基本落地；本文保留为设计依据，剩余事项转入当前待办清单（2026-08-25 核对）
 > 范围：基于优秀 Claude Code 插件调研，对 `webnovel-writer` 的插件形态、运行时可靠性、workflow 编排、doctor 自检、hook 状态感知、eval 与发布治理做系统收束
 > 调研样本：`anthropics/claude-plugins-official`、`anthropics/skills`、`obra/superpowers`、`SonarSource/sonarqube-agent-plugins`、`appwrite/claude-plugin`、`aws-samples/sample-claude-code-plugins-for-startups`、社区多插件 marketplace
 
@@ -11,7 +11,7 @@
 
 `webnovel-writer` 当前已经不是普通单一 Skill，而是一个完整的长篇写作运行时插件：
 
-- 7 个 Skill 命令负责 init / plan / write / review / query / learn / dashboard。
+- 8 个 Skill 命令负责 init / plan / write / review / query / learn / dashboard / doctor。
 - 4 个 Agent 负责写前上下文、审查、事实提取、参考拆解。
 - Python CLI 与 `data_modules` 承担 Story System、commit、projection、RAG、memory、Dashboard 数据层。
 - `.story-system/` 是合同与提交主链，`.webnovel/*` 是 projection / read-model。
@@ -1055,7 +1055,7 @@ webnovel.py projections replay --from 1 --to 20 --writers state,index,summary
 
 ### 11.1 Skill Frontmatter
 
-7 个现有 Skill 的 `description` 要从单句说明升级为召回规则：
+8 个现有 Skill 的 `description` 要从单句说明升级为召回规则：
 
 - 何时使用。
 - 典型触发词。
@@ -1292,7 +1292,7 @@ WEBNOVEL_DISABLE_SESSION_HOOK=1
 | Validator | agent 产物 schema 漂移能被统一诊断 |
 | Commit | commit 事实与 projection log 可分离追溯 |
 | Replay | vector/summary 等投影失败后可单独 retry |
-| Skills | 7 个 Skill description 足够路由，长知识按需加载 |
+| Skills | 8 个 Skill description 足够路由，长知识按需加载 |
 | Agents | agent 有工具范围、输出 schema、失败状态 |
 | Evals | 每个 Skill 至少 1 个行为 eval |
 | Package | manifest / marketplace / README / version 可校验 |
@@ -1362,7 +1362,7 @@ WEBNOVEL_DISABLE_SESSION_HOOK=1
 8. 新增 `write_gates/prewrite.py`、`write_gates/precommit.py`、`write_gates/postcommit.py`，其中 prewrite 包装 `PrewriteValidator`。
 9. 修改 `webnovel-write/SKILL.md`，开始引用 `write-gate --stage prewrite/precommit/postcommit`，过程管理仍使用 Claude Code Todo。
 10. 先审计 5 个 projection writer 的幂等性，再新增 `projection_log.py`。
-11. 给 7 个 Skill 补 description。
+11. 给 8 个 Skill 补 description。
 12. 新增 `validate_plugin_package.py`，先对齐现有版本 CI，再校验 frontmatter / LICENSE / dist。
 13. 新增可选 SessionStart hook，只注入 project-status summary。
 14. 新增可选 skill-scoped PreToolUse hook，作为 best-effort 兜底提醒 / 阻断。

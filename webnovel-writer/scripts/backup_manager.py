@@ -60,7 +60,7 @@ from typing import Optional, List, Tuple
 # ============================================================================
 # 安全修复：导入安全工具函数（P1 MEDIUM）
 # ============================================================================
-from security_utils import sanitize_commit_message, is_git_available, is_git_repo, git_graceful_operation
+from security_utils import sanitize_commit_message, is_git_available, is_git_repo, git_graceful_operation, _replace_with_retry
 from project_locator import resolve_project_root
 
 # Windows 编码兼容性修复
@@ -240,7 +240,9 @@ __pycache__/
                         copied.append(f".webnovel/{rel}")
 
             # 原子提交：临时目录 rename 为最终备份目录。
-            os.replace(tmp_path, backup_path)
+            # 目录 rename 同样会遇到杀毒/索引器瞬时占用（WinError 5），
+            # 复用 issue #125 的退避重试语义，避免整次备份误报失败。
+            _replace_with_retry(tmp_path, backup_path)
 
             snapshots = sorted(
                 (path for path in backup_dir.glob("snapshot_ch*") if path.is_dir()),

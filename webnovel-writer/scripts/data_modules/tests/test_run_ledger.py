@@ -15,7 +15,13 @@ def _ensure_scripts_on_path() -> None:
 
 _ensure_scripts_on_path()
 
-from data_modules.run_ledger import build_write_resume_plan, record_write_step, verify_review_chapter_alignment  # noqa: E402
+from data_modules.run_ledger import (  # noqa: E402
+    build_write_resume_plan,
+    read_subagent_runs,
+    record_subagent_run,
+    record_write_step,
+    verify_review_chapter_alignment,
+)
 
 
 def _write_json(path: Path, payload: dict) -> None:
@@ -59,6 +65,51 @@ def test_run_ledger_records_write_step_status(tmp_path: Path) -> None:
     assert entry["status"] == "completed"
     assert entry["outputs"]["chapter_file"]["exists"] is True
     assert (tmp_path / ".webnovel" / "run_ledger.json").is_file()
+
+
+def test_run_ledger_records_and_reads_subagent_run_with_redaction(tmp_path: Path) -> None:
+    _make_project(tmp_path)
+
+    entry = record_subagent_run(
+        tmp_path,
+        run_id="write-0001-context-1",
+        name="context-agent",
+        user_label="整理写作依据",
+        status="partial",
+        command="webnovel-write",
+        stage="write",
+        chapter=1,
+        problems=["EMBED_API_KEY=secret-value"],
+        auto_handled=["使用关键词检索"],
+        needs_user_action=True,
+        duration_ms=1250,
+        outputs=["写作任务书"],
+    )
+
+    assert entry["schema_version"] == "webnovel-subagent-run/v1"
+    assert entry["status"] == "partial"
+    assert entry["problems"] == ["EMBED_API_KEY=<redacted>"]
+    assert read_subagent_runs(tmp_path, stage="write", chapter=1) == [entry]
+
+    ledger = json.loads((tmp_path / ".webnovel" / "run_ledger.json").read_text(encoding="utf-8"))
+    assert ledger["subagent_runs"][0]["run_id"] == "write-0001-context-1"
+
+
+def test_run_ledger_rejects_unknown_subagent_status(tmp_path: Path) -> None:
+    _make_project(tmp_path)
+
+    try:
+        record_subagent_run(
+            tmp_path,
+            run_id="run-1",
+            name="reviewer",
+            user_label="写作检查",
+            status="unknown",
+        )
+    except ValueError as exc:
+        assert "unknown subagent status" in str(exc)
+    else:
+        raise AssertionError("unknown subagent status must be rejected")
 
 
 def test_write_resume_skips_completed_draft_and_review(tmp_path: Path) -> None:

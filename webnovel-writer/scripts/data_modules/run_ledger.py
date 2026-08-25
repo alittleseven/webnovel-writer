@@ -33,6 +33,8 @@ else:
 SCHEMA_VERSION = "webnovel-run-ledger/v1"
 LEDGER_REL = Path(".webnovel") / "run_ledger.json"
 WRITE_STEPS = ("draft", "review", "data", "commit", "projection", "backup")
+SUBAGENT_RUN_SCHEMA_VERSION = "webnovel-subagent-run/v1"
+SUBAGENT_STATUSES = ("completed", "partial", "failed", "skipped")
 
 
 def ledger_path(project_root: str | Path) -> Path:
@@ -54,10 +56,13 @@ def _read_json(path: Path) -> dict[str, Any]:
 def load_ledger(project_root: str | Path) -> dict[str, Any]:
     payload = _read_json(ledger_path(project_root))
     if payload.get("schema_version") != SCHEMA_VERSION:
-        return {"schema_version": SCHEMA_VERSION, "write": {}}
+        return {"schema_version": SCHEMA_VERSION, "write": {}, "subagent_runs": []}
     payload.setdefault("write", {})
     if not isinstance(payload["write"], dict):
         payload["write"] = {}
+    payload.setdefault("subagent_runs", [])
+    if not isinstance(payload["subagent_runs"], list):
+        payload["subagent_runs"] = []
     return payload
 
 
@@ -137,6 +142,94 @@ def record_write_step(
     run["steps"][step] = entry
     save_ledger(root, ledger)
     return entry
+
+
+def record_subagent_run(
+    project_root: str | Path,
+    *,
+    run_id: str,
+    name: str,
+    user_label: str,
+    status: str,
+    command: str = "",
+    stage: str = "",
+    chapter: int | None = None,
+    volume: int | None = None,
+    problems: list[str] | None = None,
+    auto_handled: list[str] | None = None,
+    needs_user_action: bool = False,
+    duration_ms: int = 0,
+    outputs: list[str] | None = None,
+) -> dict[str, Any]:
+    """Persist one author-facing subagent result without changing write-step state."""
+    normalized_status = str(status or "").strip()
+    if normalized_status not in SUBAGENT_STATUSES:
+        raise ValueError(f"unknown subagent status: {normalized_status}")
+    if not str(run_id or "").strip():
+        raise ValueError("subagent run_id is required")
+    if not str(name or "").strip():
+        raise ValueError("subagent name is required")
+
+    entry: dict[str, Any] = {
+        "schema_version": SUBAGENT_RUN_SCHEMA_VERSION,
+        "run_id": str(run_id),
+        "name": str(name),
+        "user_label": str(user_label or name),
+        "status": normalized_status,
+        "command": str(command or ""),
+        "stage": str(stage or ""),
+        "chapter": int(chapter) if chapter is not None else None,
+        "volume": int(volume) if volume is not None else None,
+        "problems": list(problems or []),
+        "auto_handled": list(auto_handled or []),
+        "needs_user_action": bool(needs_user_action),
+        "duration_ms": max(0, int(duration_ms or 0)),
+        "outputs": [str(item) for item in (outputs or [])],
+        "recorded_at": _now_iso(),
+    }
+    try:
+        from .run_logger import redact_payload
+    except ImportError:  # pragma: no cover - direct script entry
+        from data_modules.run_logger import redact_payload
+    entry = redact_payload(entry)
+
+    root = Path(project_root)
+    ledger = load_ledger(root)
+    runs = ledger["subagent_runs"]
+    runs[:] = [item for item in runs if not (isinstance(item, dict) and item.get("run_id") == run_id)]
+    runs.append(entry)
+    save_ledger(root, ledger)
+    return entry
+
+
+def read_subagent_runs(
+    project_root: str | Path,
+    *,
+    command: str | None = None,
+    stage: str | None = None,
+    chapter: int | None = None,
+    latest_only: bool = False,
+) -> list[dict[str, Any]]:
+    """Read persisted subagent records, optionally scoped to one author workflow."""
+    ledger = load_ledger(project_root)
+    result: list[dict[str, Any]] = []
+    for item in ledger.get("subagent_runs") or []:
+        if not isinstance(item, dict):
+            continue
+        if command is not None and item.get("command") != command:
+            continue
+        if stage is not None and item.get("stage") != stage:
+            continue
+        if chapter is not None and item.get("chapter") != int(chapter):
+            continue
+        result.append(dict(item))
+    if not latest_only:
+        return result
+
+    latest: dict[str, dict[str, Any]] = {}
+    for item in result:
+        latest[str(item.get("name") or item.get("run_id"))] = item
+    return list(latest.values())
 
 
 def _same_signature(expected: dict[str, Any] | None, current: dict[str, Any]) -> bool:

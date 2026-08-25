@@ -1,0 +1,94 @@
+# Webnovel Writer 当前状态与待完成清单
+
+> 核对日期：2026-08-25
+> 适用范围：`C:\lgq\ai-workspace\projects\claude-plugins\webnovel-writer`
+> 状态依据：当前代码、测试输出、Git 提交记录；方案文档只作为设计意图和历史记录。
+
+## 状态规则
+
+| 标记 | 含义 |
+|---|---|
+| `[x]` | 已实现，并有代码与测试/可复现命令证据 |
+| `[~]` | 部分实现，剩余范围已明确 |
+| `[ ]` | 尚未实现，或没有足够证据证明已实现 |
+| `[blocked]` | 因明确外部条件暂时无法推进 |
+| `[superseded]` | 被后续架构或计划取代，不再按原方案实施 |
+
+## 已完成事项
+
+### v6 Runtime 基线
+
+- `[x]` 统一 CLI 入口、项目阶段推导和短状态：`scripts/webnovel.py`、`project_phase.py`、`project_status.py`。
+- `[x]` 阶段感知体检：`doctor.py`，覆盖项目文件、合同、SQLite、RAG、Python 依赖和 Dashboard 产物。
+- `[x]` 三道写作闸门：`write_gates/prewrite.py`、`precommit.py`、`postcommit.py`。
+- `[x]` Agent 产物校验：`artifact_validator.py` 及对应测试。
+- `[x]` Story System 合同、章节提交和事件审计主链：`.story-system/` 相关 runtime 已存在。
+- `[x]` projection retry/replay、projection log、memory correction、contract migration 等 v6 运维能力已存在。
+- `[x]` P0/P1 审计项按 [审计修复台账](../tasks/architecture-audit-fix-ledger.md) 已标记完成；P2 剩余项不应再误标为已完成。
+
+### 作者体验与验证
+
+- `[x]` 作者术语、错误目录、审查作者视图、统一用户报告和运行账本 runtime 已存在：`author_glossary.py`、`error_catalog.py`、`review_author_view.py`、`user_report.py`、`run_ledger.py`、`run_logger.py`。
+- `[x]` 插件包校验通过：`python -X utf8 webnovel-writer/scripts/validate_plugin_package.py --format json`。
+- `[x]` 快速行为评估通过：`run_behavior_evals.py`，当前结果为 18/18。
+- `[x]` `run_ledger.py` 与 Prompt integrity 相关测试通过。
+- `[x]` Dashboard FastAPI 后端、React/Vite 源码和预构建 `dist/` 已存在。
+
+### 设定增强实验
+
+- `[x]` `fantasy01` 已建立 Markdown 设定卡实验目录，包含能力、物品、资源和战力锚点卡。
+- `[x]` 插件 `context-agent`、`reviewer`、`webnovel-plan` 已加入设定卡按需读取规则。
+- `[~]` 设定卡实验尚未完成第 23-25 章效果验证，不能据此宣称通用设定 Schema 已完成。
+
+## 当前待完成事项
+
+### P0：先恢复可验证基线
+
+- `[ ]` `webnovel-writer/scripts/data_modules/tests/test_webnovel_unified_cli.py`：修复 runtime contract 集成测试失败，确保测试夹具创建完整的 `.story-system/volumes/`、`chapters/`、`reviews/` 目录，并确认测试加载的是当前 checkout。
+  - 目的：避免全量测试无法作为发布依据。
+  - 验收：全量 `python -m pytest -q --no-cov` 通过，且不依赖另一份工作区 checkout。
+- `[ ]` 版本状态统一：核对 `AGENTS.md` 的 v6.3.0 未发布描述、`plugin.json`/marketplace 的 6.2.1 和 release 文档；未决定发布版本前只登记差异，不擅自改版本号。
+  - 验收：明确当前基线版本、开发分支和发布版本，package validator 与文档口径一致。
+
+### P1：完成 v6 必要收尾，不再扩张 v6
+
+- `[ ]` 隐私出网守卫：无 `EMBED_API_KEY` 时向量投影零 HTTP 请求，并补齐文档说明。对应旧审计 Task 25。
+- `[ ]` CI 最小权限、release 输入校验和 action pin。对应旧审计 Task 28。
+- `[ ]` 对 v6 作者体验计划的未完成项逐项核账：完整 Skill 接入、未知错误降级、自动处理说明和续跑边界；已实现项在原计划中改为 `[x]` 或在条目旁注明代码证据。
+
+### P2：v7 Story Repo 迁移
+
+- `[ ]` 实现 v6 → v7 只读迁移器：生成 `book.yaml`、`定稿/`、`大纲/`、`文风/` 和初始迁移提交，原 v6 数据保持可回退。
+- `[ ]` 实现 `.cache/index.db` 的全量重建，并验证删除缓存后查询仍可用。
+- `[ ]` 以 `fantasy01` 第 23 章做第一条垂直切片：决策卡 → 上下文包 → 草稿 → 机检 → 作者验收 → settle → Git commit。
+- `[ ]` 明确 v6/v7 双格式期间的唯一写入路径，禁止同一章节双写。
+
+### P2：支撑能力
+
+- `[ ]` 题材 taxonomy：把现有 `resolve_genre()`、模板归一化和 alias 逻辑收敛到单一 taxonomy index，并补全入口测试。
+- `[ ]` 设定增强通用化：先根据 `fantasy01` 实验结果抽象 Markdown 卡片契约，再决定是否引入 Pydantic 子模型；暂不直接引入三套 JSON Schema。
+- `[ ]` `fantasy01` 验证：生成第 23 章合同后，用第 23-25 章确认设定卡确实改善能力代价、战力边界和资源设定一致性。
+- `[ ]` 上下文减负收尾：清理已迁移的死 reference、复核 loading map，并用行为契约替代纯文案断言。
+- `[ ]` 多宿主适配：仅在 v7 垂直切片稳定后，先选择一个宿主建立 adapter、support.md、生成器和 smoke test；不同时铺开多个宿主。
+
+### 明确不再按原计划推进
+
+- `[superseded]` `docs/superpowers/plans/2026-06-10-audit-fix-plan.md` 中已在文件顶部声明作废的 Task 8-24、26-27、29-34：目标属于 v7 将删除或重构的 v6 模块，不再按原步骤修缮。
+- `[superseded]` 把 Graphiti/Neo4j、Letta、MIRIX 作为当前事实主库：仅保留研究参考，不引入第二事实源。
+- `[superseded]` 直接重写全部 v6 代码：改用 v6 稳定收尾 + v7 绞杀式迁移。
+
+## 执行顺序
+
+1. 修复并确认全量测试基线，统一版本状态。
+2. 完成隐私出网和 CI 这两个 v6 必要收尾项。
+3. 做 `fantasy01` 第 23-25 章设定卡实验验证。
+4. 实现 v7 迁移器和第一条垂直切片。
+5. 再推进 taxonomy、上下文减负、设定增强通用化和单宿主 adapter。
+
+## 每项完成时必须留下的证据
+
+- 代码路径或文档路径。
+- 相关测试命令及结果。
+- 若改变架构，注明影响的 v6/v7 不变量。
+- 对应清单条目状态和完成日期。
+- 一个独立 Git commit；未验证不得标 `[x]`。

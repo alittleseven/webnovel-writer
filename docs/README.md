@@ -24,6 +24,10 @@
 - [`operations/operations.md`](./operations/operations.md)：项目目录结构、运维命令、备份恢复
 - [`operations/plugin-release.md`](./operations/plugin-release.md)：插件发版流程与版本同步
 
+### 项目状态
+
+- [`plans/2026-08-25-status-and-pending-work.md`](./plans/2026-08-25-status-and-pending-work.md)：代码、测试与方案文档同步后的当前状态和唯一待完成清单
+
 ### 记忆系统
 
 - [`memory/long-term-memory-architecture-v2.md`](./memory/long-term-memory-architecture-v2.md)：长期记忆架构说明

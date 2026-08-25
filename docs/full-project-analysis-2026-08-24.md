@@ -94,7 +94,7 @@ webnovel-writer/
     ├── hooks/
     │   ├── hooks.json                # PreToolUse/SessionStart 等注册
     │   └── guard_runtime_write.py    # 运行时写守卫
-    ├── skills/                       # 7 个 SKILL.md 工作流
+    ├── skills/                       # 8 个 SKILL.md 工作流
     ├── agents/                       # 4 个 subagent 定义 + evals 夹具
     ├── references/                   # 共享参考层（genre-profiles、CSV 9 张表、
     │                                 #   taxonomy、shared/、index/ 导航图）

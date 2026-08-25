@@ -1,12 +1,13 @@
 # 写作流程上下文减负重构 Plan
 
 > 日期：2026-06-05
-> 状态：草案 v3
+> 状态：核心原则已落地；完整 reference 清理与全链路收尾待完成（2026-08-25 核对）
 > 范围：重构 `skills/`、`agents/` 与 `references/` 的提示词与读取方式，减少主 agent 不必要上下文，降低 token 消耗
 > 核心原则：先保住端到端流程，再压缩提示词；Skill 只写调度合同，Agent 自带专业流程，Runtime 负责硬校验
 > 裁剪总纲：所有保留 / 下沉 / 删除决策由第 4 节四条裁剪判据（职责、token、噪音、读取方式）推导，不靠逐条拍清单
 > v3 变更：① 新增第 4 节裁剪判据；② 第 5 节不可删清单收敛为跨层红线；③ 第 6 节纳入 references 与读取方式优化（以 reference-loading-map 为基线）；④ 第 12 节验收从文案级断言改为行为 / 契约级；⑤ 明确宿主固定为 Claude Code，工具能力以官方 docs + 本机 Claude Code 版本 + 插件注册名为准
 > 工具能力基线：本 plan 宿主固定为 Claude Code；默认使用本轮涉及的 Claude Code 内置工具（`Read` offset/limit、`Grep`、`Glob`、`Agent`、`Skill`、`AskUserQuestion`、`Write`、`Edit`、`WebSearch`、`WebFetch`）和跨平台 Bash；不建议使用 PowerShell；subagent / Skill 行为按官方 docs 固化，再复核本插件注册名
+> 状态说明：当前 Skill/Agent 已采用 runtime gate、按需 reference、Agent 契约和行为测试；尚未完成的提示词清理、reference 清理和全量行为核账以 `docs/plans/2026-08-25-status-and-pending-work.md` 为准。
 
 ---
 

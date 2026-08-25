@@ -1,10 +1,11 @@
 # 作者友好报告与异常可见性改造 Plan
 
 > 日期：2026-06-07
-> 状态：草案 v2 · 已对齐 `docs/superpowers/specs/2026-06-07-author-friendly-experience-design.md`
+> 状态：核心 runtime 已落地；跨 Skill 全量收尾仍待完成（2026-08-25 核对）
 > 范围：承接 spec 的「作者外壳 / 作者界面层」七组件，统一 `init / plan / write / review` 的最终汇报、subagent 返回协议、错误目录、审查作者视图、下一步建议、异常分类、耗时呈现与作者友好术语；先取消 token 统计
 > 核心原则：问题不静默、自动处理要说明、技术细节默认隐藏、最终报告面向作者而不是工程日志；工程内核不动
 > 实施方式：先用 Skill / Agent 契约固定行为，再用 runtime helper 收敛格式，避免只靠提示词导致输出漂移
+> 状态说明：`author_glossary.py`、`error_catalog.py`、`review_author_view.py`、`user_report.py`、`run_ledger.py`、`run_logger.py` 与相关测试已存在；本文原有未勾选项保留为历史施工细目，当前剩余项以 `docs/plans/2026-08-25-status-and-pending-work.md` 为准。
 
 ---
 

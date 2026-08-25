@@ -24,6 +24,14 @@ class VectorProjectionWriter:
         if commit_payload["meta"]["status"] != "accepted":
             return {"applied": False, "writer": "vector", "reason": "commit_rejected"}
 
+        # 隐私守卫（审计 Task 25）：未显式配置 embedding key 时绝不发出任何
+        # 网络请求；向量投影整体跳过，检索自动退回 BM25 关键词索引。
+        from .config import DataModulesConfig
+
+        if not DataModulesConfig.from_project_root(self.project_root).embed_api_key:
+            logger.info("vector projection skipped: EMBED_API_KEY not configured")
+            return {"applied": False, "writer": "vector", "reason": "no_api_key"}
+
         chunks = self._collect_chunks(commit_payload)
         if not chunks:
             return {"applied": False, "writer": "vector", "reason": "no_chunks"}

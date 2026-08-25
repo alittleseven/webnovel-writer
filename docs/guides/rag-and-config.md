@@ -52,3 +52,18 @@ RERANK_API_KEY=your_rerank_api_key
 - 未配置 Embedding Key 时，语义检索会自动回退到 BM25（仍可正常使用，但效果弱于向量检索）。
 - 推荐每本书单独配置 `${PROJECT_ROOT}/.env`，避免多项目之间串配置。
 - Embedding 和 Rerank 的模型可以替换为任何兼容 OpenAI 格式的 API。
+
+## 数据出网说明
+
+本插件默认完全本地运行；只有在你**显式配置了对应 API Key** 之后，才会发生网络请求：
+
+| 场景 | 触发条件 | 发送内容 | 默认端点 |
+|------|----------|----------|----------|
+| 向量投影 / 语义检索 | `.env` 中配置了 `EMBED_API_KEY` | 章节摘要、场景与事件文本（切分后的 chunk） | `EMBED_BASE_URL`（默认 ModelScope） |
+| 检索结果重排 | 配置了 `RERANK_API_KEY` | 查询词 + 候选 chunk 文本 | `RERANK_BASE_URL`（默认 Jina AI） |
+
+如何关闭：
+
+- 不填写 `EMBED_API_KEY`：写章提交时向量投影直接跳过（原因 `no_api_key`），不会发出任何 HTTP 请求；检索自动退回 BM25 关键词索引。
+- 不填写 `RERANK_API_KEY`：仅跳过重排环节，不影响本地检索。
+- 将 `*_BASE_URL` 指向自托管兼容端点，可以把出网范围收敛到你自己的服务。

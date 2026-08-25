@@ -127,6 +127,41 @@ def test_rejected_commit_returns_not_applied():
     assert result["applied"] is False
 
 
+def test_no_api_key_skips_without_network(monkeypatch, tmp_path):
+    """隐私守卫（审计 Task 25）：未配置 EMBED_API_KEY 时向量投影直接跳过，
+    不构造 RAGAdapter、不发出任何 HTTP 请求。"""
+    from data_modules import config as config_module
+
+    class _StubConfig:
+        embed_api_key = ""
+
+    monkeypatch.delenv("EMBED_API_KEY", raising=False)
+    monkeypatch.setattr(
+        config_module.DataModulesConfig,
+        "from_project_root",
+        staticmethod(lambda root: _StubConfig()),
+    )
+
+    writer = VectorProjectionWriter(tmp_path)
+
+    def _explode(chunks):
+        raise AssertionError("network path must not be reached without api key")
+
+    monkeypatch.setattr(writer, "_store_chunks", _explode)
+
+    result = writer.apply(
+        {
+            "meta": {"status": "accepted", "chapter": 47},
+            "summary_text": "摘要",
+            "accepted_events": [],
+            "entity_deltas": [],
+        }
+    )
+
+    assert result["applied"] is False
+    assert result["reason"] == "no_api_key"
+
+
 def test_store_zero_for_required_chunks_is_error(monkeypatch, tmp_path):
     writer = VectorProjectionWriter(tmp_path)
     monkeypatch.setattr(writer, "_store_chunks", lambda chunks: 0)

@@ -128,7 +128,7 @@ RERANK_MODEL=jina-reranker-v3
 RERANK_API_KEY=your_rerank_api_key
 ```
 
-没填 Embedding Key 也能用——系统会自动退回 BM25 关键词检索，只是语义召回会弱一些。Embedding 和 Rerank 都可以换成任何兼容 OpenAI 格式的接口。
+没填 Embedding Key 也能用——系统会自动退回 BM25 关键词检索，且不会发出任何网络请求（向量投影跳过，原因 `no_api_key`）；Embedding 和 Rerank 都可以换成任何兼容 OpenAI 格式的接口。数据出网范围详见 [RAG 与配置](docs/guides/rag-and-config.md) 的「数据出网说明」。
 
 ### 5. 开始规划和写作
 

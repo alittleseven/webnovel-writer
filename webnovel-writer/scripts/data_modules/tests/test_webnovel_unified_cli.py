@@ -477,6 +477,48 @@ def test_run_ledger_cli_records_and_reports_resume(monkeypatch, tmp_path, capsys
     assert resume["steps"][0]["action"] == "skip"
 
 
+def test_subagent_run_cli_records_and_reads_status(monkeypatch, tmp_path, capsys):
+    module = _load_webnovel_module()
+    project_root = tmp_path / "book"
+    _make_cli_init_ready_project(project_root)
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "webnovel",
+            "--project-root",
+            str(project_root),
+            "run-ledger",
+            "record-subagent",
+            "--run-id",
+            "write-0001-context-1",
+            "--name",
+            "context-agent",
+            "--user-label",
+            "整理写作依据",
+            "--status",
+            "completed",
+            "--stage",
+            "write",
+            "--chapter",
+            "1",
+            "--outputs-json",
+            json.dumps(["任务书"], ensure_ascii=False),
+            "--format",
+            "json",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        module.main()
+
+    entry = json.loads(capsys.readouterr().out)
+    assert int(exc.value.code or 0) == 0
+    assert entry["name"] == "context-agent"
+    assert entry["status"] == "completed"
+
+
 def test_run_log_cli_redacts_sensitive_payload(monkeypatch, tmp_path, capsys):
     module = _load_webnovel_module()
     project_root = tmp_path / "book"

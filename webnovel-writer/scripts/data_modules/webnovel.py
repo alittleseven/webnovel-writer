@@ -316,6 +316,8 @@ def cmd_run_ledger(args: argparse.Namespace) -> int:
     from .run_ledger import (
         build_write_resume_plan,
         format_resume_plan,
+        read_subagent_runs,
+        record_subagent_run,
         record_write_step,
     )
 
@@ -351,6 +353,52 @@ def cmd_run_ledger(args: argparse.Namespace) -> int:
             print(json.dumps(entry, ensure_ascii=False, indent=2))
         else:
             print(f"{entry['step']}: {entry['status']}")
+        return 0
+    if args.ledger_action == "record-subagent":
+        try:
+            problems = json.loads(args.problems_json)
+            auto_handled = json.loads(args.auto_handled_json)
+            outputs = json.loads(args.outputs_json)
+        except json.JSONDecodeError as exc:
+            print(f"subagent JSON 参数不合法: {exc}", file=sys.stderr)
+            return 2
+        if not isinstance(problems, list) or not isinstance(auto_handled, list) or not isinstance(outputs, list):
+            print("problems-json / auto-handled-json / outputs-json 必须是 JSON list", file=sys.stderr)
+            return 2
+        entry = record_subagent_run(
+            root,
+            run_id=args.run_id,
+            name=args.name,
+            user_label=args.user_label,
+            status=args.status,
+            command=args.command,
+            stage=args.stage,
+            chapter=args.chapter,
+            volume=args.volume,
+            problems=[str(item) for item in problems],
+            auto_handled=[str(item) for item in auto_handled],
+            needs_user_action=args.needs_user_action,
+            duration_ms=args.duration_ms,
+            outputs=[str(item) for item in outputs],
+        )
+        if args.format == "json":
+            print(json.dumps(entry, ensure_ascii=False, indent=2))
+        else:
+            print(f"{entry['name']}: {entry['status']}")
+        return 0
+    if args.ledger_action == "get-subagent-runs":
+        entries = read_subagent_runs(
+            root,
+            command=args.command or None,
+            stage=args.stage or None,
+            chapter=args.chapter,
+            latest_only=args.latest_only,
+        )
+        if args.format == "json":
+            print(json.dumps(entries, ensure_ascii=False, indent=2))
+        else:
+            for entry in entries:
+                print(f"{entry.get('name')}: {entry.get('status')}")
         return 0
     if args.ledger_action == "write-resume":
         report = build_write_resume_plan(
@@ -494,6 +542,29 @@ def main() -> None:
     p_record_write_step.add_argument("--duration-ms", type=int, default=0)
     p_record_write_step.add_argument("--format", choices=["json", "text"], default="json", help="输出格式")
     p_record_write_step.set_defaults(func=cmd_run_ledger)
+    p_record_subagent = run_ledger_sub.add_parser("record-subagent", help="记录子代理运行结果")
+    p_record_subagent.add_argument("--run-id", required=True)
+    p_record_subagent.add_argument("--name", required=True)
+    p_record_subagent.add_argument("--user-label", default="")
+    p_record_subagent.add_argument("--status", choices=["completed", "partial", "failed", "skipped"], required=True)
+    p_record_subagent.add_argument("--command", default="")
+    p_record_subagent.add_argument("--stage", default="")
+    p_record_subagent.add_argument("--chapter", type=int, default=None)
+    p_record_subagent.add_argument("--volume", type=int, default=None)
+    p_record_subagent.add_argument("--problems-json", default="[]")
+    p_record_subagent.add_argument("--auto-handled-json", default="[]")
+    p_record_subagent.add_argument("--needs-user-action", action="store_true")
+    p_record_subagent.add_argument("--duration-ms", type=int, default=0)
+    p_record_subagent.add_argument("--outputs-json", default="[]")
+    p_record_subagent.add_argument("--format", choices=["json", "text"], default="json", help="输出格式")
+    p_record_subagent.set_defaults(func=cmd_run_ledger)
+    p_get_subagent = run_ledger_sub.add_parser("get-subagent-runs", help="读取子代理运行结果")
+    p_get_subagent.add_argument("--command", default="")
+    p_get_subagent.add_argument("--stage", default="")
+    p_get_subagent.add_argument("--chapter", type=int, default=None)
+    p_get_subagent.add_argument("--latest-only", action="store_true")
+    p_get_subagent.add_argument("--format", choices=["json", "text"], default="json", help="输出格式")
+    p_get_subagent.set_defaults(func=cmd_run_ledger)
     p_write_resume = run_ledger_sub.add_parser("write-resume", help="输出写章断点续跑建议")
     p_write_resume.add_argument("--chapter", type=int, required=True, help="目标章节号")
     p_write_resume.add_argument("--mode", default="default", help="写章模式")

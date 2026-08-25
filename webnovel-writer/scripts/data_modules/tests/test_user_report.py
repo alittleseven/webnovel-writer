@@ -195,6 +195,42 @@ def test_render_write_report_includes_subagent_runs_and_surfaces_failure(tmp_pat
     assert "写作检查" in text
 
 
+def test_render_write_report_surfaces_subagent_warning_and_auto_handled(tmp_path: Path) -> None:
+    _write_success_case(tmp_path, chapter=1)
+    _write_json(
+        tmp_path / ".webnovel" / "run_ledger.json",
+        {
+            "schema_version": "webnovel-run-ledger/v1",
+            "subagent_runs": [
+                {
+                    "schema_version": "webnovel-subagent-run/v1",
+                    "run_id": "write-0001-context-1",
+                    "name": "context-agent",
+                    "user_label": "整理写作依据",
+                    "status": "completed",
+                    "command": "webnovel-write",
+                    "stage": "write",
+                    "chapter": 1,
+                    "problems": ["部分参考资料不可用"],
+                    "auto_handled": ["已改用本地资料"],
+                    "needs_user_action": False,
+                    "duration_ms": 12,
+                    "outputs": ["写作任务书"],
+                    "recorded_at": "2026-08-26T00:00:00+00:00",
+                }
+            ],
+        },
+    )
+
+    report = build_user_report(tmp_path, stage="write", chapter=1)
+    text = render_user_report_text(report)
+
+    assert report["overall_status"] == "partial"
+    assert any(item["code"] == "subagent_warning" for item in report["issues"]["needs_confirmation"])
+    assert any(item["code"] == "subagent_auto_handled" for item in report["issues"]["auto_handled"])
+    assert "已自动处理" in text
+
+
 def test_render_write_report_uses_commit_snapshots_when_tmp_artifacts_are_cleaned(tmp_path: Path) -> None:
     _write_success_case(tmp_path, chapter=1)
     for path in (tmp_path / ".webnovel" / "tmp").glob("*_result.json"):

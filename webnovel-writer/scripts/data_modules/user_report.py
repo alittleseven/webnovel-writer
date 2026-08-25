@@ -163,6 +163,22 @@ def _attach_subagent_runs(
     for run in runs:
         status = str(run.get("status") or "")
         label = str(run.get("user_label") or run.get("name") or "写作助手")
+        problems = [str(item) for item in (run.get("problems") or [])]
+        auto_handled = [str(item) for item in (run.get("auto_handled") or [])]
+        source = str(run.get("name") or "subagent")
+        if auto_handled:
+            _add_manual_issue(
+                report,
+                "auto_handled",
+                code="subagent_auto_handled",
+                title=f"{label}已自动处理",
+                reason="这次写作助手遇到的可恢复情况已按流程处理。",
+                impact="当前结果仍可继续使用。",
+                next_action="本次无需额外处理；如需核对可查看运行记录。",
+                source=source,
+                message="；".join(auto_handled),
+                auto_handle=True,
+            )
         if status == "failed" or bool(run.get("needs_user_action")):
             _add_manual_issue(
                 report,
@@ -172,7 +188,8 @@ def _attach_subagent_runs(
                 reason="写作助手没有产出可直接使用的完整结果。",
                 impact="当前流程不能把这次助手结果当作已完成。",
                 next_action="重新运行对应步骤，或确认后手动处理当前结果。",
-                source=str(run.get("name") or "subagent"),
+                source=source,
+                message="；".join(problems),
             )
         elif status in {"partial", "skipped"}:
             _add_manual_issue(
@@ -183,7 +200,20 @@ def _attach_subagent_runs(
                 reason="这次写作助手没有完整执行原定职责。",
                 impact="结果可以保留，但继续流程前需要确认影响。",
                 next_action="查看本次运行记录，必要时重新运行对应步骤。",
-                source=str(run.get("name") or "subagent"),
+                source=source,
+                message="；".join(problems),
+            )
+        elif problems:
+            _add_manual_issue(
+                report,
+                "needs_confirmation",
+                code="subagent_warning",
+                title=f"{label}有提示",
+                reason="写作助手已返回结果，但同时记录了需要留意的问题。",
+                impact="结果可以保留，建议确认这些提示不会影响后续写作。",
+                next_action="查看本次运行记录，必要时重新运行对应步骤。",
+                source=source,
+                message="；".join(problems),
             )
 
     if len(report["issues"]["must_handle"]) > initial_must_handle:

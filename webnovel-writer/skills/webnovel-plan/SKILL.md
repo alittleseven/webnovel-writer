@@ -9,6 +9,8 @@ argument-hint: "[卷号，如 1]"
 
 主 agent 职责：基于总纲增量细化卷纲/时间线/章纲，把新增设定写回设定集，并刷新 Story System 写作合同。不重做全局故事，不重写整份总纲或设定集。
 
+如果规划流程调用 Agent，调用结束后必须调用 `run-ledger record-subagent` 持久化 `status`、`problems`、`auto_handled`、`needs_user_action`、`duration_ms` 和 `outputs`；`--stage plan`。没有 Agent 调用时不创建空记录。
+
 ## 执行原则
 
 1. 只做增量补齐，不重写整份总纲或设定集。

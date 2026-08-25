@@ -100,6 +100,8 @@ Prompt: reference_title={reference_title}; reference_source={reference_source}; 
 }
 ```
 
+调用结束后，主流程必须调用 `run-ledger record-subagent` 持久化这次拆书助手的状态；`--stage init`，没有章节时省略 `--chapter`。失败、跳过、部分完成和需要用户处理的情况不能只停留在最终回复。
+
 `quality.passed=false`、`confidence < 0.85`、输入不足、文本不可读、降级 quick mode 或输出不完整时，必须写入 `problems`，并让最终报告进入“建议确认 / 必须处理”。
 
 处理规则：

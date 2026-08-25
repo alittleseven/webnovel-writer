@@ -88,6 +88,8 @@ reviewer 返回后，主流程把严格 JSON 写入 `${PROJECT_ROOT}/.webnovel/t
 }
 ```
 
+调用结束后，主流程必须调用 `run-ledger record-subagent` 持久化状态；`--command webnovel-review`、`--stage review`、`--chapter {chapter_num}`，并传入 `--run-id`、`--status`、`--problems-json`、`--auto-handled-json`、`--duration-ms` 和 `--outputs-json`。失败、跳过或部分结果必须在作者报告中可见。
+
 reviewer 跳过、失败、输出不完整、正文为空、维度跳过、blocking issue 或耗时异常，必须写入 `problems` / `auto_handled`，不得在最终报告中静默。
 
 ### Step 6：生成报告并落库

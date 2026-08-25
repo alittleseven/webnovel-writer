@@ -111,6 +111,8 @@ Task:
 }
 ```
 
+调用结束后，主流程必须调用 `run-ledger record-subagent` 持久化状态；`--command webnovel-write`、`--stage write`、`--chapter {chapter_num}`，并传入 `--run-id`、`--status`、`--problems-json`、`--auto-handled-json`、`--duration-ms` 和 `--outputs-json`。失败或跳过不得只写在最终回复中。
+
 上下文不足、legacy fallback、伏笔数据缺失、任务书不完整或耗时异常，必须写入 `problems` / `auto_handled`，不得在最终报告中静默。
 
 ### Step 2：起草正文

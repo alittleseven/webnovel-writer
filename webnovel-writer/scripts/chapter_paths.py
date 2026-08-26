@@ -15,6 +15,11 @@ import re
 from pathlib import Path
 from typing import Optional
 
+try:
+    import long_paths
+except ImportError:  # pragma: no cover
+    from scripts import long_paths
+
 
 _CHAPTER_NUM_RE = re.compile(r"第(?P<num>\d+)章")
 _OUTLINE_HEADING_RE = re.compile(r"^#{1,6}\s*第\s*(?P<num>\d+)\s*章[：:]\s*(?P<title>.+?)\s*$", re.MULTILINE)
@@ -110,26 +115,33 @@ def find_chapter_file(project_root: Path, chapter_num: int) -> Optional[Path]:
     """
     Find an existing chapter file for chapter_num under project_root/正文.
     Returns the first match (stable sorted order) or None if not found.
+
+    长路径防护：深层书目录下 is_file/rglob 可能因 >MAX_PATH 报 ENOENT，
+    这里统一走 long_paths 原语，rglob 扫描失败时优雅跳过而不是中断。
     """
     chapters_dir = project_root / "正文"
-    if not chapters_dir.exists():
+    if not long_paths.is_dir(chapters_dir):
         return None
 
     legacy = chapters_dir / f"第{chapter_num:04d}章.md"
-    if legacy.exists():
+    if long_paths.is_file(legacy):
         return legacy
 
     vol_dir = chapters_dir / f"第{volume_num_for_chapter(chapter_num)}卷"
-    if vol_dir.exists():
-        candidates = sorted(vol_dir.glob(f"第{chapter_num:03d}章*.md")) + sorted(vol_dir.glob(f"第{chapter_num:04d}章*.md"))
-        for c in candidates:
-            if c.is_file():
-                return c
+    candidates: list[Path] = []
+    if long_paths.is_dir(vol_dir):
+        try:
+            candidates.extend(sorted(long_paths.iter_files(vol_dir, (f"第{chapter_num:03d}章*.md", f"第{chapter_num:04d}章*.md"))))
+        except OSError:
+            pass
 
     # Fallback: search anywhere under 正文/ (supports custom layouts)
-    candidates = sorted(chapters_dir.rglob(f"第{chapter_num:03d}章*.md")) + sorted(chapters_dir.rglob(f"第{chapter_num:04d}章*.md"))
-    for c in candidates:
-        if c.is_file():
+    try:
+        candidates.extend(sorted(long_paths.iter_files(chapters_dir, (f"第{chapter_num:03d}章*.md", f"第{chapter_num:04d}章*.md"))))
+    except OSError:
+        pass
+    for c in sorted(set(candidates)):
+        if long_paths.is_file(c):
             return c
 
     return None

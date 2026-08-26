@@ -20,6 +20,11 @@ try:
 except ImportError:  # pragma: no cover
     from scripts.chapter_paths import find_chapter_file
 
+try:
+    import long_paths
+except ImportError:  # pragma: no cover
+    from scripts import long_paths
+
 if __package__ in {None, ""}:  # pragma: no cover - direct script entry
     from data_modules.artifact_validator import OK_PROJECTION_STATUSES, REQUIRED_PROJECTION_WRITERS
     from data_modules.project_phase import COMMIT_ARTIFACT_FILES, contract_files_for_chapter
@@ -75,15 +80,16 @@ def save_ledger(project_root: str | Path, ledger: dict[str, Any]) -> Path:
 
 def file_signature(path: str | Path) -> dict[str, Any]:
     target = Path(path)
-    if not target.is_file():
+    if not long_paths.is_file(target):
         return {"path": str(target), "exists": False}
-    stat = target.stat()
-    digest = hashlib.sha256(target.read_bytes()).hexdigest()
+    size = long_paths.file_size(target)
+    mtime = long_paths.mtime_ns(target)
+    digest = hashlib.sha256(long_paths.read_bytes(target)).hexdigest()
     return {
         "path": str(target),
         "exists": True,
-        "size": stat.st_size,
-        "mtime_ns": stat.st_mtime_ns,
+        "size": size,
+        "mtime_ns": mtime,
         "sha256": digest,
     }
 

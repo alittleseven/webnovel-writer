@@ -65,15 +65,24 @@ def _ensure_scripts_dir_on_path() -> None:
         sys.path.insert(0, scripts_entry)
 
 
+def _lp():
+    """Lazily access the shared Windows long-path primitives."""
+    try:
+        import long_paths
+    except ImportError:  # pragma: no cover
+        from scripts import long_paths
+    return long_paths
+
+
 def _load_state_payload(*, required: bool = False) -> dict:
     state_path = _webnovel_dir() / "state.json"
-    if not state_path.is_file():
+    if not _lp().is_file(state_path):
         if required:
             raise HTTPException(404, "state.json 不存在")
         return {}
 
     try:
-        payload = json.loads(state_path.read_text(encoding="utf-8"))
+        payload = json.loads(_lp().read_text(state_path, encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=500, detail=f"state.json 读取失败: {exc}") from exc
 
@@ -165,14 +174,14 @@ def _inspect_vector_db(project_root: Path) -> dict:
 
     cfg = DataModulesConfig.from_project_root(project_root)
     vector_db = cfg.vector_db
-    exists = vector_db.is_file()
-    size_bytes = vector_db.stat().st_size if exists else 0
+    exists = _lp().is_file(vector_db)
+    size_bytes = (_lp().file_size(vector_db) or 0) if exists else 0
     record_count = 0
     error = ""
 
     if exists and size_bytes > 0:
         try:
-            with sqlite3.connect(str(vector_db)) as conn:
+            with sqlite3.connect(_lp().win_long_abs(vector_db)) as conn:
                 cursor = conn.cursor()
                 table_exists = cursor.execute(
                     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'vectors'"
@@ -847,16 +856,17 @@ def create_app(project_root: str | Path | None = None) -> FastAPI:
         if not any(_is_child(resolved, p) for p in allowed_parents):
             raise HTTPException(403, "仅允许读取 正文/大纲/设定集 目录下的文件")
 
-        if not resolved.is_file():
+        if not _lp().is_file(resolved):
             raise HTTPException(404, "文件不存在")
 
         max_bytes = 2 * 1024 * 1024
-        if resolved.stat().st_size > max_bytes:
+        file_size = _lp().file_size(resolved) or 0
+        if file_size > max_bytes:
             raise HTTPException(413, "文件过大，无法预览")
 
         # 文本文件直接读；其他情况返回占位信息
         try:
-            content = resolved.read_text(encoding="utf-8")
+            content = _lp().read_text(resolved, encoding="utf-8")
         except UnicodeDecodeError:
             content = "[二进制文件，无法预览]"
 

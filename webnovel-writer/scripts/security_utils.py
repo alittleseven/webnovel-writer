@@ -19,6 +19,15 @@ from pathlib import Path
 from runtime_compat import enable_windows_utf8_stdio
 from typing import Any, Dict, Optional, Union
 
+try:
+    from long_paths import WIN_EXTENDED_PREFIX as _WIN_EXTENDED_PREFIX
+    from long_paths import win_long_abs as _win_long_abs
+except ImportError:  # pragma: no cover - direct script entry fallback
+    from scripts.long_paths import WIN_EXTENDED_PREFIX as _WIN_EXTENDED_PREFIX
+    from scripts.long_paths import win_long_abs as _win_long_abs
+
+_WIN_LONG_PATH_THRESHOLD = 200
+
 # 尝试导入 filelock（可选依赖）
 try:
     from filelock import FileLock
@@ -342,25 +351,6 @@ def git_graceful_operation(
 class AtomicWriteError(Exception):
     """原子写入失败异常"""
     pass
-
-
-_WIN_EXTENDED_PREFIX = "\\\\?\\"
-
-
-def _win_long_abs(path: Union[str, Path]) -> str:
-    """绝对化路径；Windows 上接近 MAX_PATH(260) 时加扩展前缀保证可用。
-
-    中文书名、深层项目目录很容易让最终路径超过 260 字符；系统未开启
-    LongPathsEnabled 时 Win32 调用会以 ENOENT 或拒绝访问失败。
-    阈值取 200：调用方还会在目录后拼接临时文件名/前后缀（约 30-40 字符），
-    必须在目录阶段就预留增长空间；短路径行为完全不变。
-    """
-    s = str(path)
-    if not s.startswith(_WIN_EXTENDED_PREFIX):
-        s = os.path.abspath(s)
-    if os.name == "nt" and len(s) >= 200 and not s.startswith(_WIN_EXTENDED_PREFIX):
-        s = _WIN_EXTENDED_PREFIX + s
-    return s
 
 
 def _replace_with_retry(

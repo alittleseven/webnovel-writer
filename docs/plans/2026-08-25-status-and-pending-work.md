@@ -72,7 +72,8 @@
 
 ### P2：支撑能力
 
-- `[ ]` 长路径防护收口：`security_utils` 已覆盖原子写入/读取/备份恢复，但 `run_ledger.file_signature`、dashboard 文件读取、`chapter_paths.find_chapter_file` 等触点仍走原生路径，>260 字符场景会失败；统一封装后再移除散点转换。
+- `[x]` 长路径防护收口（2026-08-26）：`security_utils` 原子写入链已覆盖；本次把 `_win_long_abs` 上移为共享模块 `long_paths.py` 并新增 `is_file/is_dir/file_size/mtime_ns/read_bytes/read_text/iter_files` 只读原语，接入三个核心读取触点：`run_ledger.file_signature`（sha256 续跑校验）、`chapter_paths.find_chapter_file`（含深目录 rglob 兜底替换为扩展前缀扫描）、dashboard 状态 JSON / 向量库探测 / 文件预览。
+  - 证据：新增 `scripts/tests/test_long_paths.py`（短路径不变式、前缀规则、>260 字符下 file_signature 正确哈希、find_chapter_file 定位与优雅跳过）；全量 pytest 通过，22/22 behavior eval 与 package validator 通过。
 - `[ ]` 题材 taxonomy：把现有 `resolve_genre()`、模板归一化和 alias 逻辑收敛到单一 taxonomy index，并补全入口测试。
 - `[ ]` 设定增强通用化：先根据 `fantasy01` 实验结果抽象 Markdown 卡片契约，再决定是否引入 Pydantic 子模型；暂不直接引入三套 JSON Schema。
 - `[ ]` `fantasy01` 验证：生成第 23 章合同后，用第 23-25 章确认设定卡确实改善能力代价、战力边界和资源设定一致性。

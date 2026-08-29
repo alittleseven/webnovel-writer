@@ -16,7 +16,11 @@ def _ensure_scripts_on_path() -> None:
 
 _ensure_scripts_on_path()
 
-from data_modules.write_gates import run_write_gate  # noqa: E402
+from data_modules.write_gates import (  # noqa: E402
+    externalize_gate_report,
+    format_gate_compact,
+    run_write_gate,
+)
 from data_modules.projection_log import append_projection_run  # noqa: E402
 
 
@@ -343,3 +347,63 @@ def test_precommit_gate_passes_when_chapter_unchanged_after_review(tmp_path):
 
     # 不应出现 review_chapter_mismatch 错误
     assert not any(item["code"] == "review_chapter_mismatch" for item in report.get("errors", []))
+
+
+def test_compact_gate_report_is_single_short_line(tmp_path):
+    _make_init_ready(tmp_path)
+    _make_contracts(tmp_path, chapter=1)
+
+    report = run_write_gate(tmp_path, chapter=1, stage="prewrite")
+    line = format_gate_compact(report)
+
+    assert line.startswith(("OK", "ERROR"))
+    assert "\n" not in line
+    assert len(line) < 500
+    assert "prewrite" in line
+    assert "chapter=1" in line
+
+
+def test_compact_gate_report_includes_error_codes(tmp_path):
+    _make_init_ready(tmp_path)
+    _make_contracts(tmp_path, chapter=1)
+    state_path = tmp_path / ".webnovel" / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["disambiguation_pending"] = [{"mention": "宗主"}]
+    state_path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+
+    report = run_write_gate(tmp_path, chapter=1, stage="prewrite")
+    line = format_gate_compact(report)
+
+    assert line.startswith("ERROR")
+    assert "prewrite_validator_blocking" in line
+
+
+def test_gate_report_externalized_snapshot(tmp_path):
+    _make_init_ready(tmp_path)
+    _make_contracts(tmp_path, chapter=1)
+
+    report = run_write_gate(tmp_path, chapter=1, stage="prewrite")
+    path = externalize_gate_report(tmp_path, report)
+
+    assert path == tmp_path / ".webnovel" / "tmp" / "last_gate_prewrite.json"
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    assert loaded["stage"] == "prewrite"
+    assert "story_runtime" in loaded["details"]
+
+
+def test_cmd_write_gate_default_compact_and_snapshot(tmp_path, capsys):
+    import argparse
+
+    from data_modules.webnovel import cmd_write_gate
+
+    _make_init_ready(tmp_path)
+    _make_contracts(tmp_path, chapter=1)
+    ns = argparse.Namespace(project_root=str(tmp_path), chapter=1, stage="prewrite", format="compact")
+
+    rc = cmd_write_gate(ns)
+    out = capsys.readouterr().out.strip()
+
+    assert rc == 0
+    assert "\n" not in out
+    assert len(out) < 500
+    assert (tmp_path / ".webnovel" / "tmp" / "last_gate_prewrite.json").exists()

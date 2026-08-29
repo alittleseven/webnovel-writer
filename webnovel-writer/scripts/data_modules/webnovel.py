@@ -274,11 +274,22 @@ def cmd_timeline_check(args: argparse.Namespace) -> int:
 
 
 def cmd_write_gate(args: argparse.Namespace) -> int:
-    from .write_gates import format_gate_report, run_write_gate
+    from .write_gates import (
+        externalize_gate_report,
+        format_gate_compact,
+        format_gate_report,
+        run_write_gate,
+    )
 
     root = _resolve_root(args.project_root)
     report = run_write_gate(root, chapter=args.chapter, stage=args.stage)
-    print(format_gate_report(report, args.format))
+    externalize_gate_report(root, report)
+    if args.format == "json":
+        print(format_gate_report(report, "json"))
+    elif args.format == "text":
+        print(format_gate_report(report, "text"))
+    else:
+        print(format_gate_compact(report))
     return 0 if report.get("ok") else 1
 
 
@@ -506,7 +517,12 @@ def main() -> None:
     p_write_gate = sub.add_parser("write-gate", help="写章自然边界校验")
     p_write_gate.add_argument("--chapter", type=int, required=True, help="目标章节号")
     p_write_gate.add_argument("--stage", choices=["prewrite", "precommit", "postcommit"], required=True, help="校验阶段")
-    p_write_gate.add_argument("--format", choices=["json", "text"], default="json", help="输出格式")
+    p_write_gate.add_argument(
+        "--format",
+        choices=["compact", "json", "text"],
+        default="compact",
+        help="输出格式（compact=一行结论默认；json=全量 JSON；快照恒落盘 .webnovel/tmp/last_gate_<stage>.json）",
+    )
     p_write_gate.set_defaults(func=cmd_write_gate)
 
     p_projections = sub.add_parser("projections", help="从已有 commit 补跑或重放 projection")

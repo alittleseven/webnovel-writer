@@ -65,8 +65,10 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" \
   story-system "${CHAPTER_GOAL}" --genre "${GENRE}" --chapter {chapter_num} --persist --emit-runtime-contracts --format both
 
 python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" \
-  write-gate --chapter {chapter_num} --stage prewrite --format json
+  write-gate --chapter {chapter_num} --stage prewrite --format compact
 ```
+
+write-gate 默认输出一行结论（OK/ERROR + 错误码），完整报告恒落盘 `.webnovel/tmp/last_gate_<stage>.json`——需要详情时 Read 该文件；**禁止用 `--format json` 把全量报告打印进对话**。
 
 必备文件：`MASTER_SETTING.json`（调性/禁忌）、`volume_{NNN}.json`（卷级节奏）、`chapter_{NNN}.review.json`（必须节点/禁区）。缺失则阻断。
 
@@ -219,7 +221,7 @@ artifact 字段 schema 由 data-agent 自身定义、runtime validator 校验；
 
 ```bash
 python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" \
-  write-gate --chapter {chapter_num} --stage precommit --format json
+  write-gate --chapter {chapter_num} --stage precommit --format compact
 ```
 
 precommit 通过后，运行提交前只读 `git diff` 变更面校验（写入所有权 sanity check，只读、不 stage、不提交）：
@@ -254,7 +256,7 @@ chapter_status 由 projection writer 自动推进：accepted→committed，rejec
 
 ```bash
 python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" \
-  write-gate --chapter {chapter_num} --stage postcommit --format json
+  write-gate --chapter {chapter_num} --stage postcommit --format compact
 ```
 
 #### 5.4 失败隔离

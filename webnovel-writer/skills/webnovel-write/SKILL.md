@@ -291,6 +291,12 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" run
   --format text
 ```
 
+同一时点建立章级计量标记（D1：只读 ZCode 本地用量库 `turn_usage` 表，时间窗聚合主会话 + 全部子代理轮次；非 ZCode 宿主无用量库时自动降级跳过）：
+
+```bash
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" meter start --chapter {chapter_num}
+```
+
 P1-6：`write-start` 用覆盖模式（清空旧日志开新一次写章）。此后每个关键步骤完成后必须追加 `run-log --event <step> --append`，使失败时 `run_last.log` 有最后卡点（否则崩溃后只有 write-start，无法定位断点）：
 
 ```bash
@@ -356,6 +362,12 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" use
   --stage write \
   --chapter {chapter_num} \
   --format text
+```
+
+随后关账章级计量，并把得到的一行「本章总消耗」（总计 + 新增 tokens，含子代理）原样并入最终回复，作为本验收口径的章级成本数据：
+
+```bash
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" meter stop
 ```
 
 ## 充分性闸门

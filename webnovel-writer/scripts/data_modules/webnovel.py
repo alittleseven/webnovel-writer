@@ -273,6 +273,36 @@ def cmd_timeline_check(args: argparse.Namespace) -> int:
     return 0 if report.get("ok") else 1
 
 
+def cmd_meter(args: argparse.Namespace) -> int:
+    from .chapter_meter import (
+        aggregate_usage,
+        format_usage_line,
+        read_marker,
+        start_meter,
+        stop_meter,
+    )
+
+    root = _resolve_root(args.project_root)
+    db_path = Path(args.db) if getattr(args, "db", "") else None
+    if args.meter_action == "start":
+        marker = start_meter(root, chapter=args.chapter, db_path=db_path, session=args.session or None)
+        print(
+            f"OK chapter-meter start chapter={marker['chapter']}"
+            f" session={marker['session_id'] or '(unresolved)'}"
+            f" anchor={marker['started_at']}"
+        )
+        return 0
+    marker = read_marker(root)
+    if marker is None:
+        print("SKIP chapter-meter: no open marker (.webnovel/tmp/chapter_meter.json)")
+        return 0
+    if args.meter_action == "stop":
+        print(stop_meter(root, db_path=db_path))
+        return 0
+    print(format_usage_line(marker, aggregate_usage(root, marker, db_path=db_path)))
+    return 0
+
+
 def cmd_write_gate(args: argparse.Namespace) -> int:
     from .write_gates import (
         externalize_gate_report,
@@ -513,6 +543,18 @@ def main() -> None:
     p_timeline_check.add_argument("--volume", type=int, required=True, help="卷号")
     p_timeline_check.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_timeline_check.set_defaults(func=cmd_timeline_check)
+
+    p_meter = sub.add_parser("meter", help="章级 token 计量（读 ZCode 用量库，含子代理）")
+    meter_sub = p_meter.add_subparsers(dest="meter_action", required=True)
+    p_meter_start = meter_sub.add_parser("start", help="写章起点：建计量标记")
+    p_meter_start.add_argument("--chapter", type=int, required=True, help="目标章节号")
+    p_meter_start.add_argument("--session", default="", help="显式主会话 id（缺省从用量库推断最近完成的非子代理轮）")
+    p_meter_start.add_argument("--db", default="", help="用量库路径（缺省 ~/.zcode/cli/db/db.sqlite）")
+    p_meter_stop = meter_sub.add_parser("stop", help="聚合关账：一行结论 + 结果文件 + 移除标记")
+    p_meter_stop.add_argument("--db", default="")
+    p_meter_report = meter_sub.add_parser("report", help="只读聚合（不移除标记）")
+    p_meter_report.add_argument("--db", default="")
+    p_meter.set_defaults(func=cmd_meter)
 
     p_write_gate = sub.add_parser("write-gate", help="写章自然边界校验")
     p_write_gate.add_argument("--chapter", type=int, required=True, help="目标章节号")

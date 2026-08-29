@@ -1,6 +1,17 @@
 {
   "description": "Lightweight webnovel-writer runtime guardrails: short project status on session start and best-effort blocking for direct writes to Story System/read-model files.",
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -X utf8 \"${CLAUDE_PLUGIN_ROOT}/hooks/chapter_meter_hook.py\" --session \"${CLAUDE_SESSION_ID}\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "matcher": "*",

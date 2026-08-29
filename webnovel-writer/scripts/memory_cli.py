@@ -34,7 +34,7 @@ def _adapter(project_root: str) -> MemoryContractAdapter:
 
 
 def _json_out(data) -> None:
-    print(json.dumps(data, ensure_ascii=False, indent=2))
+    print(json.dumps(data, ensure_ascii=False, separators=(",", ":")))
 
 
 def cmd_load_context(args: argparse.Namespace) -> None:

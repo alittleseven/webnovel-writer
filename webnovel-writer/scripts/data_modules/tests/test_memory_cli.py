@@ -167,3 +167,20 @@ def test_get_timeline_empty(tmp_path, capsys):
 
     output = json.loads(capsys.readouterr().out)
     assert output == []
+
+
+def test_load_context_output_is_compact_json(tmp_path, capsys):
+    _ensure_scripts_on_path()
+    import memory_cli
+
+    project = _make_project(tmp_path)
+    old_argv = sys.argv
+    sys.argv = ["memory_cli", "--project-root", str(project), "load-context", "--chapter", "1"]
+    try:
+        memory_cli.main()
+    finally:
+        sys.argv = old_argv
+
+    raw = capsys.readouterr().out.strip()
+    parsed = json.loads(raw)
+    assert json.dumps(parsed, ensure_ascii=False, separators=(",", ":")) == raw

@@ -241,15 +241,20 @@ class IndexEntityMixin:
                 for row in cursor.fetchall()
             ]
 
-    def get_core_entities(self) -> List[Dict]:
-        """获取所有核心实体 (用于 Context Agent 全量加载)"""
+    def get_core_entities(self, limit: Optional[int] = None) -> List[Dict]:
+        """获取核心实体（按主角/层级/最近活跃排序；limit=None 全量，长篇调用方应传 limit）"""
         with self._get_conn() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
+            sql = """
                 SELECT * FROM entities
                 WHERE (tier IN ('核心', '重要') OR is_protagonist = 1) AND is_archived = 0
                 ORDER BY is_protagonist DESC, tier, last_appearance DESC
-            """)
+            """
+            params: list = []
+            if limit is not None and int(limit) > 0:
+                sql += " LIMIT ?"
+                params.append(int(limit))
+            cursor.execute(sql, params)
             return [
                 self._row_to_dict(row, parse_json=["current_json"])
                 for row in cursor.fetchall()

@@ -767,7 +767,8 @@ def main():
     get_entity_parser.add_argument("--id", required=True, help="实体 ID")
 
     # 获取核心实体
-    subparsers.add_parser("get-core-entities")
+    get_core_parser = subparsers.add_parser("get-core-entities")
+    get_core_parser.add_argument("--limit", type=int, default=None, help="最多返回条数（长篇建议传，防全量加载）")
 
     # 获取主角
     subparsers.add_parser("get-protagonist")
@@ -1054,7 +1055,7 @@ def main():
             emit_error("NOT_FOUND", f"未找到实体: {args.id}")
 
     elif args.command == "get-core-entities":
-        entities = manager.get_core_entities()
+        entities = manager.get_core_entities(limit=getattr(args, "limit", None))
         emit_success(entities, message="core_entities")
 
     elif args.command == "get-protagonist":

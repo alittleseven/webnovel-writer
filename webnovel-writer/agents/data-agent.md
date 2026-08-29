@@ -15,11 +15,13 @@ color: green
 ## 2. 工具
 
 ```bash
-python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" index get-core-entities
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" index get-core-entities --limit 40
 python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" index recent-appearances --limit 20
 python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" index get-aliases --entity "{entity_id}"
 python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" index get-by-alias --alias "{alias}"
 ```
+
+实体查询以**定点优先**：先按正文实际出现的实体名做 `get-by-alias` 逐个定位；`get-core-entities` 必须带 `--limit`（兜底用），长篇禁止无 limit 全量拉取。
 
 chapter-commit 由写章主流程运行，data-agent 不在此执行（见 §5 边界）。
 

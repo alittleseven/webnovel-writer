@@ -287,6 +287,7 @@ class DataModulesConfig:
     memory_orchestrator_max_items: int = 30
     memory_orchestrator_recent_changes_limit: int = 10
     memory_orchestrator_source_window: int = 20
+    memory_state_export_pending_limit: int = 10
     memory_compactor_enabled: bool = True
     memory_compactor_threshold: int = 500
 

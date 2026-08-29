@@ -56,11 +56,6 @@ class MemoryOrchestrator:
             limit=max(1, int(getattr(self.config, "memory_orchestrator_recent_changes_limit", 10)))
         )
 
-        active_constraints = [
-            item.to_dict()
-            for item in semantic_items
-            if item.category in {"world_rule", "open_loop"}
-        ]
         warnings = []
         if conflicts:
             warnings.append(
@@ -75,9 +70,8 @@ class MemoryOrchestrator:
             "working_memory": working_items,
             "episodic_memory": episodic_items,
             "semantic_memory": semantic_payload,
-            # long_term_facts 保持对外 contract：仅包含可直接注入的长期语义事实。
-            "long_term_facts": semantic_payload,
-            "active_constraints": active_constraints,
+            # B4 去重：long_term_facts（=semantic_memory 复制）与 active_constraints
+            # （semantic 子集复制）不再随包重复注入，语义事实以 semantic_memory 为唯一来源。
             "recent_changes": list(recent_changes),
             "warnings": warnings,
             "stats": {
@@ -158,8 +152,8 @@ class MemoryOrchestrator:
 
         state_export = {
             "protagonist_state": state.get("protagonist_state", {}),
-            "plot_threads": state.get("plot_threads", {}),
-            "disambiguation_pending": state.get("disambiguation_pending", []),
+            "plot_threads": self._cap_list_values(state.get("plot_threads", {}) or {}),
+            "disambiguation_pending": self._cap_pending(state.get("disambiguation_pending", []) or []),
         }
         result.append(
             {
@@ -171,27 +165,31 @@ class MemoryOrchestrator:
         )
         return result
 
+    def _cap_pending(self, pending: List[Any]) -> List[Any]:
+        limit = max(0, int(getattr(self.config, "memory_state_export_pending_limit", 10)))
+        if limit <= 0:
+            return list(pending)
+        return list(pending[:limit])
+
+    def _cap_list_values(self, plot_threads: Dict[str, Any]) -> Dict[str, Any]:
+        limit = max(0, int(getattr(self.config, "memory_state_export_pending_limit", 10)))
+        capped: Dict[str, Any] = {}
+        for key, value in plot_threads.items():
+            if isinstance(value, list) and limit > 0:
+                capped[key] = value[:limit]
+            else:
+                capped[key] = value
+        return capped
+
     def _build_episodic_memory(self, chapter: int) -> List[Dict[str, Any]]:
         _ = chapter
         changes_limit = max(1, int(getattr(self.config, "memory_orchestrator_recent_changes_limit", 10)))
         rel_limit = max(1, min(20, changes_limit))
 
-        recent_changes = self.index_manager.get_recent_state_changes(limit=changes_limit)
         recent_relationships = self.index_manager.get_recent_relationships(limit=rel_limit)
         recent_appearances = self.index_manager.get_recent_appearances(limit=rel_limit)
 
         result: List[Dict[str, Any]] = []
-        for row in recent_changes:
-            result.append(
-                {
-                    "layer": "episodic",
-                    "source": "state_change",
-                    "chapter": int(row.get("chapter") or 0),
-                    "entity_id": row.get("entity_id", ""),
-                    "field": row.get("field", ""),
-                    "content": row,
-                }
-            )
         for row in recent_relationships:
             result.append(
                 {

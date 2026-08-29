@@ -357,8 +357,10 @@ def test_context_manager_exposes_latest_rejected_commit_not_last_accepted(temp_p
     manager = ContextManager(temp_project)
     payload = manager.build_context(3)
 
-    assert payload["latest_commit"]["meta"]["status"] == "rejected"
+    # S2/C2：commit 唯一一份在 runtime_status（rejected 的 latest 与 accepted 并存），顶层恒空
+    assert payload["runtime_status"]["latest_commit"]["meta"]["status"] == "rejected"
     assert payload["runtime_status"]["latest_accepted_commit"]["meta"]["status"] == "accepted"
+    assert not payload["latest_commit"]
 
 
 def test_context_manager_blocks_when_story_contract_missing(temp_project):
@@ -958,3 +960,59 @@ def test_load_summary_text_truncates_by_default(temp_project):
 
     assert result is not None
     assert len(result["summary"]) < len(long_summary)
+
+
+def test_ranker_caps_big_section_texts(temp_project):
+    """S2/C2：genre_profile 等大 section 的超长文本被截断，键结构保留。"""
+    from data_modules.context_ranker import ContextRanker
+
+    ranker = ContextRanker(temp_project)
+    pack = {
+        "genre_profile": {"genre": "都市异能", "profile_excerpt": "题" * 3000},
+        "reader_signal": {"trend": "势" * 2000},
+        "writing_guidance": {"checklist": ["短" * 50], "note": "注" * 2000},
+        "plot_structure": {"text": "纲" * 5000},
+    }
+
+    out = ranker.apply_budget(pack)
+
+    assert len(out["genre_profile"]["profile_excerpt"]) <= 1500
+    assert len(out["reader_signal"]["trend"]) <= 800
+    assert len(out["writing_guidance"]["note"]) <= 1200
+    assert len(out["writing_guidance"]["checklist"]) == 1  # 短文本不动
+    assert len(out["plot_structure"]["text"]) <= 2500
+    assert out["genre_profile"]["genre"] == "都市异能"  # 非文本键不动
+
+
+def test_enforce_payload_budget_drops_low_value_first(temp_project):
+    """S2/C2：max_chars 超限时低价值 section 先弃，受保护键保留。"""
+    manager = ContextManager.__new__(ContextManager)
+    payload = {
+        "meta": {"chapter": 3},
+        "core": {"chapter_outline": "纲"},
+        "story_contract": {"master_setting": {}},
+        "runtime_status": {"chapter": 3},
+        "latest_commit": {},
+        "long_term_memory": {"big": "记" * 2000},
+        "scene": {"big": "场" * 2000},
+        "reader_signal": {"big": "信" * 800},
+        "writing_guidance": {"big": "指" * 900},
+        "prewrite_validation": {"big": "校" * 1000},
+    }
+
+    out = manager._enforce_payload_budget(payload, max_chars=2500)
+
+    assert "long_term_memory" not in out  # 最低价值先弃
+    assert "scene" not in out
+    assert "core" in out and "story_contract" in out and "runtime_status" in out
+    assert out["meta"]["budget_dropped"][0] == "long_term_memory"
+
+
+def test_enforce_payload_budget_noop_within_budget(temp_project):
+    manager = ContextManager.__new__(ContextManager)
+    payload = {"meta": {"chapter": 1}, "core": {"a": "小"}, "story_contract": {}}
+
+    out = manager._enforce_payload_budget(dict(payload), max_chars=5000)
+
+    assert out["core"] == {"a": "小"}
+    assert "budget_dropped" not in out["meta"]

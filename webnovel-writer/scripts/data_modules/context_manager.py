@@ -115,7 +115,46 @@ class ContextManager:
         if getattr(self.config, "context_ranker_enabled", True):
             pack = self.context_ranker.rank_pack(pack, chapter)
 
-        return self._assemble_json_payload(pack, template=template)
+        payload = self._assemble_json_payload(pack, template=template)
+        if max_chars:
+            payload = self._enforce_payload_budget(payload, max_chars)
+        return payload
+
+    # S2/C2：总预算超限时低价值 section 先弃（meta/core/story_contract/runtime_status/latest_commit 受保护）
+    PAYLOAD_DROP_ORDER = [
+        "long_term_memory", "scene", "alerts", "preferences", "memory", "global",
+        "prewrite_validation", "reader_signal", "writing_guidance",
+        "genre_profile", "story_skeleton", "plot_structure",
+    ]
+
+    def _enforce_payload_budget(self, payload: Dict[str, Any], max_chars: int) -> Dict[str, Any]:
+        from .context_budget import apply_quota, estimate_tokens
+
+        def used() -> int:
+            return sum(estimate_tokens(v) for k, v in payload.items() if k != "meta")
+
+        dropped: list[str] = []
+        while used() > max_chars:
+            nxt = next(
+                (s for s in self.PAYLOAD_DROP_ORDER if s in payload and s not in dropped),
+                None,
+            )
+            if nxt is None:
+                break
+            payload = {k: v for k, v in payload.items() if k != nxt}
+            dropped.append(nxt)
+
+        if used() > max_chars:
+            sections = [k for k in payload if k != "meta" and payload[k]]
+            share = max(50, max_chars // max(1, len(sections)))
+            for key in sections:
+                payload[key] = apply_quota(payload[key], share)
+
+        if dropped:
+            meta = dict(payload.get("meta") or {})
+            meta["budget_dropped"] = dropped
+            payload["meta"] = meta
+        return payload
 
     def _assemble_json_payload(self, pack: Dict[str, Any], template: str = DEFAULT_TEMPLATE) -> Dict[str, Any]:
         chapter = int((pack.get("meta") or {}).get("chapter") or 0)
@@ -216,8 +255,31 @@ class ContextManager:
             scene["appearing_characters"], source_type="entity", id_key="entity_id"
         )
         story_contract = self._build_story_contract_from_runtime(runtime_sources)
-        runtime_status = runtime_sources.to_dict()
+        # S2/C2：runtime_status 瘦身（B3/S1 同款）——合同全文只在 story_contract 一份；
+        # commit 全文收缩为 meta+摘要（细节已被记忆投影蒸馏），latest 与 accepted
+        # 相同时 accepted 侧降级为章号标记。注意先比较后收缩。
+        from .context_budget import shrink_latest_commit
+
         latest_commit = runtime_sources.latest_commit or {}
+        latest_accepted = runtime_sources.latest_accepted_commit or {}
+        same_commit = bool(latest_accepted) and latest_accepted == latest_commit
+        if latest_commit:
+            latest_commit = shrink_latest_commit(latest_commit)
+        if latest_accepted and not same_commit:
+            latest_accepted = shrink_latest_commit(latest_accepted)
+        runtime_status: Dict[str, Any] = {
+            "chapter": runtime_sources.chapter,
+            "fallback_sources": list(runtime_sources.fallback_sources),
+            "primary_write_source": runtime_sources.primary_write_source,
+        }
+        if latest_commit:
+            runtime_status["latest_commit"] = latest_commit
+        if latest_accepted and not same_commit:
+            runtime_status["latest_accepted_commit"] = latest_accepted
+        elif latest_accepted:
+            runtime_status["latest_accepted_chapter"] = (latest_accepted.get("meta") or {}).get(
+                "chapter"
+            )
 
         global_ctx = {
             "worldview_skeleton": self._load_setting("世界观"),
@@ -246,7 +308,8 @@ class ContextManager:
             "core": core,
             "story_contract": story_contract,
             "runtime_status": runtime_status,
-            "latest_commit": latest_commit,
+            # S2/C2：runtime_status 已含唯一一份 latest_commit，顶层恒空（键保留以兼容旧消费方）
+            "latest_commit": {},
             "prewrite_validation": prewrite_validation,
             "scene": scene,
             "global": global_ctx,

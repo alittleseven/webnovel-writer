@@ -22,6 +22,14 @@ class ContextRanker:
 
     SUMMARY_HOOK_HINTS = ("?", "？", "悬念", "钩子", "反转", "冲突")
 
+    # S2/C2：大 section 的文本上限（豁免改上限——只截字符串值，不破坏结构）
+    SECTION_TEXT_BUDGETS: dict[str, int] = {
+        "genre_profile": 1500,
+        "reader_signal": 800,
+        "writing_guidance": 1200,
+        "plot_structure": 2500,
+    }
+
     def __init__(self, config=None):
         self.config = config or get_config()
 
@@ -88,7 +96,22 @@ class ContextRanker:
         compacted["story_skeleton"] = self._budget_text_list(
             compacted.get("story_skeleton") or [], budget, text_key="summary"
         )
+
+        # S2/C2：大 section 文本上限——递归截断超长字符串值，键结构不变
+        for name, text_budget in self.SECTION_TEXT_BUDGETS.items():
+            section = compacted.get(name)
+            if isinstance(section, (dict, list)):
+                compacted[name] = self._budget_texts_recursive(section, text_budget)
         return compacted
+
+    def _budget_texts_recursive(self, value: Any, budget: int) -> Any:
+        if isinstance(value, str):
+            return self._truncate_middle(value, budget) if len(value) > budget else value
+        if isinstance(value, list):
+            return [self._budget_texts_recursive(v, budget) for v in value]
+        if isinstance(value, dict):
+            return {k: self._budget_texts_recursive(v, budget) for k, v in value.items()}
+        return value
 
     def _budget_text_list(
         self, items: List[Any], budget: int, text_key: str
@@ -114,11 +137,13 @@ class ContextRanker:
         if len(text) <= limit:
             return text
         head_ratio = float(getattr(self.config, "context_compact_head_ratio", 0.65) or 0.65)
-        head = max(1, int(limit * head_ratio))
-        tail = max(0, limit - head)
+        marker = "…（中略）…"
+        body = max(1, limit - len(marker))
+        head = max(1, int(body * head_ratio))
+        tail = max(0, body - head)
         if tail <= 0:
-            return text[:limit].rstrip() + "…"
-        return text[:head].rstrip() + "…（中略）…" + text[-tail:].lstrip()
+            return text[: max(1, limit - 1)].rstrip() + "…"
+        return text[:head].rstrip() + marker + text[-tail:].lstrip()
 
     def rank_recent_summaries(self, items: List[Dict[str, Any]], current_chapter: int) -> List[Dict[str, Any]]:
         scored = []

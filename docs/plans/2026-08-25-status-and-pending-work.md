@@ -3,6 +3,8 @@
 > 核对日期：2026-08-25
 > 适用范围：`C:\lgq\ai-workspace\projects\claude-plugins\webnovel-writer`
 > 状态依据：当前代码、测试输出、Git 提交记录；方案文档只作为设计意图和历史记录。
+>
+> **2026-08-30 进度修订**：fantasy01 实际写作进度已至第 34 章（真源为 `C:\lgq\workspace\opc_space\projects\webnovel-projects\fantasy01`，`project-status` 报 latest_accepted_chapter=34 / target_chapter=35）。本清单中「以 fantasy01 第 23 章做第一条垂直切片」顺延为**第 35 章实跑**；「用第 23-25 章确认设定卡效果」改为**30-34 章回看 + 35 章前瞻**。修订详情见 [2026-08-30-v7-开发方案.md](2026-08-30-v7-开发方案.md)。
 
 ## 状态规则
 

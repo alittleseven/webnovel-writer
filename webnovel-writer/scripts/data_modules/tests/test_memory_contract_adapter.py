@@ -508,16 +508,16 @@ class TestLoadContextDedup:
         (ss / "chapters").mkdir(parents=True)
         (ss / "commits").mkdir(parents=True)
         (ss / "MASTER_SETTING.json").write_text(
-            json.dumps({"marker": "MASTER-XYZ", "route": {"primary_genre": "修仙"}}),
+            json.dumps({"meta": {"marker": "MASTER-XYZ"}, "route": {"primary_genre": "修仙"}}),
             encoding="utf-8",
         )
         (ss / "chapters" / "chapter_002.json").write_text(
-            json.dumps({"marker": "CHAPTER-XYZ"}), encoding="utf-8"
+            json.dumps({"meta": {"marker": "CHAPTER-XYZ"}}), encoding="utf-8"
         )
-        commit1 = {"meta": {"chapter": 1, "status": "accepted"}, "marker": "COMMIT-CH1"}
+        commit1 = {"meta": {"chapter": 1, "status": "accepted", "marker": "COMMIT-CH1"}}
         (ss / "commits" / "chapter_001.commit.json").write_text(json.dumps(commit1), encoding="utf-8")
         if rejected_latest:
-            commit2 = {"meta": {"chapter": 2, "status": "rejected"}, "marker": "COMMIT-CH2"}
+            commit2 = {"meta": {"chapter": 2, "status": "rejected", "marker": "COMMIT-CH2"}}
             (ss / "commits" / "chapter_002.commit.json").write_text(json.dumps(commit2), encoding="utf-8")
         return cfg
 
@@ -533,7 +533,7 @@ class TestLoadContextDedup:
         status = pack.sections["runtime_status"]
         assert "contracts" not in status
         assert status["primary_write_source"] == "chapter_commit"
-        assert status["latest_commit"]["marker"] == "COMMIT-CH1"
+        assert status["latest_commit"]["meta"]["marker"] == "COMMIT-CH1"
         assert status["latest_accepted_chapter"] == 1
 
     def test_latest_and_accepted_differ_keeps_both(self, tmp_path):
@@ -541,5 +541,28 @@ class TestLoadContextDedup:
         pack = MemoryContractAdapter(cfg).load_context(chapter=2)
 
         status = pack.sections["runtime_status"]
-        assert status["latest_commit"]["marker"] == "COMMIT-CH2"
-        assert status["latest_accepted_commit"]["marker"] == "COMMIT-CH1"
+        assert status["latest_commit"]["meta"]["marker"] == "COMMIT-CH2"
+        assert status["latest_accepted_commit"]["meta"]["marker"] == "COMMIT-CH1"
+
+    def test_load_context_applies_budget_and_reports_used(self, tmp_path):
+        cfg = self._make_story_project(tmp_path)
+        commit_path = tmp_path / ".story-system" / "commits" / "chapter_001.commit.json"
+        data = json.loads(commit_path.read_text(encoding="utf-8"))
+        data["extraction_result"] = {"summary_text": "上一章摘要", "accepted_events": ["提" * 11000]}
+        data["outline_snapshot"] = {"covered": "细" * 4800}
+        commit_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+
+        pack = MemoryContractAdapter(cfg).load_context(chapter=2)
+
+        latest = pack.sections["runtime_status"]["latest_commit"]
+        assert "extraction_result" not in latest
+        assert latest["extraction_summary"] == "上一章摘要"
+        assert 0 < pack.budget_used_tokens <= int(cfg.context_load_total_budget)
+
+    def test_load_context_explicit_budget_overrides_config(self, tmp_path):
+        cfg = self._make_story_project(tmp_path)
+        cfg.context_load_total_budget = 20000
+
+        pack = MemoryContractAdapter(cfg).load_context(chapter=2, budget_tokens=600)
+
+        assert 0 < pack.budget_used_tokens <= 600

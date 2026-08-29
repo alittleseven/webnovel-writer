@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 from .chapter_commit_service import ChapterCommitService
 from .commit_artifacts import extraction_list
 from .config import DataModulesConfig, get_config
+from .context_budget import enforce_budget
 from .memory_contract import (
     CommitResult,
     ContextPack,
@@ -156,7 +157,7 @@ class MemoryContractAdapter:
         }
         return any(key in result for key in mainline_keys)
 
-    def load_context(self, chapter: int, budget_tokens: int = 4000) -> ContextPack:
+    def load_context(self, chapter: int, budget_tokens: int | None = None) -> ContextPack:
         sections: Dict[str, Any] = {}
         runtime_sources = load_runtime_sources(self.config.project_root, chapter)
 
@@ -284,10 +285,18 @@ class MemoryContractAdapter:
         except Exception as e:
             logger.warning("load_context: style_contract failed: %s", e)
 
+        # S1/C1：section 配额 + 总预算执行（硬约束类 section 永不整体丢弃）
+        total = (
+            int(budget_tokens)
+            if budget_tokens is not None
+            else int(getattr(self.config, "context_load_total_budget", 20000) or 20000)
+        )
+        sections, budget_stats = enforce_budget(sections, total_budget=total)
+
         return ContextPack(
             chapter=chapter,
             sections=sections,
-            budget_used_tokens=0,
+            budget_used_tokens=budget_stats["used"],
         )
 
     _STYLE_PATTERNS_LIMIT = 10

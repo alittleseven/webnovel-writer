@@ -117,8 +117,12 @@ class MemoryContract(Protocol):
         """写后提交：将章节处理结果写入所有存储。"""
         ...
 
-    def load_context(self, chapter: int, budget_tokens: int = 4000) -> ContextPack:
-        """写前读取：加载章节上下文包。"""
+    def load_context(self, chapter: int, budget_tokens: int | None = None) -> ContextPack:
+        """写前读取：加载章节上下文包。
+
+        budget_tokens=None（默认）时使用配置 `context_load_total_budget`
+        （S1 分析默认 20000 字符≈token）；显式传入则覆盖总预算。
+        """
         ...
 
     def query_entity(self, entity_id: str) -> Optional[EntitySnapshot]:

@@ -2,6 +2,20 @@
 
 这里记录每个正式版本对作者和维护者的影响。发布说明优先面向中文网文作者：先说写作体验有什么变化，再补维护者关心的技术细节。
 
+## Unreleased（v7-tmp 开发分支）
+
+### 给作者看的变化
+
+- **新增章级 token 计量（D1）**：写章起点自动建立计量标记，收尾输出「本章总消耗」一行结论（总计 + 去缓存新增 tokens，**含全部子代理轮次**），结果落盘 `.webnovel/tmp/chapter_meter_result.json` 供报告引用；写章过程中由 UserPromptSubmit 钩子每轮注入「本章累计」。非 ZCode 宿主（无用量库）自动降级跳过，不阻塞写作。
+- 口径说明：数据源为 ZCode 本地用量库 `~/.zcode/cli/db/db.sqlite` 的 `turn_usage` 表（只读）；子代理会话与主会话无父子关联，聚合按时间窗一并计入，因此**写章期间请勿并行跑其他重会话**，否则可能串入其他会话的消耗。
+
+### 给维护者
+
+- 新增 `data_modules/chapter_meter.py`：`start_meter`（推断当前主会话 = 最近完成的非子代理轮，锚点为其完成时刻）/ `aggregate_usage`（时间窗 + `session_id = 主会话 OR LIKE 'sess_subagent%'`）/ `stop_meter`（关账 + 结果文件）。
+- CLI 新增 `meter start|stop|report` 子命令（`--db` 可注入测试库）。
+- 新增 `hooks/chapter_meter_hook.py`（UserPromptSubmit：标记 open 时注入本章累计）并接入 `hooks.json`。
+- `webnovel-write` SKILL：write-start 同一时点 `meter start`，user-report 后 `meter stop` 并把一行总消耗并入最终回复。
+
 ## v6.4.0 - 写章上下文瘦身与实测修复
 
 ### 给作者看的变化

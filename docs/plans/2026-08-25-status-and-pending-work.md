@@ -51,10 +51,8 @@
   - 根因二：本地备份目录 rename 遇杀毒/索引器瞬时占用；复用 issue #125 退避重试（`_replace_with_retry`）。
   - 证据：commit `1e1b4ac`、`ecc24de`；全量 `python -m pytest -q --no-cov` 通过。
   - 附带发现（环境项，非代码缺陷）：仓库曾被整树复制，陈旧 `__pycache__` 内嵌旧 checkout 源码路径并通过 mtime/size 校验，导致 traceback 指向 `tencent_opc` 且测试加载旧模块；已清理全部 `__pycache__` 与 `.coverage`。若再次出现异仓帧，优先清缓存排查。
-- `[~]` 版本状态统一（2026-08-26 登记差异）：
-  - 已核实：`.claude-plugin/marketplace.json`、`webnovel-writer/.claude-plugin/plugin.json`、README badge 均为 `6.2.1`；项目 `AGENTS.md` 记录本地改造版本为 `v6.3.0（未发布）`，即 manifest 尚未随开发分支 bump——属"未发布前保持 6.2.1"的预期状态，非数据漂移。
-  - 待作者决策后执行：发布 v6.3.0 时按发版流程同步三处版本号与 release notes；在此之前不改任何版本字段。
-  - 决策入口：`[ ]` 确定并统一发布版本号（依赖作者拍板）。
+- `[x]` 版本状态统一（2026-08-30 完成）：三处版本号经 `sync_plugin_version.py` 同步为 `6.3.0`（marketplace.json / plugin.json / README badge + 更新简介表补行）；`releases/v6.3.0.md` 发布说明已建；本地 annotated tag `v6.3.0` 已打。发版校验四件套（sync --check / validate_release_notes / validate_plugin_package / git diff --check）+ 全量 `pytest -q --no-cov`（924 用例）全绿；宿主级冒烟链路通过（scratch 项目 init→commit→backup→doctor，见方案 Phase A3）。剩余：`git push` 与远端 release 待作者确认（本地分支已定名 `v6.3.0`，远端仍为 `origin/fix/temp`）。
+  - 证据：commit `5eb749e`（版本 bump）、`5f6fe38`（release notes）、`d9a2154`（AGENTS.md 同步）；详见 [2026-08-30-v7-开发方案.md](2026-08-30-v7-开发方案.md) Phase A。
 
 ### P1：完成 v6 必要收尾，不再扩张 v6
 

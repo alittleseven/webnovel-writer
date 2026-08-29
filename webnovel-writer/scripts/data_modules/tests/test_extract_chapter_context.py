@@ -234,7 +234,8 @@ def test_build_chapter_context_payload_includes_contract_sections(tmp_path):
     assert payload["rag_assist"].get("invoked") is False
     assert "long_term_memory" in payload
     assert payload["runtime_status"]["primary_write_source"] == "chapter_commit"
-    assert payload["latest_commit"]["meta"]["status"] == "accepted"
+    assert payload["runtime_status"]["latest_commit"]["meta"]["status"] == "accepted"
+    assert not payload["latest_commit"]
 
 
 def test_build_chapter_context_payload_exposes_latest_rejected_commit(tmp_path):
@@ -315,7 +316,48 @@ def test_build_chapter_context_payload_exposes_latest_rejected_commit(tmp_path):
 
     payload = build_chapter_context_payload(tmp_path, 3)
 
-    assert payload["latest_commit"]["meta"]["status"] == "rejected"
+    assert payload["runtime_status"]["latest_commit"]["meta"]["status"] == "rejected"
+    assert not payload["latest_commit"]
+
+
+def test_build_chapter_context_payload_dedupes_core_outline_and_summaries(tmp_path):
+    scripts_dir = Path(__file__).resolve().parents[2]
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+
+    from extract_chapter_context import build_chapter_context_payload
+    from data_modules.config import DataModulesConfig
+
+    cfg = DataModulesConfig.from_project_root(tmp_path)
+    cfg.ensure_dirs()
+    cfg.state_file.write_text(
+        json.dumps(
+            {
+                "project": {"genre": "修仙"},
+                "progress": {"current_chapter": 1},
+                "protagonist_state": {"name": "韩立"},
+                "chapter_meta": {},
+                "disambiguation_warnings": [],
+                "disambiguation_pending": [],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    outline_dir = tmp_path / "大纲"
+    outline_dir.mkdir(parents=True, exist_ok=True)
+    (outline_dir / "第1卷-详细大纲.md").write_text("### 第1章：测试标题\n测试大纲", encoding="utf-8")
+    summary_dir = tmp_path / ".webnovel" / "summaries"
+    summary_dir.mkdir(parents=True, exist_ok=True)
+
+    payload = build_chapter_context_payload(tmp_path, 1)
+
+    core = payload["core"]
+    if payload.get("outline"):
+        assert "chapter_outline" not in core
+    if payload.get("previous_summaries"):
+        assert "recent_summaries" not in core
+    assert "outline" in payload
 
 
 def test_render_text_contains_writing_guidance_section(tmp_path):

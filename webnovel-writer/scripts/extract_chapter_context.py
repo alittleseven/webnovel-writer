@@ -301,12 +301,18 @@ def _load_contract_context(project_root: Path, chapter_num: int) -> Dict[str, An
     manager = ContextManager(config)
     payload = manager.build_context(chapter=chapter_num, template="plot")
 
+    runtime_status = payload.get("runtime_status", {}) or {}
+    latest_commit = payload.get("latest_commit", {}) or {}
+    if latest_commit and runtime_status.get("latest_commit") == latest_commit:
+        # B5 去重：runtime_status 已携带同一份 commit，顶层不再重复
+        latest_commit = {}
+
     return {
         "context_contract_version": (payload.get("meta") or {}).get("context_contract_version"),
         "context_weight_stage": (payload.get("meta") or {}).get("context_weight_stage"),
         "story_contract": payload.get("story_contract", {}),
-        "runtime_status": payload.get("runtime_status", {}),
-        "latest_commit": payload.get("latest_commit", {}),
+        "runtime_status": runtime_status,
+        "latest_commit": latest_commit,
         "prewrite_validation": payload.get("prewrite_validation", {}),
         "reader_signal": payload.get("reader_signal", {}),
         "genre_profile": payload.get("genre_profile", {}),
@@ -332,6 +338,13 @@ def build_chapter_context_payload(project_root: Path, chapter_num: int) -> Dict[
     plot_structure = contract_context.get("plot_structure") or load_chapter_plot_structure(project_root, chapter_num)
     rag_assist = _load_rag_assist(project_root, chapter_num, outline)
 
+    core = contract_context.get("core", {}) or {}
+    # B5 去重：core 子段与顶层 outline/previous_summaries 同源时只保留顶层一份
+    if outline and core.get("chapter_outline"):
+        core = {key: value for key, value in core.items() if key != "chapter_outline"}
+    if prev_summaries and core.get("recent_summaries"):
+        core = {key: value for key, value in core.items() if key != "recent_summaries"}
+
     return {
         "chapter": chapter_num,
         "outline": outline,
@@ -349,7 +362,7 @@ def build_chapter_context_payload(project_root: Path, chapter_num: int) -> Dict[
         "plot_structure": plot_structure,
         "long_term_memory": contract_context.get("long_term_memory", {}),
         "scene": contract_context.get("scene", {}),
-        "core": contract_context.get("core", {}),
+        "core": core,
         "rag_assist": rag_assist,
     }
 

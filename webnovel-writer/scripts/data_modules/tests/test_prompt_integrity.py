@@ -823,13 +823,17 @@ def _agent_tools(agent_name: str) -> list[str]:
 
 # B 类红线（写入所有权 ↔ tools 一致，单一写入者）：
 # data-agent 是三份 tmp artifact 的唯一写入者 → 必须持 Write；
-# reviewer/context-agent/deconstruction-agent 只返回结果、由主流程落盘 → 不得持 Write。
+# reviewer 持受限 Write（唯一允许写 review_results.json，B6 直写契约）→ 必须持 Write；
+# context-agent/deconstruction-agent 只返回结果、由主流程落盘 → 不得持 Write。
 def test_agent_write_ownership_matches_tools_frontmatter():
-    """红线（写入所有权）：仅 data-agent 持 Write，其余三个 agent 不持 Write。"""
+    """红线（写入所有权）：data-agent 与 reviewer 持受限 Write，其余两个 agent 不持 Write。"""
     assert "Write" in _agent_tools("data-agent"), (
         "data-agent 必须持有 Write（它是三份 tmp artifact 的唯一写入者）"
     )
-    for agent_name in ("reviewer", "context-agent", "deconstruction-agent"):
+    assert "Write" in _agent_tools("reviewer"), (
+        "reviewer 必须持有受限 Write（唯一允许写 review_results.json，B6 直写契约）"
+    )
+    for agent_name in ("context-agent", "deconstruction-agent"):
         assert "Write" not in _agent_tools(agent_name), (
             f"{agent_name} 不得持有 Write（它只返回结果，由主流程落盘）"
         )

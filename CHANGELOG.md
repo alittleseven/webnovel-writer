@@ -2,6 +2,19 @@
 
 这里记录每个正式版本对作者和维护者的影响。发布说明优先面向中文网文作者：先说写作体验有什么变化，再补维护者关心的技术细节。
 
+## Unreleased（v7-tmp 开发分支）
+
+### 给作者看的变化
+
+- **修复「中文参数被改写成乱码」**：fantasy01 第 35 章实测发现，v6.3.0 引入的 argv 乱码自动修复存在误报——「钱平」等正常中文的 GBK 编码恰好是合法 UTF-8，会被误判为乱码改写（`钱平`→`Ǯƽ`），导致 `get-by-alias` 等中文参数查询失败。由于真乱码与正常中文在字符串层面无法可靠区分，argv 自动修复改为**默认关闭**，受 PowerShell 传参乱码影响的环境设 `WEBNOVEL_FIX_ARGV_MOJIBAKE=1` 显式开启；stdio UTF-8 包装不受影响。
+- **CLI 对损坏 JSON 的报错更友好**：`review-pipeline` / `chapter-commit` 遇到无法解析（如含未转义引号）或缺失的 artifact 时，不再抛 Python traceback，改为输出定位明确的一行错误与修复提示，退出码 2。
+
+### 给维护者
+
+- `runtime_compat._fix_sys_argv`：增加 `WEBNOVEL_FIX_ARGV_MOJIBAKE` 环境变量门控（1/true/yes/on 开启）；`_fix_argv_mojibake` 函数行为不变，新增误报类回归测试（`钱平` 不应被自动修复场景由门控覆盖）。
+- `review_pipeline.main`：`build_review_artifacts` 的 `JSONDecodeError`/`OSError` 转为 stderr 友好报错 + `SystemExit(2)`。
+- `chapter_commit._read_json`：同上，artifact 无法解析或缺失时友好报错 + `SystemExit(2)`。
+
 ## v6.3.0 - 修复伏笔回收、BM25 回退与事件审计链三个核心缺陷（未发布）
 
 > 依据架构审计（2026-08-23，round1/round2）的 P0 缺陷清单落地。尚未发版，待全量验证与 Human Owner 确认。

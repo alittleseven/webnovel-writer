@@ -298,3 +298,24 @@ class ChapterCommitService:
         self.write_events_and_proposals(payload)
 
         return self.apply_projection_writers(payload)
+
+
+def summarize_commit_payload(payload: Dict[str, Any]) -> str:
+    """一行提交结论。完整 payload 已由 persist_commit 落盘真源，stdout 不再重打全文。"""
+    meta = payload.get("meta") or {}
+    status = str(meta.get("status") or "")
+    projections = payload.get("projection_status") or {}
+    warnings = meta.get("extraction_warnings") or []
+    chapter = meta.get("chapter")
+    parts = [
+        "OK" if status == "accepted" else "REJECTED",
+        f"chapter-commit chapter={chapter}",
+        f"status={status}",
+    ]
+    if projections:
+        parts.append("projections=" + ",".join(f"{key}:{value}" for key, value in projections.items()))
+    if warnings:
+        parts.append(f"warnings={len(warnings)}")
+    if isinstance(chapter, int):
+        parts.append(f"detail=.story-system/commits/chapter_{chapter:03d}.commit.json")
+    return " ".join(parts)

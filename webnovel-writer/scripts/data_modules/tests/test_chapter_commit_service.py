@@ -546,3 +546,45 @@ def test_build_commit_no_warnings_when_extraction_clean(tmp_path):
         },
     )
     assert payload["meta"]["extraction_warnings"] == []
+
+
+def test_summarize_commit_payload_is_compact_one_liner():
+    from data_modules.chapter_commit_service import summarize_commit_payload
+
+    payload = {
+        "meta": {"chapter": 1, "status": "accepted", "extraction_warnings": [{"code": "w"}]},
+        "projection_status": {
+            "state": "done",
+            "index": "done",
+            "summary": "done",
+            "memory": "done",
+            "vector": "done",
+        },
+        "review_result": {"blocking_count": 0, "issues": []},
+        "extraction_result": {"accepted_events": []},
+    }
+
+    line = summarize_commit_payload(payload)
+
+    assert line.startswith("OK")
+    assert "\n" not in line
+    assert len(line) < 500
+    assert "chapter=1" in line
+    assert "status=accepted" in line
+    assert "state:done" in line and "vector:done" in line
+    assert "warnings=1" in line
+    assert "review_result" not in line
+    assert "accepted_events" not in line
+    assert "chapter_001.commit.json" in line
+
+
+def test_summarize_commit_payload_rejected_has_no_projections():
+    from data_modules.chapter_commit_service import summarize_commit_payload
+
+    payload = {"meta": {"chapter": 2, "status": "rejected"}, "projection_status": {}}
+
+    line = summarize_commit_payload(payload)
+
+    assert line.startswith("REJECTED")
+    assert "chapter=2" in line
+    assert "projections=" not in line

@@ -169,6 +169,22 @@ def build_review_artifacts(
     }
 
 
+def summarize_review_payload(payload: Dict[str, Any]) -> str:
+    """一行审查管线结论。完整 review_result 已落盘 review_results.json，stdout 不再重打。"""
+    review = payload.get("review_result") or {}
+    metrics = payload.get("metrics") or {}
+    parts = [
+        "DONE",
+        f"review-pipeline chapter={payload.get('chapter')}",
+        f"blocking={review.get('blocking_count', 0)}",
+        f"issues={review.get('issues_count', 0)}",
+        f"anti_patterns={payload.get('anti_patterns_added', 0)}",
+    ]
+    if metrics.get("report_file"):
+        parts.append(f"report={metrics['report_file']}")
+    return " ".join(parts)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Review pipeline v6")
     parser.add_argument("--project-root", required=True)
@@ -212,7 +228,7 @@ def main() -> None:
         manager = IndexManager(config)
         manager.save_review_metrics(_build_review_metrics_record(payload["metrics"]))
 
-    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    print(summarize_review_payload(payload))
 
 
 if __name__ == "__main__":

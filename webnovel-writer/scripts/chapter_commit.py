@@ -9,7 +9,7 @@ from pathlib import Path
 
 from runtime_compat import enable_windows_utf8_stdio
 
-from data_modules.chapter_commit_service import ChapterCommitService
+from data_modules.chapter_commit_service import ChapterCommitService, summarize_commit_payload
 
 
 def _read_json(path: str) -> dict:
@@ -36,7 +36,7 @@ def main() -> None:
     )
     service.persist_commit(payload)
     payload = service.apply_projections(payload)
-    print(json.dumps(payload, ensure_ascii=False))
+    print(summarize_commit_payload(payload))
 
 
 if __name__ == "__main__":

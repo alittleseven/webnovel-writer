@@ -163,6 +163,8 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" rev
   --save-metrics
 ```
 
+review-pipeline 输出一行结论（DONE + blocking/issues 计数）；标准 review_result 已落盘 `review_results.json`，**禁止再让主流程复述或重写该 artifact 内容**。
+
 审查只跑一轮，reviewer 只调用一次。`blocking=true` 的问题在不改剧情、不破设定的前提下定点修复后直接进 Step 4，不重新调用 reviewer；确实无法修复的 blocking 问题用 `AskUserQuestion` 让用户裁决（接受当前版本 / 手动修复 / 放弃）。非 blocking issue 交给 Step 4 处理。`--fast` 只检查 setting/timeline/continuity。
 
 `--minimal` 不调用 reviewer 与 `review-pipeline`，但必须**覆盖写入**本章新的 no-review `review_results.json`（禁止复用旧 artifact），使 Step 5 提交链有有效 `--review-result`（成功标准“审查已落库”对 `--minimal` 的豁免仍成立）：
@@ -246,7 +248,7 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" cha
   --extraction-result "${PROJECT_ROOT}/.webnovel/tmp/extraction_result.json"
 ```
 
-自动判定：blocking_count>0 或 missed_nodes 非空 或 pending 非空 → rejected，否则 accepted。
+自动判定：blocking_count>0 或 missed_nodes 非空 或 pending 非空 → rejected，否则 accepted。chapter-commit 输出一行结论（OK/REJECTED + 五投影状态 + warnings 数）；完整 commit payload 已落盘 `.story-system/commits/chapter_{NNN}.commit.json`，需要详情时 Read 该文件，**禁止把 stdout 全文复述进对话**。
 
 #### 5.3 验证投影
 

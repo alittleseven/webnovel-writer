@@ -199,12 +199,25 @@ def main() -> None:
     project_root = Path(args.project_root)
     review_results_path = Path(args.review_results)
 
-    payload = build_review_artifacts(
-        project_root=project_root,
-        chapter=args.chapter,
-        review_results_path=review_results_path,
-        report_file=args.report_file,
-    )
+    try:
+        payload = build_review_artifacts(
+            project_root=project_root,
+            chapter=args.chapter,
+            review_results_path=review_results_path,
+            report_file=args.report_file,
+        )
+    except json.JSONDecodeError as exc:
+        print(
+            f"ERROR review-pipeline: review JSON 无法解析（常见原因：字符串含未转义引号）: {review_results_path}\n  {exc}\n  请修复该文件后重跑；主流程不应把 traceback 复述进对话。",
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from exc
+    except OSError as exc:
+        print(
+            f"ERROR review-pipeline: review JSON 读取失败: {review_results_path}\n  {exc}",
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from exc
 
     if args.metrics_out:
         out_path = Path(args.metrics_out)

@@ -48,3 +48,67 @@ def test_summarize_review_payload_blocking_without_report():
     assert "blocking=2" in line and "issues=5" in line
     assert "anti_patterns=1" in line
     assert "report=" not in line
+
+
+def test_main_friendly_error_on_unparseable_review_json(tmp_path, capsys, monkeypatch):
+    import sys
+
+    import pytest
+
+    import review_pipeline
+
+    bad = tmp_path / "review_results.json"
+    bad.write_text('{"chapter": 1, "issues": [broken', encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "review_pipeline",
+            "--project-root",
+            str(tmp_path),
+            "--chapter",
+            "1",
+            "--review-results",
+            str(bad),
+        ],
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        review_pipeline.main()
+
+    assert excinfo.value.code == 2
+    captured = capsys.readouterr()
+    assert "无法解析" in captured.err
+    assert "review_results.json" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_main_friendly_error_on_missing_review_json(tmp_path, capsys, monkeypatch):
+    import sys
+
+    import pytest
+
+    import review_pipeline
+
+    missing = tmp_path / "nope.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "review_pipeline",
+            "--project-root",
+            str(tmp_path),
+            "--chapter",
+            "1",
+            "--review-results",
+            str(missing),
+        ],
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        review_pipeline.main()
+
+    assert excinfo.value.code == 2
+    captured = capsys.readouterr()
+    assert "读取失败" in captured.err
+    assert "Traceback" not in captured.err

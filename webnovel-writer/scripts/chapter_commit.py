@@ -13,7 +13,20 @@ from data_modules.chapter_commit_service import ChapterCommitService, summarize_
 
 
 def _read_json(path: str) -> dict:
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(
+            f"ERROR chapter-commit: artifact JSON 无法解析（常见原因：字符串含未转义引号）: {path}\n  {exc}\n  请修复该 artifact 后重跑。",
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from exc
+    except OSError as exc:
+        print(
+            f"ERROR chapter-commit: artifact 读取失败: {path}\n  {exc}",
+            file=sys.stderr,
+        )
+        raise SystemExit(2) from exc
 
 
 def main() -> None:

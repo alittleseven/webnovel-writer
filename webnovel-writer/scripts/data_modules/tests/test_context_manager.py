@@ -912,7 +912,8 @@ CEN：决定将计就计
 
 
 def test_load_setting_truncates_long_file(temp_project):
-    """P1-4：设定文件超过 context_setting_max_chars 时截断头部并标记。"""
+    """P1-4 回退路径（S3/C3 后 digest 默认开启，此处显式关闭验证旧截断行为）。"""
+    temp_project.context_settings_digest_enabled = False
     settings_dir = temp_project.settings_dir
     settings_dir.mkdir(parents=True, exist_ok=True)
     long_body = "世界观核心设定\n" + "细节描述" * 3000
@@ -937,6 +938,7 @@ def test_load_setting_keeps_short_file(temp_project):
 
 
 def test_load_setting_zero_max_chars_disables_truncation(temp_project):
+    temp_project.context_settings_digest_enabled = False
     """P1-4：context_setting_max_chars=0 时不截断（兼容长设定场景）。"""
     temp_project.context_setting_max_chars = 0
     settings_dir = temp_project.settings_dir

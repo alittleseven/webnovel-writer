@@ -789,6 +789,14 @@ class ContextManager:
         return appearances or []
 
     def _load_setting(self, keyword: str) -> str:
+        # S3/C3：L0 摘要层——默认注入结构摘要（自动构建/陈旧自愈），
+        # 原文（L2）经 setting-read 或 Read 按需展开；开关关闭时回退旧路径。
+        if bool(getattr(self.config, "context_settings_digest_enabled", True)):
+            from .settings_digest import get_setting_digest
+
+            digest = get_setting_digest(self.config, keyword)
+            if digest:
+                return digest
         settings_dir = self.config.settings_dir
         candidates = [
             settings_dir / f"{keyword}.md",

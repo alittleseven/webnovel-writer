@@ -6,6 +6,7 @@
 
 ### 给作者看的变化
 
+- **设定集 L0 摘要层（C3，S3）**：设定内容默认注入 ~240 字结构摘要（主题行 + `##` 骨架 + 首要点），源文件变更自动重建（sha256 陈旧自愈，**不依赖 init/plan 重跑**）；原文（L2）经新命令 `setting-read --name <设定名>` 或 Read 按需展开——agent 契约明确「命中才展开」。fantasy01 实测：6 个设定文件 9,008 → **601 字符（−93%）**；`context_settings_digest_enabled=false` 可回滚旧行为。
 - **ContextManager 路径同步瘦身（C2，S2）**：extract-context 降级路径与主路径对齐——runtime_status 瘦身（commit 全文收缩为 meta+摘要、合同全文只在 story_contract 一份、accepted 侧同章降级为章号标记）；`genre_profile`/`reader_signal`/`writing_guidance`/`plot_structure` 四个大 section 的超长文本递归截断（1500/800/1200/2500 字上限，键结构不变）；`build_context` 的 `max_chars` 死参数落地为总预算（超限低价值先弃、`meta.budget_dropped` 留痕）。fantasy01 ch36 实测：extract-context 39,914 → **17,304 字符（−57%）**，runtime_status 23,611 → 1,001。
 - **写前上下文包预算实装（C1，S1）**：`load_context` 的 `budget_tokens` 从死参数变为真执行——按 section 配额 + 键优先级收缩（`source_trace` 等元数据不再进入上下文；上一章提交全文只保留 meta 与摘要一句，fantasy01 实测该块占基础包 39%），超总预算按价值递减丢弃低优先级节。默认总预算经 [S1 配额分析](../reports/2026-08-30-S1-预算配额分析.md)（fantasy01 实测）定为 **20,000 字符**：ch35 基础包 59,977 → **19,241 字符（−68%）**，`budget_used_tokens` 返回真值。硬约束类（合同/运行状态）永不整体丢弃，任务书五段数据来源完整保留。
 - **新增章级 token 计量（D1）**：写章起点自动建立计量标记，收尾输出「本章总消耗」一行结论（总计 + 去缓存新增 tokens，**含全部子代理轮次**），结果落盘 `.webnovel/tmp/chapter_meter_result.json` 供报告引用；写章过程中由 UserPromptSubmit 钩子每轮注入「本章累计」。非 ZCode 宿主（无用量库）自动降级跳过，不阻塞写作。

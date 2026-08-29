@@ -212,6 +212,8 @@ class DataModulesConfig:
     context_recent_meta_window: int = 3
     context_alerts_slice: int = 10
     context_load_total_budget: int = 20000
+    context_settings_digest_enabled: bool = True
+    context_settings_digest_max_chars: int = 240
     context_max_appearing_characters: int = 10
     context_max_urgent_foreshadowing: int = 5
     context_story_skeleton_interval: int = 20

@@ -303,6 +303,26 @@ def cmd_meter(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_setting_read(args: argparse.Namespace) -> int:
+    """S3/C3 L2：按需读取设定文件原文（默认全文，--max-chars 可截）。"""
+    from .config import DataModulesConfig
+    from .settings_digest import _find_setting_path
+
+    root = _resolve_root(args.project_root)
+    cfg = DataModulesConfig.from_project_root(root)
+    source = _find_setting_path(cfg.settings_dir, args.name)
+    if source is None:
+        print(f"ERROR setting-read: 未找到设定文件（keyword={args.name}）")
+        return 1
+    text = source.read_text(encoding="utf-8")
+    max_chars = int(getattr(args, "max_chars", 0) or 0)
+    if max_chars > 0 and len(text) > max_chars:
+        marker = "\n…（截断）"
+        text = text[: max(0, max_chars - len(marker))] + marker
+    print(text)
+    return 0
+
+
 def cmd_write_gate(args: argparse.Namespace) -> int:
     from .write_gates import (
         externalize_gate_report,
@@ -555,6 +575,11 @@ def main() -> None:
     p_meter_report = meter_sub.add_parser("report", help="只读聚合（不移除标记）")
     p_meter_report.add_argument("--db", default="")
     p_meter.set_defaults(func=cmd_meter)
+
+    p_setting_read = sub.add_parser("setting-read", help="读取设定文件原文（L2，按需展开）")
+    p_setting_read.add_argument("--name", required=True, help="设定名（如 世界观/力量体系/主角卡）")
+    p_setting_read.add_argument("--max-chars", type=int, default=0, help="最多输出字符（0=全文）")
+    p_setting_read.set_defaults(func=cmd_setting_read)
 
     p_write_gate = sub.add_parser("write-gate", help="写章自然边界校验")
     p_write_gate.add_argument("--chapter", type=int, required=True, help="目标章节号")

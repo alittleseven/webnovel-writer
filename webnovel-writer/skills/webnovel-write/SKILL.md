@@ -135,7 +135,7 @@ Task:
 - 只返回严格的 reviewer schema JSON，不写任何文件。
 - 不评分、不口头总结。
 
-reviewer 只返回 JSON；主流程负责用 `Write` 把返回的 JSON 写入 `${PROJECT_ROOT}/.webnovel/tmp/review_results.json`（reviewer 不持 Write，是这份 artifact 的非写入方）。随后必须运行 review-pipeline；review-pipeline 会把同一路径覆盖为标准 review_result artifact（含 `blocking_count`），供 precommit gate 与后续提交命令使用。
+reviewer 持受限 `Write`（唯一允许写入的文件）：它自己把审查 JSON 写入 `${PROJECT_ROOT}/.webnovel/tmp/review_results.json`，最终回复只给一行汇总；主流程不代写 artifact，只检查文件存在与 schema——review-pipeline 会复核并把同一路径覆盖为标准 review_result artifact（含 `blocking_count`），供 precommit gate 与后续提交命令使用。
 
 调用后主流程必须记录 `SubagentRun` 汇总（仅供最终报告使用）：
 

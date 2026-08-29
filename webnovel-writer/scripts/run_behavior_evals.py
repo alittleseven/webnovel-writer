@@ -159,13 +159,13 @@ def _eval_artifact_ownership(root: Path, case: dict[str, Any]) -> dict[str, Any]
     reviewer_tools = _frontmatter(_read(plugin_root / "agents" / "reviewer.md")).get("tools", "")
     data_tools = _frontmatter(_read(plugin_root / "agents" / "data-agent.md")).get("tools", "")
     missing: list[str] = []
-    if "Write" in reviewer_tools:
-        missing.append("reviewer 不应持 Write（review_results.json 由主流程落盘）")
+    if "Write" not in reviewer_tools:
+        missing.append("reviewer 应持受限 Write（review_results.json 由 reviewer 直写）")
     if "Write" not in data_tools:
         missing.append("data-agent 应持 Write（它是 tmp artifact 的唯一写入者）")
     for text, owner in ((write_text, "webnovel-write"), (review_text, "webnovel-review")):
         if "主流程" not in text or ".webnovel/tmp/review_results.json" not in text:
-            missing.append(f"{owner}: 缺 reviewer→主流程落盘 review_results.json 的所有权说明")
+            missing.append(f"{owner}: 缺 reviewer 直写 review_results.json 的所有权说明")
     for item in (
         "唯一写入者",
         "主流程只检查文件存在与 schema",

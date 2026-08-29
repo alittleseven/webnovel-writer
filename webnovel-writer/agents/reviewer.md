@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: 统一审查 agent。逐维度检查正文的设定一致性、时间线、叙事连贯、角色一致性、逻辑，输出结构化问题清单。
-tools: Read, Grep, Bash
+tools: Read, Grep, Bash, Write
 model: inherit
 color: yellow
 ---
@@ -93,7 +93,7 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" ind
 
 ## 7. 输出格式
 
-严格按以下 JSON 格式输出（无其他文本）。`issues_count`、`blocking_count`、`has_blocking` 必须与 `issues` 一致；review-pipeline 会复核并覆盖写回标准 artifact。
+生成以下 JSON 后，用受限 `Write` 将其写入 `${PROJECT_ROOT}/.webnovel/tmp/review_results.json`——这是 reviewer 唯一允许写入的文件（主流程只检查文件存在与 schema；review-pipeline 会复核并覆盖写回标准 artifact）。**最终回复只输出一行汇总**（`chapter={n} blocking={x} issues={y} dimensions=5/5`，异常时附原因），禁止把 JSON 全文复述进回复。`issues_count`、`blocking_count`、`has_blocking` 必须与 `issues` 一致。
 
 ```json
 {
@@ -134,7 +134,7 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" ind
 - `auto_handled`：无状态读取时跳过某个非关键维度、降级读取摘要。
 - `needs_user_action`：存在 `blocking=true` 或无法审查时为 true。
 - `duration_ms`：由主流程计时记录。
-- `outputs`：`.webnovel/tmp/review_results.json` 与审查报告路径由主流程记录。
+- `outputs`：`.webnovel/tmp/review_results.json`（reviewer 直写）与审查报告路径由主流程记录。
 
 ## 9. 错误处理
 

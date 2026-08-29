@@ -119,7 +119,7 @@
     {
       "id": "artifact_ownership",
       "type": "artifact_ownership",
-      "description": "reviewer returns JSON while main flow writes review_results.json; data-agent writes only tmp artifacts."
+      "description": "reviewer writes review_results.json directly (restricted Write); data-agent writes only tmp artifacts."
     },
     {
       "id": "commit_drives_projection",

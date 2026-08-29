@@ -336,7 +336,7 @@ class TestLoadContext:
 
         assert pack.sections["story_contracts"]["master"]["route"]["primary_genre"] == "玄幻"
         assert pack.sections["runtime_status"]["primary_write_source"] == "chapter_commit"
-        assert pack.sections["latest_commit"]["meta"]["status"] == "accepted"
+        assert pack.sections["runtime_status"]["latest_commit"]["meta"]["status"] == "accepted"
 
     def test_load_context_genre_profile_fallback_reads_project_info(self, tmp_path):
         cfg = _make_project(tmp_path)
@@ -383,7 +383,7 @@ class TestLoadContext:
         adapter = MemoryContractAdapter(cfg)
         pack = adapter.load_context(3)
 
-        assert pack.sections["latest_commit"]["meta"]["status"] == "rejected"
+        assert pack.sections["runtime_status"]["latest_commit"]["meta"]["status"] == "rejected"
         assert pack.sections["runtime_status"]["latest_accepted_commit"]["meta"]["status"] == "accepted"
 
 
@@ -497,3 +497,49 @@ class TestLoadContextAuthorStyle:
         )
         pack = MemoryContractAdapter(cfg).load_context(chapter=2)
         assert "author_style_patterns" not in pack.sections
+
+
+class TestLoadContextDedup:
+    """B3：合同全文与 commit 在 ContextPack 中只出现一份。"""
+
+    def _make_story_project(self, tmp_path: Path, *, rejected_latest: bool = False):
+        cfg = _make_project(tmp_path)
+        ss = tmp_path / ".story-system"
+        (ss / "chapters").mkdir(parents=True)
+        (ss / "commits").mkdir(parents=True)
+        (ss / "MASTER_SETTING.json").write_text(
+            json.dumps({"marker": "MASTER-XYZ", "route": {"primary_genre": "修仙"}}),
+            encoding="utf-8",
+        )
+        (ss / "chapters" / "chapter_002.json").write_text(
+            json.dumps({"marker": "CHAPTER-XYZ"}), encoding="utf-8"
+        )
+        commit1 = {"meta": {"chapter": 1, "status": "accepted"}, "marker": "COMMIT-CH1"}
+        (ss / "commits" / "chapter_001.commit.json").write_text(json.dumps(commit1), encoding="utf-8")
+        if rejected_latest:
+            commit2 = {"meta": {"chapter": 2, "status": "rejected"}, "marker": "COMMIT-CH2"}
+            (ss / "commits" / "chapter_002.commit.json").write_text(json.dumps(commit2), encoding="utf-8")
+        return cfg
+
+    def test_contracts_and_commit_appear_once(self, tmp_path):
+        cfg = self._make_story_project(tmp_path)
+        pack = MemoryContractAdapter(cfg).load_context(chapter=2)
+
+        text = json.dumps(pack.to_dict(), ensure_ascii=False)
+        assert text.count("MASTER-XYZ") == 1
+        assert text.count("CHAPTER-XYZ") == 1
+        assert text.count("COMMIT-CH1") == 1
+        assert "latest_commit" not in pack.sections
+        status = pack.sections["runtime_status"]
+        assert "contracts" not in status
+        assert status["primary_write_source"] == "chapter_commit"
+        assert status["latest_commit"]["marker"] == "COMMIT-CH1"
+        assert status["latest_accepted_chapter"] == 1
+
+    def test_latest_and_accepted_differ_keeps_both(self, tmp_path):
+        cfg = self._make_story_project(tmp_path, rejected_latest=True)
+        pack = MemoryContractAdapter(cfg).load_context(chapter=2)
+
+        status = pack.sections["runtime_status"]
+        assert status["latest_commit"]["marker"] == "COMMIT-CH2"
+        assert status["latest_accepted_commit"]["marker"] == "COMMIT-CH1"

@@ -161,8 +161,24 @@ class MemoryContractAdapter:
         runtime_sources = load_runtime_sources(self.config.project_root, chapter)
 
         sections["story_contracts"] = dict(runtime_sources.contracts)
-        sections["runtime_status"] = runtime_sources.to_dict()
-        sections["latest_commit"] = runtime_sources.latest_commit or {}
+        # B3 去重：合同全文只在 story_contracts 出现一份；commit 只在 runtime_status
+        # 保留一份（latest 与 accepted 相同时 accepted 侧降级为章号标记）。
+        latest_commit = runtime_sources.latest_commit or {}
+        latest_accepted = runtime_sources.latest_accepted_commit or {}
+        runtime_status: Dict[str, Any] = {
+            "chapter": runtime_sources.chapter,
+            "fallback_sources": list(runtime_sources.fallback_sources),
+            "primary_write_source": runtime_sources.primary_write_source,
+        }
+        if latest_commit:
+            runtime_status["latest_commit"] = latest_commit
+        if latest_accepted and latest_accepted != latest_commit:
+            runtime_status["latest_accepted_commit"] = latest_accepted
+        elif latest_accepted:
+            runtime_status["latest_accepted_chapter"] = (latest_accepted.get("meta") or {}).get(
+                "chapter"
+            )
+        sections["runtime_status"] = runtime_status
 
         # 1. MemoryOrchestrator 基础包
         try:

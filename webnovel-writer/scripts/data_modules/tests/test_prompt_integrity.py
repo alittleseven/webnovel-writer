@@ -57,7 +57,7 @@ REGISTERED_CLI_SUBCOMMANDS = {
     "init", "extract-context", "memory-contract", "project-memory", "review-pipeline",
     "placeholder-scan", "master-outline-sync",
     "story-system", "chapter-commit", "story-events", "knowledge", "timeline-check",
-    "meter",
+    "meter", "setting-read",
 }
 
 

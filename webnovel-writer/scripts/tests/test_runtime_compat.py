@@ -41,3 +41,43 @@ def test_fix_argv_mojibake_handles_mixed():
     fixed = _fix_argv_mojibake(raw)
     assert fixed.startswith(r"C:\books")
     assert "萧炎" in fixed
+
+
+def test_fix_argv_mojibake_false_positive_class_is_real():
+    # B-fix 记录误报类：钱平 的 GBK 编码（C7AE C6BD）恰好是合法 UTF-8，
+    # 函数会把它改写成乱码——这正是 _fix_sys_argv 默认必须关闭的原因。
+    assert _fix_argv_mojibake("钱平") != "钱平"
+
+
+def test_fix_sys_argv_gated_off_by_default(monkeypatch):
+    import sys
+
+    from runtime_compat import _fix_sys_argv
+
+    monkeypatch.setattr(sys, "argv", ["webnovel.py", "--alias", "钱平"])
+    monkeypatch.delenv("WEBNOVEL_FIX_ARGV_MOJIBAKE", raising=False)
+    _fix_sys_argv()
+    assert sys.argv == ["webnovel.py", "--alias", "钱平"]
+
+
+def test_fix_sys_argv_opt_in_repairs_powershell_mojibake(monkeypatch):
+    import sys
+
+    from runtime_compat import _fix_sys_argv
+
+    monkeypatch.setattr(sys, "argv", ["webnovel.py", "--query", "榧犵帇"])
+    monkeypatch.setenv("WEBNOVEL_FIX_ARGV_MOJIBAKE", "1")
+    _fix_sys_argv()
+    assert sys.argv[2] == "鼠王"
+
+
+def test_fix_sys_argv_opt_in_accepts_true_variants(monkeypatch):
+    import sys
+
+    from runtime_compat import _fix_sys_argv
+
+    for value in ("true", "yes", "on", "TRUE"):
+        monkeypatch.setenv("WEBNOVEL_FIX_ARGV_MOJIBAKE", value)
+        monkeypatch.setattr(sys, "argv", ["webnovel.py", "--query", "钀х値"])
+        _fix_sys_argv()
+        assert sys.argv[2] == "萧炎", f"env={value} 应开启修复"

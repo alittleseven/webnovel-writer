@@ -39,8 +39,19 @@ def _fix_argv_mojibake(value: str) -> str:
 
 
 def _fix_sys_argv() -> None:
-    """就地修复 sys.argv 中的乱码参数（仅 Windows）。"""
+    """就地修复 sys.argv 中的乱码参数（仅 Windows，需 WEBNOVEL_FIX_ARGV_MOJIBAKE=1 显式开启）。
+
+    B-fix：真书实测发现该启发式存在不可消除的误报——「钱平」等正常中文的 GBK
+    编码（C7AE C6BD）恰好是合法 UTF-8，会被误判为乱码改写成「Ǯƽ」，导致
+    get-by-alias 等中文参数查询失败（fantasy01 第 35 章实测，2026-08-30）。
+    真乱码（UTF-8 字节被 GBK 误解码）与正常中文在字符串层面按 GBK/UTF-8 互转
+    是对称可逆的，无法可靠区分，故默认不修改 argv；受 PowerShell 传参乱码影响
+    的环境可设 WEBNOVEL_FIX_ARGV_MOJIBAKE=1（true/yes/on 亦可）显式开启。
+    """
     if sys.platform != "win32":
+        return
+    flag = os.environ.get("WEBNOVEL_FIX_ARGV_MOJIBAKE", "").strip().lower()
+    if flag not in {"1", "true", "yes", "on"}:
         return
     try:
         sys.argv = [_fix_argv_mojibake(a) for a in sys.argv]

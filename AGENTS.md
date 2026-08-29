@@ -37,9 +37,9 @@ webnovel-writer/              ← 外层仓库根（marketplace 清单）
 
 ## 当前状态
 
-- 主开发分支：fix/temp（领先 origin/master 37 个修复提交）
+- 主开发分支：v6.3.0（原 fix/temp，2026-08-30 定名；下一步开发在 v7-tmp）
 - 上游：lingfengQAQ/webnovel-writer v6.2.1
-- 本地改造版本：v6.3.0（未发布）
+- 本地改造版本：v6.3.0（本地已 tag，待作者确认后推送发布）
 - 远程：git@github.com:alittleseven/webnovel-writer.git
 
 ## OpenCode 工作区规则：任务状态必须与代码同步

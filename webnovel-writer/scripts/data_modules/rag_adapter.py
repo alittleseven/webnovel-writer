@@ -904,19 +904,37 @@ class RAGAdapter:
 
         with self._get_conn() as conn:
             cursor = conn.cursor()
+            # S7/P2-1：term 命中过滤下推 SQLite（LIKE OR 组合），只取候选行回 Python 计分。
+            # 与全表过滤等价（无命中行原本计 0 分被丢弃）；embedding 失败 chunk 的
+            # 正文行（content 列）同样参与，且扫描在 SQLite 内完成。
+            like_clauses: list[str] = []
+            like_params: list[str] = []
+            for terms in entity_terms.values():
+                for term in terms:
+                    term_text = str(term or "").strip()
+                    if not term_text:
+                        continue
+                    escaped = (
+                        term_text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                    )
+                    like_clauses.append("content LIKE ? ESCAPE '\\'")
+                    like_params.append(f"%{escaped}%")
+            if not like_clauses:
+                return []
+            where = "(" + " OR ".join(like_clauses) + ")"
             if chapter is None:
                 cursor.execute(
-                    "SELECT chunk_id, chapter, content FROM vectors ORDER BY chapter DESC, scene_index DESC"
+                    "SELECT chunk_id, chapter, content FROM vectors WHERE "
+                    + where
+                    + " ORDER BY chapter DESC, scene_index DESC",
+                    like_params,
                 )
             else:
                 cursor.execute(
-                    """
-                    SELECT chunk_id, chapter, content
-                    FROM vectors
-                    WHERE chapter <= ?
-                    ORDER BY chapter DESC, scene_index DESC
-                """,
-                    (int(chapter),),
+                    "SELECT chunk_id, chapter, content FROM vectors WHERE chapter <= ? AND "
+                    + where
+                    + " ORDER BY chapter DESC, scene_index DESC",
+                    [int(chapter), *like_params],
                 )
             rows = cursor.fetchall()
 

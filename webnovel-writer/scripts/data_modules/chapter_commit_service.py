@@ -187,7 +187,32 @@ class ChapterCommitService:
         target.mkdir(parents=True, exist_ok=True)
         path = target / f"chapter_{int(payload['meta']['chapter']):03d}.commit.json"
         write_json(path, payload)
+        self._update_latest_pointer(target, payload)
         return path
+
+    def _update_latest_pointer(self, commits_dir: Path, payload: Dict[str, Any]) -> None:
+        """S7：维护 latest.json 指针（max 语义，回头补写不回退），避免读侧逐章回扫。"""
+        import json
+        import time
+
+        chapter = int(payload["meta"]["chapter"])
+        pointer_path = commits_dir / "latest.json"
+        previous: Dict[str, Any] = {}
+        if pointer_path.exists():
+            try:
+                previous = json.loads(pointer_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                previous = {}
+        latest = max(int(previous.get("latest_chapter") or 0), chapter)
+        accepted = int(previous.get("latest_accepted_chapter") or 0)
+        if str((payload.get("meta") or {}).get("status")) == "accepted":
+            accepted = max(accepted, chapter)
+        pointer = {
+            "latest_chapter": latest,
+            "latest_accepted_chapter": accepted,
+            "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        write_json(pointer_path, pointer)
 
     def _projection_writers(self) -> dict[str, Any]:
         from .index_projection_writer import IndexProjectionWriter

@@ -71,6 +71,10 @@ class StoryContractPaths:
     def commit_json(self, chapter: int) -> Path:
         return self.commits_dir / f"chapter_{chapter:03d}.commit.json"
 
+    def latest_pointer_json(self) -> Path:
+        """S7：latest 提交指针（persist_commit 维护，读侧校验失效即回退线性扫描）。"""
+        return self.commits_dir / "latest.json"
+
     def event_json(self, chapter: int) -> Path:
         return self.events_dir / f"chapter_{chapter:03d}.events.json"
 

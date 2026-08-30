@@ -35,7 +35,19 @@ def _volume_for_chapter(project_root: Path, chapter: int) -> int:
     return volume_num_for_chapter_from_state(project_root, chapter) or 1
 
 
+def _read_pointer(paths: StoryContractPaths) -> dict[str, Any]:
+    """S7：latest 指针（persist_commit 维护）。指针语义 = 最大章号；缺失/损坏返回空。"""
+    payload = read_json_if_exists(paths.latest_pointer_json())
+    return payload if isinstance(payload, dict) else {}
+
+
 def _load_latest_commit(paths: StoryContractPaths, chapter: int, project_root: Path | None = None) -> dict[str, Any] | None:
+    # S7：指针直达（1 <= pointer <= chapter 且文件存在），失效/越界回退线性扫描自愈
+    pointer_chapter = int(_read_pointer(paths).get("latest_chapter") or 0)
+    if 1 <= pointer_chapter <= chapter:
+        payload = read_json_if_exists(paths.commit_json(pointer_chapter))
+        if payload:
+            return payload
     for current in range(chapter, 0, -1):
         payload = read_json_if_exists(paths.commit_json(current))
         if payload:
@@ -44,6 +56,11 @@ def _load_latest_commit(paths: StoryContractPaths, chapter: int, project_root: P
 
 
 def _load_latest_accepted_commit(paths: StoryContractPaths, chapter: int, project_root: Path | None = None) -> dict[str, Any] | None:
+    pointer_chapter = int(_read_pointer(paths).get("latest_accepted_chapter") or 0)
+    if 1 <= pointer_chapter <= chapter:
+        payload = read_json_if_exists(paths.commit_json(pointer_chapter))
+        if payload and (payload.get("meta") or {}).get("status") == "accepted":
+            return payload
     for current in range(chapter, 0, -1):
         payload = read_json_if_exists(paths.commit_json(current))
         if payload and (payload.get("meta") or {}).get("status") == "accepted":

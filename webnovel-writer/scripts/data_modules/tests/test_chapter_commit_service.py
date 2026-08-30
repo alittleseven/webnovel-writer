@@ -440,6 +440,50 @@ def test_build_commit_flags_new_entity_missing_aliases(tmp_path):
     assert payload["meta"]["status"] == "accepted"
 
 
+def test_build_commit_flags_new_entity_few_aliases(tmp_path):
+    """S8/P2-3：新实体别名预注册——1-2 个别名触发 few 提示，3 个及以上不触发。"""
+    service = ChapterCommitService(tmp_path)
+
+    def build(entity_deltas):
+        return service.build_commit(
+            chapter=3,
+            review_result={"blocking_count": 0},
+            fulfillment_result={"planned_nodes": [], "covered_nodes": [], "missed_nodes": [], "extra_nodes": []},
+            disambiguation_result={"pending": []},
+            extraction_result={"state_deltas": [], "accepted_events": [], "entity_deltas": entity_deltas},
+        )
+
+    two = build(
+        [
+            {
+                "entity_id": "zhou",
+                "action": "upsert",
+                "entity_type": "角色",
+                "payload": {"name": "周建军", "aliases": ["老周"]},
+            }
+        ]
+    )
+    few = [w for w in two["meta"]["extraction_warnings"] if w["code"] == "new_entity_few_aliases"]
+    assert len(few) == 1
+    assert few[0]["entity_id"] == "zhou"
+    assert "3-5" in few[0]["detail"]
+    assert two["meta"]["status"] == "accepted"  # 仍不阻断
+
+    three = build(
+        [
+            {
+                "entity_id": "zhou",
+                "action": "upsert",
+                "entity_type": "角色",
+                "payload": {"name": "周建军", "aliases": ["老周", "周建军", "周总务"]},
+            }
+        ]
+    )
+    assert not any(
+        w["code"] == "new_entity_few_aliases" for w in three["meta"]["extraction_warnings"]
+    )
+
+
 def test_build_commit_flags_state_delta_missing_old_or_new(tmp_path):
     service = ChapterCommitService(tmp_path)
     payload = service.build_commit(
@@ -540,7 +584,12 @@ def test_build_commit_no_warnings_when_extraction_clean(tmp_path):
         extraction_result={
             "accepted_events": [],
             "entity_deltas": [
-                {"entity_id": "hongyi_girl", "action": "upsert", "entity_type": "角色", "payload": {"name": "红衣女子", "aliases": ["红衣"]}}
+                {
+                    "entity_id": "hongyi_girl",
+                    "action": "upsert",
+                    "entity_type": "角色",
+                    "payload": {"name": "红衣女子", "aliases": ["红衣", "红衣女子", "红姑娘"]},
+                }
             ],
             "state_deltas": [{"entity_id": "xiaoyan", "field": "realm", "old": "斗者", "new": "斗师"}],
         },

@@ -6,6 +6,9 @@
 
 ### 给作者看的变化
 
+- **实体别名预注册（P2-3，S8）**：新实体登记时建议预注册 3-5 个别名（全名/简称/称号变体，如「周建军」→老周/周建军/周总务）；data-agent 契约已明确要求，提交轻校验对只有 1-2 个别名的新实体提示 `new_entity_few_aliases`（不阻断）——后续章节的指称消歧不再动辄 NOT_FOUND。
+- **题材参考扩充（P2-4，S8）**：题材套路库（init）新增悬疑推理、科幻、历史穿越三节（6→9）；题材画像新增 `2.14 科幻/未来`（13→14，可直接被题材路由加载）。
+- **正文手改留痕（P2-6，S8）**：新增 PostToolUse 钩子——写入 `正文/` 目录时记录 JSONL 留痕到 `.webnovel/logs/chapter_body_trace.log`（工具+文件+时间），不阻断、不校验内容，供 doctor/续写检测手改漂移。作者是所有者，手改照旧自由。
 - **写前读侧提速（P2-1 残留，S7）**：①提交指针 `commits/latest.json`——写章提交时维护（章号最大语义，回头补写不回退；accepted 单独记），写前读侧优先直达指针章，指针失效或跳章请求越界时自动回退线性扫描自愈——长篇写章不再每次逐章回扫提交文件。②graph RAG 候选收集的 term 命中过滤下推 SQLite（LIKE OR + 转义 + 章号过滤），无命中行不再整表拉进 Python；embedding 失败的 chunk（正文行）同样参与候选。行为等价由测试锁定。
 - **大纲字段名统一（P2-2 残留，S6）**：章纲节点字段名收敛为单一准绳 **`must_cover_nodes`/`forbidden_zones`**（与既有书项目合同、章纲 directive 解析一致）。此前 `mandatory_nodes`/`prohibitions` 与准绳名在 plot 解析、prewrite 校验、运行时合同、状态校验等多处混用。**兼容性提示**：若外部脚本直接消费 `plot_structure` 的旧键名需同步改名；书项目数据无需迁移（真源合同本就是准绳名）。
 - **上下文减负收尾（B8 尾巴，S5）**：删除 4 个已迁移的 reference 空壳文件（`writing/` 下战斗/对话/情感/场景描写——正文早已迁入 CSV，壳文件零引用）；`desire-description` 与 `genre-hook-payoff-library` 经 CSV 覆盖复核后保守保留（结论记入 loading-map）；loading-map 增补 S1-S4 加载方式变化对照表；行为 eval 的 `write_blocking_gate` 从纯文案断言升级为运行时探针（临时项目真跑三道闸验证「失败关闭」）。

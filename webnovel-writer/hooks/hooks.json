@@ -45,6 +45,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -X utf8 \"${CLAUDE_PLUGIN_ROOT}/hooks/chapter_body_trace.py\"",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

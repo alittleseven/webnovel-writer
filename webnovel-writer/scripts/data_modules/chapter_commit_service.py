@@ -57,13 +57,24 @@ class ChapterCommitService:
             if not isinstance(payload, dict):
                 payload = {}
             entity_id = str(delta.get("entity_id") or "").strip()
-            has_alias = bool(payload.get("aliases") or payload.get("alias"))
-            if action in {"upsert", "create", "new"} and entity_id and not has_alias:
+            aliases = payload.get("aliases") or payload.get("alias") or []
+            alias_count = len(aliases) if isinstance(aliases, list) else 1
+            if action in {"upsert", "create", "new"} and entity_id and not aliases:
                 warnings.append(
                     {
                         "code": "new_entity_missing_aliases",
                         "entity_id": entity_id,
                         "detail": "新增/更新实体缺少 aliases，消歧可能失效",
+                    }
+                )
+            elif action in {"upsert", "create", "new"} and entity_id and alias_count < 3:
+                # S8/P2-3：别名预注册——新实体建议 3-5 个别名（全名/简称/称号等变体），
+                # 单别名在后续章节的指称消歧中容易 NOT_FOUND。
+                warnings.append(
+                    {
+                        "code": "new_entity_few_aliases",
+                        "entity_id": entity_id,
+                        "detail": f"新增实体仅 {alias_count} 个别名，建议预注册 3-5 个（全名/简称/称号等变体）",
                     }
                 )
 

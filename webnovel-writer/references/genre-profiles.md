@@ -651,6 +651,52 @@ override_config:
 
 ---
 
+### 2.14 科幻/未来 (sci-fi)
+
+```yaml
+id: sci-fi
+name: 科幻/未来
+description: 科技设定驱动，想象力具象化，文明尺度博弈，硬核与爽感并存
+tags: [scifi, tech, future]
+
+hook_config:
+  preferred_types: [危机钩, 悬念钩, 渴望钩]
+  strength_baseline: medium
+  chapter_end_required: true
+  transition_allowance: 2
+
+coolpoint_config:
+  preferred_patterns: [技术碾压, 反派翻车, 身份掉马, 越级反杀]
+  density_per_chapter: medium
+  combo_interval: 5
+  milestone_interval: 15
+
+micropayoff_config:
+  preferred_types: [能力兑现, 资源兑现, 信息兑现]
+  min_per_chapter: 1
+  transition_min: 1
+
+pacing_config:
+  stagnation_threshold: 3
+  strand_quest_max: 8
+  strand_fire_gap_max: 18
+  transition_max_consecutive: 1
+
+override_config:
+  allowed_rationale_types: [WORLD_RULE_CONSTRAINT, LOGIC_INTEGRITY, ARC_TIMING]
+  debt_multiplier: 0.9
+  payback_window_default: 4
+```
+
+**题材特点**：
+- 技术设定建议自洽优先（一次设定，长期遵守），硬伤比慢节奏更伤读者
+- 黑科技亮相建议配「现状对比」（旧方案多惨 → 新方案多强）
+- 星际/末世背景建议控制地名与专有名词密度，避免记忆负担
+- 文明尺度博弈（地外文明/公司财阀）适合做中期反派层级
+- LOGIC_INTEGRITY 可用于解释技术限制导致的降级，读者接受度高
+
+---
+
 ## 三、Profile 加载机制
 
 ### 3.1 加载时机

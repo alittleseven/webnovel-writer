@@ -25,20 +25,18 @@ ALLOWED_PREWRITE_PHASES = {
 
 
 def _plot_structure(chapter_contract: dict[str, Any], review_contract: dict[str, Any]) -> dict[str, Any]:
+    """S6：字段名统一后只读准绳名 must_cover_nodes/forbidden_zones（blocking_rules 为审查规则，保留兜底）。"""
     directive = chapter_contract.get("chapter_directive") if isinstance(chapter_contract, dict) else {}
     if not isinstance(directive, dict):
         directive = {}
     return {
-        "mandatory_nodes": list(
+        "must_cover_nodes": list(
             directive.get("must_cover_nodes")
-            or directive.get("mandatory_nodes")
             or review_contract.get("must_cover_nodes")
-            or review_contract.get("mandatory_nodes")
             or []
         ),
-        "prohibitions": list(
+        "forbidden_zones": list(
             directive.get("forbidden_zones")
-            or directive.get("prohibitions")
             or review_contract.get("blocking_rules")
             or []
         ),

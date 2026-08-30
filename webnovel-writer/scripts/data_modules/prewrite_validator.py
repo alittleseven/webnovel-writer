@@ -61,8 +61,8 @@ class PrewriteValidator:
                 ],
             },
             "fulfillment_seed": {
-                "planned_nodes": list(plot_structure.get("mandatory_nodes") or []),
-                "prohibitions": list(plot_structure.get("prohibitions") or []),
+                "planned_nodes": list(plot_structure.get("must_cover_nodes") or []),
+                "forbidden_zones": list(plot_structure.get("forbidden_zones") or []),
             },
         }
 

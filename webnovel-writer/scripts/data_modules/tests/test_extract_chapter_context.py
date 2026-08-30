@@ -507,8 +507,8 @@ CEN：萧炎决定先隐忍观察
     assert plot_structure.get("cbn") == "萧炎抵达外院试炼场"
     assert plot_structure.get("cpns") == ["导师宣布试炼规则", "萧炎发现规则被人做了手脚"]
     assert plot_structure.get("cen") == "萧炎决定先隐忍观察"
-    assert plot_structure.get("mandatory_nodes") == ["规则异常暴露", "决定隐忍"]
-    assert plot_structure.get("prohibitions") == ["不能直接揭穿黑手"]
+    assert plot_structure.get("must_cover_nodes") == ["规则异常暴露", "决定隐忍"]
+    assert plot_structure.get("forbidden_zones") == ["不能直接揭穿黑手"]
 
 
 def test_render_text_contains_plot_structure_section(tmp_path):
@@ -528,8 +528,8 @@ def test_render_text_contains_plot_structure_section(tmp_path):
             "cbn": "主角进入遗迹",
             "cpns": ["发现石碑异常", "与守卫短暂交锋"],
             "cen": "决定深入遗迹核心",
-            "mandatory_nodes": ["发现石碑异常"],
-            "prohibitions": ["不能提前拿到终极传承"],
+            "must_cover_nodes": ["发现石碑异常"],
+            "forbidden_zones": ["不能提前拿到终极传承"],
         },
         "reader_signal": {},
         "genre_profile": {},
@@ -542,7 +542,7 @@ def test_render_text_contains_plot_structure_section(tmp_path):
     assert parsed["plot_structure"]["cbn"] == "主角进入遗迹"
     assert parsed["plot_structure"]["cpns"] == ["发现石碑异常", "与守卫短暂交锋"]
     assert parsed["plot_structure"]["cen"] == "决定深入遗迹核心"
-    assert "不能提前拿到终极传承" in parsed["plot_structure"]["prohibitions"]
+    assert "不能提前拿到终极传承" in parsed["plot_structure"]["forbidden_zones"]
 
 
 def test_render_text_contains_contract_first_runtime_section(tmp_path):

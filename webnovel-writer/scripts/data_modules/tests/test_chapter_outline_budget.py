@@ -76,13 +76,13 @@ class TestPlotStructureLimit:
         plot = load_chapter_plot_structure(project, 36)
 
         # 限量后字段解析不受影响（字段优先级截断保住标签行）
-        assert plot.get("mandatory_nodes")
-        assert plot.get("prohibitions")
+        assert plot.get("must_cover_nodes")
+        assert plot.get("forbidden_zones")
 
     def test_explicit_max_chars_param(self, tmp_path):
         project = _split_project(tmp_path, "描" * 6000)
 
         plot = load_chapter_plot_structure(project, 36, max_chars=600)
 
-        assert plot.get("mandatory_nodes")
-        assert plot.get("prohibitions")
+        assert plot.get("must_cover_nodes")
+        assert plot.get("forbidden_zones")

@@ -21,7 +21,7 @@ def test_prewrite_validator_builds_disambiguation_domain_and_fulfillment_seed(tm
         encoding="utf-8",
     )
     review_contract = {"must_check": ["发现陷阱"], "blocking_rules": ["不可提前摊牌"]}
-    plot_structure = {"mandatory_nodes": ["发现陷阱"], "prohibitions": ["不可提前摊牌"]}
+    plot_structure = {"must_cover_nodes": ["发现陷阱"], "forbidden_zones": ["不可提前摊牌"]}
 
     payload = PrewriteValidator(project_root).build(
         chapter=3,

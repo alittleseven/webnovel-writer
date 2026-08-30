@@ -36,8 +36,8 @@ class RuntimeContractBuilder:
         review_contract = ReviewContract.model_validate(
             {
                 "meta": {"schema_version": "story-system/v1", "contract_type": "REVIEW_CONTRACT"},
-                "must_check": list(plot.get("mandatory_nodes") or []),
-                "blocking_rules": list(plot.get("prohibitions") or []),
+                "must_check": list(plot.get("must_cover_nodes") or []),
+                "blocking_rules": list(plot.get("forbidden_zones") or []),
                 "genre_specific_risks": [master.route.get("primary_genre", "")] if master.route.get("primary_genre") else [],
                 "anti_patterns": volume_brief["anti_patterns"],
                 "system_constraints": volume_brief["system_constraints"],
@@ -58,8 +58,8 @@ class RuntimeContractBuilder:
     def _load_plot_structure(self, chapter: int) -> Dict[str, Any]:
         raw = load_chapter_plot_structure(self.project_root, chapter) or {}
         return {
-            "mandatory_nodes": list(raw.get("mandatory_nodes") or []),
-            "prohibitions": list(raw.get("prohibitions") or []),
+            "must_cover_nodes": list(raw.get("must_cover_nodes") or []),
+            "forbidden_zones": list(raw.get("forbidden_zones") or []),
             "cpns": list(raw.get("cpns") or []),
         }
 

@@ -907,8 +907,8 @@ CEN：决定将计就计
     assert plot_structure.get("cbn") == "进入试炼场"
     assert plot_structure.get("cpns") == ["观察规则", "发现陷阱"]
     assert plot_structure.get("cen") == "决定将计就计"
-    assert plot_structure.get("mandatory_nodes") == ["发现陷阱"]
-    assert plot_structure.get("prohibitions") == ["不能直接翻脸"]
+    assert plot_structure.get("must_cover_nodes") == ["发现陷阱"]
+    assert plot_structure.get("forbidden_zones") == ["不能直接翻脸"]
 
 
 def test_load_setting_truncates_long_file(temp_project):

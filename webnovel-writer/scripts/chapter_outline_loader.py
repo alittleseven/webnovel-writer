@@ -214,8 +214,8 @@ _PLOT_SECTION_FIELD_MAP = {
     "cbn": "cbn",
     "cpns": "cpns",
     "cen": "cen",
-    "必须覆盖节点": "mandatory_nodes",
-    "本章禁区": "prohibitions",
+    "必须覆盖节点": "must_cover_nodes",
+    "本章禁区": "forbidden_zones",
 }
 
 _CHAPTER_HEADING_RE = re.compile(
@@ -286,10 +286,10 @@ def _append_plot_value(target: Dict[str, Any], field: str, value: str) -> None:
     if not value:
         return
 
-    if field in {"cpns", "mandatory_nodes", "prohibitions"}:
+    if field in {"cpns", "must_cover_nodes", "forbidden_zones"}:
         target.setdefault(field, [])
         candidates = [value]
-        if field in {"mandatory_nodes", "prohibitions"}:
+        if field in {"must_cover_nodes", "forbidden_zones"}:
             split_values = [part.strip() for part in re.split(r"[、,，；;|]+", value) if part.strip()]
             if split_values:
                 candidates = split_values
@@ -366,17 +366,17 @@ def parse_chapter_plot_structure(outline_text: str) -> Dict[str, Any]:
             _append_plot_value(structure, current_field, cleaned)
 
     cpns = structure.get("cpns") or []
-    mandatory_nodes = structure.get("mandatory_nodes") or []
-    prohibitions = structure.get("prohibitions") or []
-    if not any([structure.get("cbn"), cpns, structure.get("cen"), mandatory_nodes, prohibitions]):
+    must_cover_nodes = structure.get("must_cover_nodes") or []
+    forbidden_zones = structure.get("forbidden_zones") or []
+    if not any([structure.get("cbn"), cpns, structure.get("cen"), must_cover_nodes, forbidden_zones]):
         return {}
 
     return {
         "cbn": str(structure.get("cbn") or "").strip(),
         "cpns": cpns,
         "cen": str(structure.get("cen") or "").strip(),
-        "mandatory_nodes": mandatory_nodes,
-        "prohibitions": prohibitions,
+        "must_cover_nodes": must_cover_nodes,
+        "forbidden_zones": forbidden_zones,
         "source": "chapter_outline",
     }
 
@@ -445,8 +445,8 @@ def parse_chapter_execution_directive(outline_text: str) -> Dict[str, Any]:
         ("cbn", "cbn"),
         ("cpns", "cpns"),
         ("cen", "cen"),
-        ("mandatory_nodes", "must_cover_nodes"),
-        ("prohibitions", "forbidden_zones"),
+        ("must_cover_nodes", "must_cover_nodes"),
+        ("forbidden_zones", "forbidden_zones"),
     ):
         if plot_structure.get(source_key) and not directive.get(target_key):
             directive[target_key] = plot_structure[source_key]

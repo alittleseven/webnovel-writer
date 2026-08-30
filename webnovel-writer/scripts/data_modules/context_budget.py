@@ -44,7 +44,7 @@ KEY_PRIORITY: dict[str, list[str]] = {
     "master": ["route", "master_constraints", "base_context", "meta"],
     "chapter": ["chapter_directive", "meta", "override_allowed", "reasoning", "dynamic_context"],
     "volume": ["meta", "volume_goal", "beat_table", "timeline"],
-    "review": ["meta", "must_cover_nodes", "mandatory_nodes", "blocking_rules", "prohibitions", "forbidden_zones"],
+    "review": ["meta", "must_cover_nodes", "blocking_rules", "forbidden_zones"],
 }
 
 # 超总预算时的丢弃顺序（低价值优先）；story_contracts / runtime_status 为硬约束类，不在表内

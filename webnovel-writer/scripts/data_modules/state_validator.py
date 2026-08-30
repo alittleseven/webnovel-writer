@@ -51,7 +51,7 @@ _PATTERN_FIELDS = [
 _PATTERN_SPLIT_RE = re.compile(r"[、,，/|+；;。]+")
 
 
-_PLOT_LIST_FIELDS = ("cpns", "mandatory_nodes", "prohibitions")
+_PLOT_LIST_FIELDS = ("cpns", "must_cover_nodes", "forbidden_zones")
 
 
 def _normalize_string_list(raw_value: Any) -> List[str]:

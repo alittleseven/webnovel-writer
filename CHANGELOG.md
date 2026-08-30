@@ -6,6 +6,7 @@
 
 ### 给作者看的变化
 
+- **CLI 大输出自动外置化（D3，S10）**：统一 CLI 进程内命令的 stdout 超过 20,000 字符时，全文自动落盘 `.webnovel/tmp/cli_out/<工具名>.txt`（同名覆盖、路径可预测），对话只收到摘要存根（EXTERNALIZED 标记 + 工具名/字符数 + 前 600 字符预览 + 完整输出路径）——需要详情时 Read 该文件，防大 JSON 灌进写章对话。`WEBNOVEL_OUTPUT_EXTERNALIZE=0` 关闭，`WEBNOVEL_OUTPUT_EXTERNALIZE_CHARS` 调阈值；`_run_script` 子进程转发类命令（extract-context / memory-contract / story-system）不受影响，它们已在 earlier 阶段完成紧凑化。
 - **写章往返压缩（D2，S9）**：①`preflight --all` 三查合一——环境预检、项目定位（`PROJECT_ROOT=` 行）、占位符扫描一次往返完成（占位符存在退出码 1；不带 `--all` 行为不变），写章起手的 3 次 Bash 往返并作 1 次。②`run-ledger record-write-steps --steps-json` 批量记账——崩溃粒度仍由每步 `run-log --append` 保证，台账在收尾一次冲账，写章收尾的多次记账往返并作 1 次。
 - **实体别名预注册（P2-3，S8）**：新实体登记时建议预注册 3-5 个别名（全名/简称/称号变体，如「周建军」→老周/周建军/周总务）；data-agent 契约已明确要求，提交轻校验对只有 1-2 个别名的新实体提示 `new_entity_few_aliases`（不阻断）——后续章节的指称消歧不再动辄 NOT_FOUND。
 - **题材参考扩充（P2-4，S8）**：题材套路库（init）新增悬疑推理、科幻、历史穿越三节（6→9）；题材画像新增 `2.14 科幻/未来`（13→14，可直接被题材路由加载）。

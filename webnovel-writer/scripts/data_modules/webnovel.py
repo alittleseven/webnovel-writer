@@ -589,7 +589,41 @@ def cmd_use(args: argparse.Namespace) -> int:
     return 0
 
 
+_LAST_ARGS = None
+
+
 def main() -> None:
+    """S10/D3：进程内 stdout 捕获，超过阈值（默认 20k 字符）自动外置化。
+
+    `_run_script` 子进程转发类命令（extract-context / memory-contract /
+    story-system 等）不经此通道——它们的 stdout 由子进程直接写终端；
+    这些入口在 S1-S9 已完成紧凑化。`WEBNOVEL_OUTPUT_EXTERNALIZE=0` 整体关闭。
+    """
+    import contextlib
+    import io
+
+    buf = io.StringIO()
+    code = 0
+    try:
+        with contextlib.redirect_stdout(buf):
+            _main_impl()
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) else 0
+
+    from .output_guard import externalize_if_needed
+
+    root = None
+    try:
+        pr = getattr(_LAST_ARGS, "project_root", None)
+        root = _resolve_root(pr)
+    except Exception:
+        root = None
+    print(externalize_if_needed(buf.getvalue(), tool=getattr(_LAST_ARGS, "tool", "cli"), project_root=root))
+    raise SystemExit(code)
+
+
+def _main_impl() -> None:
+    global _LAST_ARGS
     parser = argparse.ArgumentParser(description="webnovel unified CLI")
     parser.add_argument("--project-root", help="书项目根目录或工作区根目录（可选，默认自动检测）")
 
@@ -830,6 +864,7 @@ def main() -> None:
 
     argv = normalize_global_project_root(sys.argv[1:])
     args, unknown_args = parser.parse_known_args(argv)
+    _LAST_ARGS = args
 
     # where/use 直接执行
     if hasattr(args, "func"):

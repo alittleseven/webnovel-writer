@@ -146,29 +146,38 @@ def _migrate_settings(project_root: Path, out: Path, state: dict, report: Migrat
         (target / "时间线.md").write_text("\n".join(parts), encoding="utf-8")
         report.settings += 1
 
-    # 名册：从 index.db 实体表生成（库缺失则跳过）
+    # 名册：优先从 index.db 实体表生成；库缺失/不可读时保底收录主角
     index_db = project_root / ".webnovel" / "index.db"
+    roster_rows: list[tuple[str, str, str]] = []
     if index_db.exists():
         try:
             import sqlite3
 
             conn = sqlite3.connect(index_db)
             try:
-                rows = conn.execute(
-                    "SELECT e.canonical_name, e.first_appearance, GROUP_CONCAT(a.alias, ', ')"
-                    " FROM entities e LEFT JOIN aliases a ON a.entity_id = e.id"
-                    " WHERE e.is_archived = 0"
-                    " GROUP BY e.id ORDER BY e.first_appearance, e.canonical_name"
-                ).fetchall()
+                roster_rows = [
+                    (r[0], r[1] or "", str(r[2] or ""))
+                    for r in conn.execute(
+                        "SELECT e.canonical_name, e.first_appearance, GROUP_CONCAT(a.alias, ', ')"
+                        " FROM entities e LEFT JOIN aliases a ON a.entity_id = e.id"
+                        " WHERE e.is_archived = 0"
+                        " GROUP BY e.id ORDER BY e.first_appearance, e.canonical_name"
+                    ).fetchall()
+                ]
             finally:
                 conn.close()
-            lines = ["# 实体名册\n", "| 正名 | 别名 | 首现章 |", "|---|---|---|"]
-            for name, first, aliases in rows:
-                lines.append(f"| {name} | {aliases or ''} | {first or ''} |")
-            (target / "名册.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-            report.settings += 1
         except (sqlite3.Error, OSError) as exc:
-            report.warnings.append(f"名册生成失败（index.db 不可读）：{exc}")
+            report.warnings.append(f"名册生成失败（index.db 不可读），保底收录主角：{exc}")
+    if not roster_rows:
+        protagonist_name = str(((state.get("protagonist_state") or {}).get("name")) or "").strip()
+        if protagonist_name:
+            roster_rows = [(protagonist_name, "", "1")]
+    if roster_rows:
+        lines = ["# 实体名册\n", "| 正名 | 别名 | 首现章 |", "|---|---|---|"]
+        for name, aliases, first in roster_rows:
+            lines.append(f"| {name} | {aliases} | {first} |")
+        (target / "名册.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        report.settings += 1
 
 
 def _migrate_summaries(project_root: Path, out: Path, report: MigrationReport) -> None:

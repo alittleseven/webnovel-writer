@@ -97,14 +97,17 @@ class TestStartMeter:
 
 
 class TestAggregateUsage:
-    def test_window_includes_main_and_subagents_excludes_other_sessions(self, tmp_path):
+    def test_window_includes_all_main_and_subagent_sessions(self, tmp_path):
+        """S13 修复：聚合不再按单主会话过滤——真实场景中写作会话首 turn 未完成时
+        推断会指错会话导致漏计主会话（fantasy01 ch36 实测低估 129.6 万）。
+        新语义：窗口内全部主会话 + 子代理轮次计入，多主会话在 stop 输出中显式 WARN。"""
         project = _project(tmp_path)
         db_path = _make_db(
             tmp_path,
             [
                 _row(MAIN_SID, 1000, 100),  # 窗口前，排除
                 _row(MAIN_SID, 2000, 300, inp=250, out=50, cache=200),
-                _row(OTHER_SID, 2500, 8888),  # 并行其他会话，排除
+                _row(OTHER_SID, 2500, 8888),  # 窗口内另一主会话——计入并 WARN
                 _row(SUB_PREFIX + "a", 3000, 500),
                 _row(SUB_PREFIX + "b", 4000, 200),
                 _row(MAIN_SID, 5000, 999, status="running"),  # 未完成，排除
@@ -114,9 +117,32 @@ class TestAggregateUsage:
 
         usage = aggregate_usage(project, marker, db_path=db_path)
 
-        assert usage["requests"] == 3
-        assert usage["total"] == 300 + 500 + 200
+        assert usage["requests"] == 4
+        assert usage["total"] == 300 + 8888 + 500 + 200
         assert usage["cache_read"] == 200
+        assert sorted(usage["main_sessions"]) == sorted([MAIN_SID, OTHER_SID])
+
+    def test_stop_warns_on_parallel_main_sessions(self, tmp_path, capsys):
+        project = _project(tmp_path)
+        db_path = _make_db(
+            tmp_path,
+            [
+                _row(MAIN_SID, 2000, 300, dur=0),
+                _row(OTHER_SID, 2500, 700, dur=0),
+            ],
+        )
+        # 手写 marker：窗口覆盖两个主会话（绕过「最近完成轮」推断锚点）
+        marker_file = project / ".webnovel" / "tmp" / "chapter_meter.json"
+        marker_file.parent.mkdir(parents=True, exist_ok=True)
+        marker_file.write_text(
+            json.dumps({"chapter": 36, "session_id": MAIN_SID, "started_at": 1500, "status": "open"}),
+            encoding="utf-8",
+        )
+
+        line = stop_meter(project, db_path=db_path)
+
+        assert "parallel_main_sessions=2" in line
+        assert "total=1,000" in line
 
     def test_stop_closes_marker_and_writes_result(self, tmp_path, capsys):
         project = _project(tmp_path)

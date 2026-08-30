@@ -117,16 +117,11 @@ def aggregate_usage(
         return usage
 
     start = int(marker.get("started_at") or 0)
-    sid = str(marker.get("session_id") or "")
     where = ["status='completed'", "started_at >= ?"]
     params: list[Any] = [start]
     if until_ms is not None:
         where.append("COALESCE(completed_at, started_at) <= ?")
         params.append(int(until_ms))
-    if sid:
-        # 子代理会话 id 与主会话无父子关联，必须按时间窗一并计入
-        where.append("(session_id = ? OR session_id LIKE ?)")
-        params.extend([sid, _SUBAGENT_LIKE])
 
     conn = sqlite3.connect(db_path)
     try:
@@ -137,6 +132,21 @@ def aggregate_usage(
             f" FROM turn_usage WHERE {' AND '.join(where)}",
             params,
         ).fetchone()
+        # S13 修复：主会话不再按 marker.session_id 过滤——写作会话首 turn 完成前
+        # 推断会指到别的会话导致漏计（fantasy01 ch36 实测低估 129.6 万）。
+        # 语义改为「窗口内全部轮次」，主会话清单显式透出，并行污染可见可查。
+        main_where = [*where, "session_id NOT LIKE ?"]
+        main_params = [*params, _SUBAGENT_LIKE]
+        if until_ms is not None:
+            main_where.append("COALESCE(completed_at, started_at) <= ?")
+            main_params.append(int(until_ms))
+        main_sessions = [
+            r[0]
+            for r in conn.execute(
+                "SELECT DISTINCT session_id FROM turn_usage WHERE " + " AND ".join(main_where),
+                main_params,
+            )
+        ]
     finally:
         conn.close()
 
@@ -149,6 +159,7 @@ def aggregate_usage(
         total=total,
         new_tokens=max(0, inp - cache + out),
         duration_ms=dur,
+        main_sessions=sorted(main_sessions),
     )
     return usage
 
@@ -168,6 +179,7 @@ def format_usage_line(marker: dict[str, Any], usage: dict[str, Any]) -> str:
         f" total={usage['total']:,}"
         f" new_tokens={usage['new_tokens']:,}"
         f" duration={usage['duration_ms'] / 1000:.1f}s"
+        + (f" WARN parallel_main_sessions={len(usage['main_sessions'])}" if len(usage.get("main_sessions", [])) > 1 else "")
     )
 
 

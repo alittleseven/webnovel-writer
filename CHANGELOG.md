@@ -6,6 +6,7 @@
 
 ### 给作者看的变化
 
+- **上下文减负收尾（B8 尾巴，S5）**：删除 4 个已迁移的 reference 空壳文件（`writing/` 下战斗/对话/情感/场景描写——正文早已迁入 CSV，壳文件零引用）；`desire-description` 与 `genre-hook-payoff-library` 经 CSV 覆盖复核后保守保留（结论记入 loading-map）；loading-map 增补 S1-S4 加载方式变化对照表；行为 eval 的 `write_blocking_gate` 从纯文案断言升级为运行时探针（临时项目真跑三道闸验证「失败关闭」）。
 - **章纲预算补完（C4 残留，S4）**：使用拆分章纲文件（`大纲/第N章-标题.md`）的项目，此前该文件**绕过 1500 字预算整份注入**——现已与卷纲路径同用字段边界优先截断（CBN/CPNs/CEN/禁区等标签行整行保留，描述文本让预算）；`plot_structure` 注入上下文默认限量 4000 字（新增 `max_chars` 参数可调），字段解析不受影响。
 - **设定集 L0 摘要层（C3，S3）**：设定内容默认注入 ~240 字结构摘要（主题行 + `##` 骨架 + 首要点），源文件变更自动重建（sha256 陈旧自愈，**不依赖 init/plan 重跑**）；原文（L2）经新命令 `setting-read --name <设定名>` 或 Read 按需展开——agent 契约明确「命中才展开」。fantasy01 实测：6 个设定文件 9,008 → **601 字符（−93%）**；`context_settings_digest_enabled=false` 可回滚旧行为。
 - **ContextManager 路径同步瘦身（C2，S2）**：extract-context 降级路径与主路径对齐——runtime_status 瘦身（commit 全文收缩为 meta+摘要、合同全文只在 story_contract 一份、accepted 侧同章降级为章号标记）；`genre_profile`/`reader_signal`/`writing_guidance`/`plot_structure` 四个大 section 的超长文本递归截断（1500/800/1200/2500 字上限，键结构不变）；`build_context` 的 `max_chars` 死参数落地为总预算（超限低价值先弃、`meta.budget_dropped` 留痕）。fantasy01 ch36 实测：extract-context 39,914 → **17,304 字符（−57%）**，runtime_status 23,611 → 1,001。

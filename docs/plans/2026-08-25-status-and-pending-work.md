@@ -77,7 +77,7 @@
 - `[ ]` 题材 taxonomy：把现有 `resolve_genre()`、模板归一化和 alias 逻辑收敛到单一 taxonomy index，并补全入口测试。
 - `[ ]` 设定增强通用化：先根据 `fantasy01` 实验结果抽象 Markdown 卡片契约，再决定是否引入 Pydantic 子模型；暂不直接引入三套 JSON Schema。
 - `[ ]` `fantasy01` 验证：生成第 23 章合同后，用第 23-25 章确认设定卡确实改善能力代价、战力边界和资源设定一致性。
-- `[ ]` 上下文减负收尾：清理已迁移的死 reference、复核 loading map，并用行为契约替代纯文案断言。
+- `[x]` 上下文减负收尾（2026-08-30，单线队列 S5）：删除 4 个已迁移 stub（writing/combat-scenes、dialogue-writing、emotion-psychology、scene-description，正文在 CSV `场景写法`/`写作技法`，零引用）；desire-description 与 genre-hook-payoff-library 经 CSV 复核覆盖不成立、保守保留（结论记入 loading-map 并附复核日期）；loading-map 增补 S1-S4 加载方式变化表；`write_blocking_gate` 行为 eval 从纯文案断言改为运行时探针（临时项目真跑三道闸验证失败关闭）。证据：22/22 behavior evals、全量 pytest 通过。
 - `[ ]` 多宿主适配：仅在 v7 垂直切片稳定后，先选择一个宿主建立 adapter、support.md、生成器和 smoke test；不同时铺开多个宿主。
 
 ### 明确不再按原计划推进

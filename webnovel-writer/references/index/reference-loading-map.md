@@ -98,11 +98,19 @@
 | 文件 | 现状 |
 |------|------|
 | `skills/webnovel-write/references/style-variants.md` | 未在当前 write 流程中直接加载 |
-| `skills/webnovel-write/references/writing/combat-scenes.md` | 已 stub 化，正文迁至 CSV `场景写法` |
-| `skills/webnovel-write/references/writing/dialogue-writing.md` | 已 stub 化，正文迁至 CSV `写作技法` |
-| `skills/webnovel-write/references/writing/emotion-psychology.md` | 已 stub 化，正文迁至 CSV `写作技法` |
-| `skills/webnovel-write/references/writing/scene-description.md` | 已 stub 化，正文迁至 CSV `写作技法` |
-| `skills/webnovel-write/references/writing/desire-description.md` | 保守保留原文；CSV 尚未覆盖欲念描写细节，当前未被 SKILL.md 直接加载 |
-| `skills/webnovel-write/references/writing/genre-hook-payoff-library.md` | 保守保留原文；CSV 仅覆盖部分钩子/兑现条目，当前未被 SKILL.md 直接加载 |
+| `skills/webnovel-write/references/writing/desire-description.md` | 保守保留原文（2026-08-30 复核：CSV `写作技法`/`场景写法` 各仅 1 处「欲」相关行，覆盖不成立）；当前未被 SKILL.md 直接加载 |
+| `skills/webnovel-write/references/writing/genre-hook-payoff-library.md` | 保守保留原文（2026-08-30 复核：电竞/直播/克苏鲁在 CSV 为部分覆盖）；当前未被 SKILL.md 直接加载 |
 | `skills/webnovel-review/references/common-mistakes.md` | 未在当前 review 流程中直接加载 |
 | `skills/webnovel-review/references/pacing-control.md` | 未在当前 review 流程中直接加载 |
+
+> 已删除（2026-08-30，S5 死 reference 清理）：`writing/combat-scenes.md`、`writing/dialogue-writing.md`、`writing/emotion-psychology.md`、`writing/scene-description.md`——原 stub 壳，正文早已迁至 CSV `场景写法`/`写作技法`，且无任何 SKILL/agent 引用。
+
+## 2026-08-30 复核：S1-S4 引入的加载方式变化
+
+| 变化 | 加载方式 |
+|------|----------|
+| 设定集注入 | 默认 L0 结构摘要（`settings_digest`，~240 字自动维护）；原文经 `setting-read --name` 或 Read 按需展开（L2） |
+| 写前基础包 | `load_context` 预算实装（总预算 20,000，section 配额 + `shrink_latest_commit`；提交全文只留 meta+摘要） |
+| extract-context | runtime_status 瘦身（commit 全文不再进入，accepted 同章降级为章号标记）；genre_profile/reader_signal/writing_guidance/plot_structure 文本上限 1500/800/1200/2500 |
+| 章纲 | 拆分章纲文件与卷纲同预算（超限字段边界优先截断）；plot_structure 默认限量 4000 |
+| 写章计量 | `meter start/stop` + UserPromptSubmit 钩子读 ZCode 用量库（非 reference，但影响每轮注入文案） |

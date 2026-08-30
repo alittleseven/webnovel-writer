@@ -106,26 +106,44 @@ def _eval_skill_contract(root: Path, case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _eval_write_blocking_gate(root: Path, case: dict[str, Any]) -> dict[str, Any]:
-    path = _plugin_root(root) / "skills" / "webnovel-write" / "SKILL.md"
-    text = _read(path)
-    required = [
-        "blocking=true",
-        "write-gate --chapter {chapter_num} --stage prewrite",
-        "write-gate --chapter {chapter_num} --stage precommit",
-        "write-gate --chapter {chapter_num} --stage postcommit",
-        "chapter-commit",
-    ]
-    missing = [item for item in required if item not in text]
-    precommit_pos = text.find("write-gate --chapter {chapter_num} --stage precommit")
-    commit_pos = text.find("chapter-commit")
-    ordering_ok = precommit_pos >= 0 and commit_pos >= 0 and precommit_pos < commit_pos
-    if not ordering_ok:
-        missing.append("precommit gate must appear before chapter-commit")
+    """S5：行为契约改造——门禁「失败关闭」改为运行时验证（临时项目真跑三道闸），
+    SKILL 仅保留 precommit→commit 的顺序这一提示词层契约检查。"""
+    scripts_dir = _plugin_root(root) / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    from data_modules.write_gates import run_write_gate
+
+    problems: list[str] = []
+    with tempfile.TemporaryDirectory() as tmp:
+        project_root = Path(tmp)
+        webnovel_dir = project_root / ".webnovel"
+        webnovel_dir.mkdir(parents=True, exist_ok=True)
+        (webnovel_dir / "state.json").write_text("{}", encoding="utf-8")
+
+        prewrite = run_write_gate(project_root, chapter=1, stage="prewrite")
+        precommit = run_write_gate(project_root, chapter=1, stage="precommit")
+        postcommit = run_write_gate(project_root, chapter=1, stage="postcommit")
+
+    for name, report in (("prewrite", prewrite), ("precommit", precommit), ("postcommit", postcommit)):
+        if report.get("ok"):
+            problems.append(f"{name} gate must fail closed on incomplete project")
+    if precommit.get("phase") == "ready_to_commit":
+        problems.append("precommit gate must not report ready_to_commit without artifacts")
+
+    # 提示词层契约：SKILL 的门禁调用顺序 prewrite→precommit→chapter-commit→postcommit
+    text = _read(_plugin_root(root) / "skills" / "webnovel-write" / "SKILL.md")
+    anchors = ["--stage prewrite", "--stage precommit", "chapter-commit", "--stage postcommit"]
+    positions = [text.find(anchor) for anchor in anchors]
+    if any(pos < 0 for pos in positions) or positions != sorted(positions):
+        problems.append("SKILL.md gate ordering drifted (prewrite→precommit→commit→postcommit)")
+
     return _result(
         case,
-        passed=not missing,
-        reason="write flow keeps blocking and runtime gates" if not missing else "write flow contract missing",
-        evidence=missing or [str(path.relative_to(root))],
+        passed=not problems,
+        reason="write gates fail closed at runtime and SKILL keeps gate ordering"
+        if not problems
+        else "write blocking gate contract broken",
+        evidence=problems or [prewrite.get("phase"), precommit.get("phase"), postcommit.get("phase")],
     )
 
 

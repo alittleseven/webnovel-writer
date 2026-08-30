@@ -40,7 +40,8 @@
 
 - `[x]` `fantasy01` 已建立 Markdown 设定卡实验目录，包含能力、物品、资源和战力锚点卡。
 - `[x]` 插件 `context-agent`、`reviewer`、`webnovel-plan` 已加入设定卡按需读取规则。
-- `[~]` 设定卡实验尚未完成第 23-25 章效果验证，不能据此宣称通用设定 Schema 已完成。
+- `[x]` 设定卡实验验证与通用化决策（2026-08-31，单线队列 S15）：30-36 章回看比对确认有效——检出能力增强（实体级漂移从 critical 级暴露前移到 low/medium 即检出：ch26 撬棍耐久引用卡片证据、ch25 战力锚点核验、ch31 资产漂移、ch33 两个 critical 实体事实矛盾全修复），三目标维度（能力代价/战力边界/资源一致性）均有命中案例。决策：Markdown 卡契约为正式能力（契约见 `docs/guides/setting-card-contract.md`），不引入 JSON Schema/Pydantic。证据：[S15 验证报告](../reports/2026-08-31-S15-设定卡验证与通用化决策.md)。
+- `[ ]` 设定增强通用化：~~抽象 Markdown 卡片契约~~ → 契约已随上条交付（`docs/guides/setting-card-contract.md`）；剩余为可选的结构化评估（Pydantic/Schema），仅当卡片数量级增长再立项。
 
 ## 当前待完成事项
 

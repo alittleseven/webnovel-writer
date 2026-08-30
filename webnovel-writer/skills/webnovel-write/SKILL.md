@@ -48,10 +48,12 @@ export WORKSPACE_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 export SCRIPTS_DIR="${CLAUDE_PLUGIN_ROOT:?}/scripts"
 export SKILL_ROOT="${CLAUDE_PLUGIN_ROOT:?}/skills/webnovel-write"
 
-python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${WORKSPACE_ROOT}" preflight
-export PROJECT_ROOT="$(python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${WORKSPACE_ROOT}" where)"
+S9/D2 三查合一：preflight + where + placeholder-scan 一次往返完成（占位符存在时退出码 1，输出含 `PROJECT_ROOT=` 行）：
 
-python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" placeholder-scan --format text
+```bash
+PREFLIGHT_ALL="$(python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${WORKSPACE_ROOT}" preflight --all)"
+echo "$PREFLIGHT_ALL"
+export PROJECT_ROOT="$(echo "$PREFLIGHT_ALL" | grep '^PROJECT_ROOT=' | head -1 | cut -d= -f2-)"
 ```
 
 ### 准备：刷新合同树
@@ -329,27 +331,25 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" run
 
 `run-ledger write-resume` 只给续跑建议，不自动覆盖文件。它会根据正文、审查结果、data artifacts、commit、projection 和备份状态判断从哪里继续。正文被手动改过、章纲更新晚于正文、本章已 accepted 又重跑时，必须停下用有限选项询问：沿用当前正文 / 重新起草 / 只查看状态；不得覆盖作者手改。
 
-每个关键步骤完成后记录 `run-ledger record-write-step`，至少记录 step、status、输入/输出文件路径、problems、auto_handled 和 duration_ms，供下一次续跑和最终报告使用。
-
-**参数类型（必须遵守）**：`--inputs-json` / `--outputs-json` 必须是 JSON object（键名 → 路径）；`--problems-json` / `--auto-handled-json` 必须是 JSON list。传错类型会直接报错退出码 2。
-
-**键名约定**：正文文件使用固定键名 `chapter_file`。审查和 data artifact 的文件键名应与实际文件名一致，建议分别使用 `review_results`、`fulfillment_result`、`disambiguation_result`、`extraction_result`；commit 使用 `commit`。当前续跑逻辑只用 `chapter_file` 的文件签名核对正文与审查/数据步骤，其他键名主要用于记录和报告，不要把它们误解为额外的续跑校验规则。
-
-标准调用模板（以 draft 步骤为例，其余步骤按上述键名替换路径）：
+S9/D2 记账分层：每个关键步骤完成后仍必须 `run-log --event <step> --append`（崩溃粒度靠它）；`run-ledger` 台账改为**收尾批量冲账**——在 Step 6 备份完成后、user-report 之前，用一条 `record-write-steps` 把本阶段完成的步骤一次记入（含 step、status、problems、auto_handled、duration_ms），供最终报告与遥测使用：
 
 ```bash
-python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" run-ledger record-write-step \
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" run-ledger record-write-steps \
   --chapter {chapter_num} \
-  --step draft \
-  --status completed \
   --mode "{mode}" \
-  --inputs-json "{}" \
-  --outputs-json "{\"chapter_file\": \"${CHAPTER_FILE}\"}" \
-  --problems-json "[]" \
-  --auto-handled-json "[]" \
-  --duration-ms {duration_ms} \
-  --format text
+  --steps-json "[
+    {\"step\": \"draft\", \"status\": \"completed\", \"duration_ms\": {draft_ms}},
+    {\"step\": \"review\", \"status\": \"completed\", \"problems\": []},
+    {\"step\": \"data\", \"status\": \"completed\"},
+    {\"step\": \"commit\", \"status\": \"completed\"},
+    {\"step\": \"projection\", \"status\": \"completed\"},
+    {\"step\": \"backup\", \"status\": \"completed\"}
+  ]"
 ```
+
+只批量冲账**实际完成的步骤**；失败/跳过的步骤如实写 `status` 与 `problems`，不得为凑数伪造 completed。中途崩溃时台账缺收尾冲账属预期——续跑判定以 `run_last.log` 与门禁状态为准。
+
+**参数类型（必须遵守）**：`--steps-json` 必须是非空 JSON array，每项为 object；`step` 仅接受 draft/review/data/commit/projection/backup。传错类型直接报错退出码 2。
 
 少打扰确认策略：默认继续推进；只有创作方向、事实一致性、文件覆盖风险或 blocking issue 无法定点处理时才问。需要用户裁决时给 2-3 个有限选项，并说明每个选项影响。
 

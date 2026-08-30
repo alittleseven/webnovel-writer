@@ -707,14 +707,21 @@ def test_webnovel_init_deconstruction_wiring_keeps_confirmation_gate():
 
 # A 类红线 2：placeholder-scan 必须出现在 plan 与 write 两层的关键节点。
 def test_placeholder_scan_runs_in_both_plan_and_write_skills():
-    """红线 2：plan 与 write 都必须显式调用 placeholder-scan CLI。"""
+    """红线 2：plan 与 write 都必须显式做占位符扫描。
+
+    S9 后 write 侧经 `preflight --all` 合并扫描（占位符存在退出码 1），
+    plan 侧仍为独立 `placeholder-scan` 调用。
+    """
     plan_text = _read_text(SKILLS_DIR / "webnovel-plan" / "SKILL.md")
     write_text = _read_text(SKILLS_DIR / "webnovel-write" / "SKILL.md")
-    for name, text in (("webnovel-plan", plan_text), ("webnovel-write", write_text)):
-        cmds = _extract_cli_subcommands(text)
-        assert "placeholder-scan" in cmds, (
-            f"{name}: 关键节点缺少 placeholder-scan CLI 调用"
-        )
+    plan_cmds = _extract_cli_subcommands(plan_text)
+    assert "placeholder-scan" in plan_cmds, "webnovel-plan: 关键节点缺少 placeholder-scan CLI 调用"
+    write_cmds = _extract_cli_subcommands(write_text)
+    write_covers = (
+        "placeholder-scan" in write_cmds
+        or ("preflight" in write_cmds and "preflight --all" in write_text)
+    )
+    assert write_covers, "webnovel-write: 关键节点缺少占位符扫描（preflight --all 或 placeholder-scan）"
 
 
 # A 类红线 3：story-system 章级刷新必须传入真实 CHAPTER_GOAL 变量，

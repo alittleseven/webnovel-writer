@@ -217,24 +217,46 @@ def _build_preflight_report(explicit_project_root: Optional[str]) -> dict:
 
 def cmd_preflight(args: argparse.Namespace) -> int:
     report = _build_preflight_report(args.project_root)
-    if args.format == "json":
+    if args.format == "json" and not getattr(args, "all_flag", False):
         print(json.dumps(report, ensure_ascii=False, indent=2))
-    else:
-        for item in report["checks"]:
-            status = "OK" if item["ok"] else "ERROR"
-            path = item.get("path") or ""
-            print(f"{status} {item['name']}: {path}")
-            if item.get("error"):
-                print(f"  detail: {item['error']}")
-        story_runtime = report.get("story_runtime") or {}
-        if story_runtime:
-            print(
-                "INFO story_runtime: "
-                f"chapter={story_runtime.get('chapter')} "
-                f"mainline_ready={story_runtime.get('mainline_ready')} "
-                f"latest_commit_status={story_runtime.get('latest_commit_status')}"
-            )
-    return 0 if report["ok"] else 1
+        return 0 if report["ok"] else 1
+    for item in report["checks"]:
+        status = "OK" if item["ok"] else "ERROR"
+        path = item.get("path") or ""
+        print(f"{status} {item['name']}: {path}")
+        if item.get("error"):
+            print(f"  detail: {item['error']}")
+    story_runtime = report.get("story_runtime") or {}
+    if story_runtime:
+        print(
+            "INFO story_runtime: "
+            f"chapter={story_runtime.get('chapter')} "
+            f"mainline_ready={story_runtime.get('mainline_ready')} "
+            f"latest_commit_status={story_runtime.get('latest_commit_status')}"
+        )
+
+    placeholders: list[dict[str, Any]] = []
+    if getattr(args, "all_flag", False):
+        # S9/D2：三查合一——preflight + where + placeholder-scan 一次往返完成
+        from project_locator import resolve_project_root
+
+        try:
+            root = resolve_project_root(Path(args.project_root))
+        except Exception:
+            root = None
+        print(f"PROJECT_ROOT={root or args.project_root}")
+
+        from .placeholder_scanner import scan_placeholders
+
+        placeholders = scan_placeholders(args.project_root)
+        if placeholders:
+            print(f"PLACEHOLDER count={len(placeholders)}")
+            for item in placeholders[:10]:
+                location = f"{item.get('file')}:{item.get('line')}" if item.get("line") else str(item.get("file"))
+                print(f"  {location}: {str(item.get('pattern') or '')[:60]}")
+        else:
+            print("PLACEHOLDER count=0")
+    return 0 if report["ok"] and not placeholders else 1
 
 
 def cmd_project_status(args: argparse.Namespace) -> int:
@@ -415,6 +437,38 @@ def cmd_run_ledger(args: argparse.Namespace) -> int:
         else:
             print(f"{entry['step']}: {entry['status']}")
         return 0
+    if args.ledger_action == "record-write-steps":
+        # S9/D2：批量记账——崩溃粒度由 run-log --append 保证，ledger 在收尾/阶段末一次冲账
+        try:
+            steps = json.loads(args.steps_json)
+        except json.JSONDecodeError as exc:
+            print(f"ledger JSON 参数不合法: {exc}", file=sys.stderr)
+            return 2
+        if not isinstance(steps, list) or not steps:
+            print("steps-json 必须是非空 JSON list", file=sys.stderr)
+            return 2
+        recorded = 0
+        for item in steps:
+            if not isinstance(item, dict):
+                print("steps-json 的每一项必须是 object", file=sys.stderr)
+                return 2
+            try:
+                record_write_step(
+                    root,
+                    chapter=args.chapter,
+                    step=str(item.get("step")),
+                    status=str(item.get("status") or "completed"),
+                    mode=str(item.get("mode") or args.mode),
+                    problems=[str(p) for p in (item.get("problems") or [])],
+                    auto_handled=[str(p) for p in (item.get("auto_handled") or [])],
+                    duration_ms=int(item.get("duration_ms") or 0),
+                )
+                recorded += 1
+            except (ValueError, TypeError) as exc:
+                print(f"步骤 {item.get('step')!r} 记账失败: {exc}", file=sys.stderr)
+                return 2
+        print(f"OK run-ledger record-write-steps count={recorded}")
+        return 0
     if args.ledger_action == "record-subagent":
         try:
             problems = json.loads(args.problems_json)
@@ -546,6 +600,12 @@ def main() -> None:
 
     p_preflight = sub.add_parser("preflight", help="校验统一 CLI 运行环境与 project_root")
     p_preflight.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    p_preflight.add_argument(
+        "--all",
+        dest="all_flag",
+        action="store_true",
+        help="三查合一：preflight + where（PROJECT_ROOT=） + placeholder-scan，占位符存在时退出码 1",
+    )
     p_preflight.set_defaults(func=cmd_preflight)
 
     p_project_status = sub.add_parser("project-status", help="输出机器可读的项目短状态")
@@ -625,6 +685,13 @@ def main() -> None:
     p_record_write_step.add_argument("--duration-ms", type=int, default=0)
     p_record_write_step.add_argument("--format", choices=["json", "text"], default="json", help="输出格式")
     p_record_write_step.set_defaults(func=cmd_run_ledger)
+    p_record_write_steps = run_ledger_sub.add_parser(
+        "record-write-steps", help="批量记录写章步骤（S9/D2：一条命令冲账多步）"
+    )
+    p_record_write_steps.add_argument("--chapter", type=int, required=True, help="目标章节号")
+    p_record_write_steps.add_argument("--steps-json", required=True, help='步骤数组 JSON：[{"step":"draft","status":"completed"},...]')
+    p_record_write_steps.add_argument("--mode", default="default")
+    p_record_write_steps.set_defaults(func=cmd_run_ledger)
     p_record_subagent = run_ledger_sub.add_parser("record-subagent", help="记录子代理运行结果")
     p_record_subagent.add_argument("--run-id", required=True)
     p_record_subagent.add_argument("--name", required=True)

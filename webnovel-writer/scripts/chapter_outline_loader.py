@@ -151,7 +151,11 @@ def load_chapter_outline(project_root: Path, chapter_num: int, max_chars: int | 
 
     split_outline = _find_split_outline_file(outline_dir, chapter_num)
     if split_outline is not None:
-        return split_outline.read_text(encoding="utf-8")
+        text = split_outline.read_text(encoding="utf-8")
+        # S4/C4 残留：拆分章纲不再绕过预算——与卷纲路径同用字段边界优先截断
+        if max_chars and len(text) > max_chars:
+            return _truncate_outline_by_field_priority(text, max_chars)
+        return text
 
     volume_outline = _find_volume_outline_file(project_root, chapter_num)
     if volume_outline is None:
@@ -377,8 +381,16 @@ def parse_chapter_plot_structure(outline_text: str) -> Dict[str, Any]:
     }
 
 
-def load_chapter_plot_structure(project_root: Path, chapter_num: int) -> Dict[str, Any]:
-    outline = load_chapter_outline(project_root, chapter_num, max_chars=None)
+# S4/C4 残留：plot_structure 注入上下文的限量（字段优先级截断保住标签行，描述文本让预算）
+PLOT_STRUCTURE_DEFAULT_MAX_CHARS = 4000
+
+
+def load_chapter_plot_structure(
+    project_root: Path,
+    chapter_num: int,
+    max_chars: int | None = PLOT_STRUCTURE_DEFAULT_MAX_CHARS,
+) -> Dict[str, Any]:
+    outline = load_chapter_outline(project_root, chapter_num, max_chars=max_chars)
     return parse_chapter_plot_structure(outline)
 
 

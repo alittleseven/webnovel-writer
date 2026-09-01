@@ -307,13 +307,47 @@ def test_webnovel_commit_forwards(monkeypatch, tmp_path):
         return 0
 
     monkeypatch.setattr(module, "_run_script", _fake_run_script)
-    monkeypatch.setattr(sys, "argv", ["webnovel", "--project-root", str(project_root), "chapter-commit", "--chapter", "3"])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "webnovel", "--project-root", str(project_root), "chapter-commit", "--chapter", "3",
+            "--review-result", "a.json",
+            "--fulfillment-result", "b.json",
+            "--disambiguation-result", "c.json",
+            "--extraction-result", "d.json",
+        ],
+    )
 
     with pytest.raises(SystemExit) as exc:
         module.main()
 
     assert int(exc.value.code or 0) == 0
     assert called["script_name"] == "chapter_commit.py"
+    assert called["argv"].count("--review-result") == 1
+
+
+def test_webnovel_commit_requires_all_artifacts(monkeypatch, tmp_path):
+    """增量审阅 P3-15：chapter-commit 四 artifact 必填——包装层不再假装可选。"""
+    import contextlib
+    import io
+
+    module = _load_webnovel_module()
+    project_root = tmp_path / "book"
+    (project_root / ".webnovel").mkdir(parents=True, exist_ok=True)
+    (project_root / ".webnovel" / "state.json").write_text("{}", encoding="utf-8")
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["webnovel", "--project-root", str(project_root), "chapter-commit", "--chapter", "3"],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        with contextlib.redirect_stderr(io.StringIO()):
+            module.main()
+
+    assert int(exc.value.code or 0) == 2
 
 
 def test_webnovel_story_events_forwards(monkeypatch, tmp_path):

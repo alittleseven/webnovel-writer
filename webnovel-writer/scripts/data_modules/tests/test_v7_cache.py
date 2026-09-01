@@ -200,3 +200,15 @@ class TestCorruptCacheSelfHeals:
 
         assert get_chapter(repo, 1)["标题"] == "天裂"
         assert get_summary(repo, 1) == "第一章摘要"
+
+    def test_roster_directory_bad_file_skipped_not_fatal(self, tmp_path):
+        """增量审阅 P2-5：名册目录单个坏文件（非 UTF-8）不得让 rebuild 全崩（spec §10 永不堆栈崩溃）。"""
+        repo = _raw_v7_repo(tmp_path)
+        (repo / "定稿" / "设定" / "名册" / "好角色.md").write_text(
+            "---\n正名: 好角色\n别名: []\n类型: 角色\n首现章: 3\n---\n", encoding="utf-8"
+        )
+        (repo / "定稿" / "设定" / "名册" / "坏文件.md").write_bytes(b"\xff\xfe\x00bad")
+
+        rebuild_cache(repo)
+
+        assert find_entity(repo, "好角色")["name"] == "好角色"

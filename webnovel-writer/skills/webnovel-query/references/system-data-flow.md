@@ -261,10 +261,10 @@ cat "$PROJECT_ROOT/.webnovel/state.json" | jq '.progress'
 <input>查询实体（SQL）</input>
 <output>
 ```bash
-python "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index get-entity --id "xiaoyan"
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index get-entity --id "xiaoyan"
 # 输出: {"id": "xiaoyan", "type": "角色", "canonical_name": "萧炎", ...}
 
-python "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index get-core-entities
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index get-core-entities
 # 输出: 所有核心实体（主角 + tier=核心/重要）
 ```
 </output>
@@ -274,7 +274,7 @@ python "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index get-cor
 <input>按别名查找实体（一对多）</input>
 <output>
 ```bash
-python "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index get-by-alias --alias "天云宗"
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index get-by-alias --alias "天云宗"
 # 输出: [{"id": "loc_tianyunzong", "type": "地点"}, {"id": "faction_tianyunzong", "type": "势力"}]
 ```
 </output>
@@ -284,7 +284,7 @@ python "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index get-by-
 <input>查询状态变化</input>
 <output>
 ```bash
-python "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index get-state-changes --entity "xiaoyan" --limit 10
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index get-state-changes --entity "xiaoyan" --limit 10
 # 输出: [{entity_id, field, old_value, new_value, reason, chapter}, ...]
 ```
 </output>
@@ -294,7 +294,7 @@ python "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index get-sta
 <input>查询关系</input>
 <output>
 ```bash
-python "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index get-relationships --entity "xiaoyan"
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index get-relationships --entity "xiaoyan"
 # 输出: [{from_entity, to_entity, type, description, chapter}, ...]
 ```
 </output>
@@ -304,7 +304,7 @@ python "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index get-rel
 <input>检查伏笔紧急度</input>
 <output>
 ```bash
-python "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" status -- --focus urgency
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" status -- --focus urgency
 ```
 </output>
 </example>
@@ -313,7 +313,7 @@ python "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" status -- --f
 <input>查询实体出场记录</input>
 <output>
 ```bash
-python "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index entity-appearances --entity "lintian"
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index entity-appearances --entity "lintian"
 ```
 </output>
 </example>
@@ -322,7 +322,7 @@ python "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index entity-
 <input>迁移旧 state.json 到 SQLite</input>
 <output>
 ```bash
-python "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" migrate -- --backup
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" migrate -- --backup
 # 自动备份 state.json，迁移数据到 index.db，精简 state.json
 ```
 </output>
@@ -339,5 +339,5 @@ python "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" migrate -- --
 ❌ 使用旧版 data_modules.state_manager schema → ✅ 统一使用 entities_v3 结构
 ❌ 仍从 state.json 读取 entities_v3 → ✅ 改用 SQL 查询 index.db
 ❌ 仍写入 state.json 大数据 → ✅ 改用 SQLite 增量写入
-❌ 让 state.json 持续膨胀 → ✅ 运行迁移脚本: `python "${SCRIPTS_DIR}/webnovel.py" migrate`
+❌ 让 state.json 持续膨胀 → ✅ 运行迁移脚本: `python -X utf8 "${SCRIPTS_DIR}/webnovel.py" migrate`
 </errors>

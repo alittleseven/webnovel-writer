@@ -407,6 +407,64 @@ def _sqlite_null_embedding_count(db_path: Path) -> int | None:
         return None
 
 
+def _total_words_reconcile_check(project_root: Path) -> list[dict[str, Any]]:
+    """增量审阅 P2-8：state.total_words 与 index.db SUM(word_count) 对账（漂移可见化）。
+
+    total_words 存在三路写入（legacy update-state words 增量 / 投影全量重算），口径亦有差
+    （投影按去格式正文重算、index 优先 extraction meta），故仅在漂移超过 max(500, 5%) 时告警。
+    """
+    state_path = project_root / ".webnovel" / "state.json"
+    try:
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    progress = state.get("progress") if isinstance(state, dict) else {}
+    if not isinstance(progress, dict):
+        return []
+    try:
+        state_total = int(progress.get("total_words") or 0)
+    except (TypeError, ValueError):
+        return []
+    if state_total <= 0:
+        return []
+
+    cfg = DataModulesConfig.from_project_root(project_root)
+    if not cfg.index_db.is_file():
+        return []
+    try:
+        conn = sqlite3.connect(str(cfg.index_db))
+        try:
+            row = conn.execute("SELECT COALESCE(SUM(word_count), 0) FROM chapters").fetchone()
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return []
+    try:
+        index_total = int(row[0] or 0) if row else 0
+    except (TypeError, ValueError):
+        return []
+    if index_total <= 0:
+        return []
+
+    diff = abs(state_total - index_total)
+    tolerance = max(500, int(0.05 * max(state_total, index_total)))
+    if diff <= tolerance:
+        return []
+    return [
+        _check(
+            "state.total_words_reconcile",
+            status=CHECK_WARNING,
+            severity="warning",
+            message="total_words 双源对账漂移",
+            path=str(state_path),
+            expected="state.progress.total_words ≈ SUM(index.chapters.word_count)",
+            actual=f"state={state_total}, index={index_total}, diff={diff}",
+            impact="总字数统计在 state 与投影两源间漂移，进度展示与统计报表不可全信。",
+            repair="以投影重算为准：重放投影（projections replay）或运行 update-state --progress 校正；v7 迁移后该口径自然消亡。",
+        )
+    ]
+
+
 def _rag_checks(project_root: Path) -> list[dict[str, Any]]:
     cfg = DataModulesConfig.from_project_root(project_root)
     checks: list[dict[str, Any]] = []
@@ -858,6 +916,7 @@ def build_doctor_report(
                 )
             )
         checks.extend(_sqlite_checks(root))
+        checks.extend(_total_words_reconcile_check(root))
         checks.extend(_projection_log_checks(root, snapshot))
         checks.extend(_extraction_warnings_check(root, snapshot))
         checks.extend(_contract_version_checks(root))

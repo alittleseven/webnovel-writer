@@ -163,6 +163,43 @@ class TestRosterColumnOrder:
         assert find_entity(out, "林晚")["first_chapter"] == "3"
 
 
+class TestDualFormatWiring:
+    """增量审阅 P2-4：迁移器落双格式映射（v7 仓 git config + 可选回写 v6 .env）。"""
+
+    def test_git_config_records_v6_root(self, tmp_path):
+        import subprocess
+
+        src = _v6_project(tmp_path)
+        out = tmp_path / "v7book"
+
+        migrate_project(src, out, use_git=True)
+
+        probe = subprocess.run(
+            ["git", "-C", str(out), "config", "dualformat.v6root"],
+            capture_output=True, text=True,
+        )
+        assert probe.returncode == 0, probe.stderr
+        assert probe.stdout.strip() == str(src.resolve())
+
+    def test_link_back_writes_env_only_when_requested(self, tmp_path):
+        src = _v6_project(tmp_path)
+        out = tmp_path / "v7book"
+
+        migrate_project(src, out, use_git=False, link_back=True)
+
+        env_text = (src / ".env").read_text(encoding="utf-8")
+        assert f"STORY_REPO_ROOT={out.resolve()}" in env_text
+
+    def test_link_back_does_not_overwrite_existing_mapping(self, tmp_path):
+        src = _v6_project(tmp_path)
+        (src / ".env").write_text("STORY_REPO_ROOT=/existing/mapping\n", encoding="utf-8")
+        out = tmp_path / "v7book"
+
+        migrate_project(src, out, use_git=False, link_back=True)
+
+        assert (src / ".env").read_text(encoding="utf-8") == "STORY_REPO_ROOT=/existing/mapping\n"
+
+
 class TestBookYamlContextBudgetPrefill:
     """S23：迁移器按书史字数预填 context_budget（≥3 章；<3 章不写）。"""
 

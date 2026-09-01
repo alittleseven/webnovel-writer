@@ -19,6 +19,7 @@ class MemoryWriter:
     def __init__(self, config: DataModulesConfig | None = None):
         self.config = config or get_config()
         self.store = ScratchpadManager(self.config)
+        self._pending: list = []
 
     def _item_id(self, category: str, subject: str, field: str, chapter: int) -> str:
         raw = f"{category}|{subject}|{field}|{chapter}"
@@ -26,7 +27,14 @@ class MemoryWriter:
         return f"mem-{category}-{digest}"
 
     def _upsert(self, item: MemoryItem, stats: Dict[str, Any]) -> None:
-        result = self.store.upsert_item(item)
+        # 增量审阅 P3-22a：先收集，出口 _flush 一次批量落盘（一次 load/save）
+        self._pending.append(item)
+
+    def _flush(self, stats: Dict[str, Any]) -> None:
+        if not self._pending:
+            return
+        result = self.store.upsert_items(self._pending)
+        self._pending = []
         stats["items_added"] += int(result.get("added", 0))
         stats["items_updated"] += int(result.get("updated", 0))
         stats["items_outdated"] += int(result.get("outdated", 0))
@@ -195,6 +203,7 @@ class MemoryWriter:
         if isinstance(memory_facts, dict):
             self._apply_memory_facts(chapter, memory_facts, stats)
 
+        self._flush(stats)
         return stats
 
     def _apply_memory_facts(self, chapter: int, memory_facts: Dict[str, Any], stats: Dict[str, Any]) -> None:

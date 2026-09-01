@@ -52,6 +52,7 @@ def bootstrap_from_index(config: DataModulesConfig | None = None) -> Dict[str, A
 
     created = 0
     by_category: Dict[str, int] = {}
+    pending: list = []  # 增量审阅 P3-22a：收集后单次批量落盘
 
     for entity in idx.get_entities_by_type("角色", include_archived=True):
         entity_id = str(entity.get("id", "") or "").strip()
@@ -70,7 +71,7 @@ def bootstrap_from_index(config: DataModulesConfig | None = None) -> Dict[str, A
                 source_chapter=int(entity.get("last_appearance") or 0),
                 evidence=["bootstrap:index_entities"],
             )
-            store.upsert_item(item)
+            pending.append(item)
             created += 1
             by_category["character_state"] = by_category.get("character_state", 0) + 1
 
@@ -111,7 +112,7 @@ def bootstrap_from_index(config: DataModulesConfig | None = None) -> Dict[str, A
             source_chapter=ch,
             evidence=["bootstrap:index_state_changes"],
         )
-        store.upsert_item(item)
+        pending.append(item)
         created += 1
         by_category["character_state"] = by_category.get("character_state", 0) + 1
 
@@ -132,7 +133,7 @@ def bootstrap_from_index(config: DataModulesConfig | None = None) -> Dict[str, A
             source_chapter=ch,
             evidence=["bootstrap:index_state_changes_latest"],
         )
-        store.upsert_item(item)
+        pending.append(item)
         created += 1
         by_category["character_state"] = by_category.get("character_state", 0) + 1
 
@@ -152,7 +153,7 @@ def bootstrap_from_index(config: DataModulesConfig | None = None) -> Dict[str, A
             source_chapter=int(rel.get("chapter") or 0),
             evidence=["bootstrap:index_relationships"],
         )
-        store.upsert_item(item)
+        pending.append(item)
         created += 1
         by_category["relationship"] = by_category.get("relationship", 0) + 1
 
@@ -175,8 +176,10 @@ def bootstrap_from_index(config: DataModulesConfig | None = None) -> Dict[str, A
                     source_chapter=chapter,
                     evidence=["bootstrap:summaries_foreshadowing"],
                 )
-                store.upsert_item(item)
+                pending.append(item)
                 created += 1
                 by_category["open_loop"] = by_category.get("open_loop", 0) + 1
 
+    if pending:
+        store.upsert_items(pending)
     return {"items_created": created, "categories": by_category}

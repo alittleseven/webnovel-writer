@@ -251,18 +251,38 @@ def _write_book_yaml(out: Path, state: dict, project_root: Path) -> None:
     (out / "book.yaml").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def _git_init(out: Path, chapters: int) -> None:
+def _git_init(out: Path, chapters: int, project_root: Path) -> None:
     def run(*args: str) -> None:
         subprocess.run(args, cwd=out, check=True, capture_output=True, text=True, encoding="utf-8")
 
     run("git", "init")
     run("git", "config", "core.quotepath", "false")
+    run("git", "config", "dualformat.v6root", str(project_root.resolve()))
     run("git", "add", "-A")
     run("git", "-c", "user.name=webnovel-migrator", "-c", "user.email=migrator@local",
         "commit", "-m", f"ch: v6 迁移导入（{chapters} 章）")
 
 
-def migrate_project(project_root: str | Path, output: str | Path, *, use_git: bool = True) -> MigrationReport:
+def _link_back(project_root: Path, out: Path) -> None:
+    """增量审阅 P2-4：把 v7 仓地址写进 v6 项目 .env 的 STORY_REPO_ROOT，激活 v6 侧双格式守卫。
+
+    迁移对 v6 源零写入是硬契约，回写仅经 --link-back 显式授权；已有映射不覆盖。
+    """
+    env_file = project_root / ".env"
+    existing = env_file.read_text(encoding="utf-8") if env_file.exists() else ""
+    if "STORY_REPO_ROOT=" in existing:
+        return
+    content = (existing.rstrip("\n") + "\n" if existing else "") + f"STORY_REPO_ROOT={out.resolve()}\n"
+    env_file.write_text(content, encoding="utf-8")
+
+
+def migrate_project(
+    project_root: str | Path,
+    output: str | Path,
+    *,
+    use_git: bool = True,
+    link_back: bool = False,
+) -> MigrationReport:
     project_root = Path(project_root).resolve()
     out = Path(output).resolve()
     if out.exists():
@@ -295,7 +315,9 @@ def migrate_project(project_root: str | Path, output: str | Path, *, use_git: bo
     _migrate_outlines(project_root, out, report)
 
     if use_git:
-        _git_init(out, report.chapters)
+        _git_init(out, report.chapters, project_root)
+    if link_back:
+        _link_back(project_root, out)
     return report
 
 
@@ -304,9 +326,16 @@ def main() -> None:
     parser.add_argument("--project-root", required=True, help="v6 书项目根目录")
     parser.add_argument("--output", required=True, help="输出的 v7 story-repo 目录（必须不存在）")
     parser.add_argument("--no-git", action="store_true", help="跳过 git init 与初始提交")
+    parser.add_argument(
+        "--link-back",
+        action="store_true",
+        help="迁移成功后把 STORY_REPO_ROOT=<v7仓> 写入 v6 项目 .env（激活 v6 侧双格式守卫；默认不写，保持零写入）",
+    )
     args = parser.parse_args()
 
-    report = migrate_project(args.project_root, args.output, use_git=not args.no_git)
+    report = migrate_project(
+        args.project_root, args.output, use_git=not args.no_git, link_back=args.link_back
+    )
     for line in report.as_lines():
         print(line)
 

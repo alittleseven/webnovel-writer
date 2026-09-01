@@ -105,7 +105,14 @@ def _looks_like_direct_projection_write(command: str) -> bool:
     if _command_is_runtime_safe(lowered):
         return False
     protected_hit = any(suffix in lowered for suffix in PROTECTED_SUFFIXES)
-    if protected_hit and re.search(r"(?:^|\s)(>|>>|out-file|set-content|add-content|copy-item|move-item|python|python3)(?=\s|$)", lowered):
+    # 增量审阅 P3-17：补齐 cp/mv/rm/tee/sed -i/dd/git checkout 等绕过写入通道
+    if protected_hit and re.search(
+        r"(?:^|\s)("
+        r">>|>|out-file|set-content|add-content|copy-item|move-item|remove-item|"
+        r"del|rm|rmdir|python|python3|cp|mv|tee|dd|sed\s+-\S*i|git\s+checkout"
+        r")(?=\s|$)",
+        lowered,
+    ):
         return True
     if "chapter_commit.py" in lowered and "webnovel.py" not in lowered:
         return True

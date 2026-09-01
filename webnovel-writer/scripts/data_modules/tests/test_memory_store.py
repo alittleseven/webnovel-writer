@@ -414,3 +414,35 @@ def test_compactor_enforces_global_limit_and_dedupes_timeline_summary(tmp_path):
         if row.get("subject") == "timeline_summary"
     )
     assert summary_count2 <= 1
+
+
+def test_upsert_items_batches_single_save(tmp_path, monkeypatch):
+    """增量审阅 P3-22a：批量 upsert 一次 load/save，N 条不再 O(N) 次全量落盘。"""
+    from data_modules.config import DataModulesConfig
+    from data_modules.memory.schema import MemoryItem
+    from data_modules.memory.store import ScratchpadManager
+
+    manager = ScratchpadManager(DataModulesConfig.from_project_root(tmp_path))
+    calls = {"save": 0}
+    real_save = manager.save
+
+    def _counting_save(data, _use_lock=True):
+        calls["save"] += 1
+        return real_save(data, _use_lock=_use_lock)
+
+    monkeypatch.setattr(manager, "save", _counting_save)
+
+    items = [
+        MemoryItem(
+            id=f"batch-{n}", layer="semantic", category="world_rule",
+            subject="世界", field=f"规则{n}", value=str(n),
+            source_chapter=1, evidence=["test"],
+        )
+        for n in range(5)
+    ]
+
+    result = manager.upsert_items(items)
+
+    assert calls["save"] == 1
+    assert result["added"] == 5
+    assert len(manager.query(category="world_rule")) == 5

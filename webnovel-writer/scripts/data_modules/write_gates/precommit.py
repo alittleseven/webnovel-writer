@@ -57,6 +57,19 @@ def run_precommit_gate(project_root: Path, chapter: int) -> dict:
             )
         )
 
+    # 增量审阅 P2-4：双格式守卫时窗扩到提交边界（此前只挂 prewrite，
+    # 起草期间 v7 侧 settle 同章不会被拦截）
+    from ..config import DataModulesConfig
+    from ..dual_format_guard import check_unique_write_path
+
+    _cfg = DataModulesConfig.from_project_root(project_root)
+    _repo_root = str(getattr(_cfg, "story_repo_root", "") or "")
+    guard_issue = check_unique_write_path(
+        project_root, chapter, target_format="v6", story_repo_root=_repo_root or None
+    )
+    if guard_issue:
+        errors.append(guard_issue)
+
     chapter_file = find_chapter_file(project_root, chapter)
     if chapter_file is None:
         errors.append(

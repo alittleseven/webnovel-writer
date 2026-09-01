@@ -375,6 +375,32 @@ class IndexManager(IndexChapterMixin, IndexEntityMixin, IndexDebtMixin, IndexRea
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_state_changes_chapter ON state_changes(chapter)"
             )
+            # 增量审阅 P3-21：去重键唯一索引（表达式索引）；历史重复行先清理再建
+            try:
+                cursor.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS uq_state_changes_dedup
+                    ON state_changes(entity_id, field, chapter,
+                                     COALESCE(old_value, ''), COALESCE(new_value, ''), COALESCE(reason, ''))
+                    """
+                )
+            except sqlite3.IntegrityError:
+                cursor.execute(
+                    """
+                    DELETE FROM state_changes WHERE id NOT IN (
+                        SELECT MIN(id) FROM state_changes
+                        GROUP BY entity_id, field, chapter,
+                                 COALESCE(old_value, ''), COALESCE(new_value, ''), COALESCE(reason, '')
+                    )
+                    """
+                )
+                cursor.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS uq_state_changes_dedup
+                    ON state_changes(entity_id, field, chapter,
+                                     COALESCE(old_value, ''), COALESCE(new_value, ''), COALESCE(reason, ''))
+                    """
+                )
             cursor.execute(
                 "CREATE INDEX IF NOT EXISTS idx_relationships_from ON relationships(from_entity)"
             )

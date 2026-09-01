@@ -65,6 +65,10 @@ def write_decision_card(repo: Path, decision: dict[str, Any]) -> Path:
     lines += [f"  - {n}" for n in decision.get("nodes") or []]
     lines.append("- 本章禁区:")
     lines += [f"  - {n}" for n in decision.get("forbidden") or []]
+    if decision.get("promises"):
+        # 增量审阅 P2-9：承诺渲染进决策卡作者界面（承诺系统完整读写仍属 v7.1）
+        lines.append("- 推进承诺:")
+        lines += [f"  - {p}" for p in decision["promises"]]
     lines.append("- 承诺结转豁免: " + ("是（" + decision["waiver"] + "）" if decision.get("waiver") else "否"))
     lines.append("- 合同断言:")
     lines += [f"  - {c}" for c in decision.get("contract") or []]
@@ -278,7 +282,32 @@ def run_checks(repo: Path, decision: dict[str, Any], draft_text: str) -> dict[st
 
 
 def _git(repo: Path, *args: str) -> None:
-    subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True)
+    try:
+        subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or "").strip() or f"exit {exc.returncode}"
+        raise RuntimeError(f"git {' '.join(args)}: {detail}") from exc
+
+
+def _commit_with_identity_fallback(repo: Path, message: str) -> None:
+    """无任何 git 身份配置时兜底提交身份，避免 settle 因身份缺失整体回滚（增量审阅 P2-3）。"""
+    probe = subprocess.run(
+        ["git", "-C", str(repo), "config", "user.email"],
+        capture_output=True, text=True,
+    )
+    identity: list[str] = []
+    if not probe.stdout.strip():
+        identity = ["-c", "user.name=webnovel-settle", "-c", "user.email=webnovel-settle@local"]
+    _git(repo, *identity, "commit", "-m", message)
+
+
+def _v6_root_from_git_config(repo: Path) -> str:
+    """增量审阅 P2-4：读迁移器落在 v7 仓 git config 的 dualformat.v6root 映射（无则空串）。"""
+    probe = subprocess.run(
+        ["git", "-C", str(repo), "config", "dualformat.v6root"],
+        capture_output=True, text=True,
+    )
+    return probe.stdout.strip() if probe.returncode == 0 else ""
 
 
 def settle(
@@ -299,16 +328,17 @@ def settle(
         raise RuntimeError(f"机检未通过，拒绝 settle：{json.dumps(report, ensure_ascii=False)}")
 
     # S18/E4：唯一写入路径——v6 侧已落定该章时禁止 v7 settle
-    from data_modules.dual_format_guard import check_unique_write_path
+    from data_modules.dual_format_guard import check_unique_write_path, has_v7_settled_chapter
 
-    v6_root = decision.get("v6_project_root")
+    v6_root = decision.get("v6_project_root") or _v6_root_from_git_config(repo)
     if v6_root:
         blocker = check_unique_write_path(Path(v6_root), chapter, target_format="v7", story_repo_root=repo)
         if blocker:
             raise RuntimeError("唯一写入路径：" + blocker["message"])
+    # 章号前缀判重（增量审阅 P2-1）：同章改标题不得绕过防双写
+    if has_v7_settled_chapter(repo, chapter):
+        raise RuntimeError(f"唯一写入路径：该章已 settle（定稿/正文 存在 {chapter:04d}- 前缀文件），禁止双写")
     chapter_file = repo / "定稿" / "正文" / f"{chapter:04d}-{title}.md"
-    if chapter_file.exists():
-        raise RuntimeError("唯一写入路径：该章已 settle（定稿正文已存在），禁止双写")
 
     body = draft_text.split("---", 2)[-1].lstrip() if draft_text.startswith("---") else draft_text
     body_clean = re.sub(r"^#\s*.*?\n", "", body, count=1).lstrip()
@@ -366,16 +396,24 @@ def settle(
         result = {"chapter": chapter, "committed": False, "chapter_file": str(chapter_file), "checks": report}
         if commit:
             _git(repo, "add", "定稿")
-            _git(repo, "commit", "-m", f"settle: 第{chapter:04d}章 {title}")
+            _commit_with_identity_fallback(repo, f"settle: 第{chapter:04d}章 {title}")
             result["committed"] = True
     except Exception as exc:
+        # 逐文件保护（增量审阅 P2-2）：单个 unlink 失败（Windows 文件锁）不得阻断 git reset
         for p in created:
-            p.unlink(missing_ok=True)
-        if commit:
             try:
-                _git(repo, "reset", "--quiet")  # 清掉 add 进 index 的半成品条目（审阅报告 P2）
-            except Exception:
-                pass  # 回滚清理失败不遮蔽原始错误
+                p.unlink(missing_ok=True)
+            except OSError:
+                pass
+        if commit:
+            # 只清本次 add 的 定稿 路径，不波及作者自行 staged 的无关改动；
+            # 无 HEAD 的新仓回退到全量 reset，仍失败则不遮蔽原始错误
+            for reset_args in (("reset", "--quiet", "HEAD", "--", "定稿"), ("reset", "--quiet")):
+                try:
+                    _git(repo, *reset_args)
+                    break
+                except Exception:
+                    continue
         raise RuntimeError(f"settle 回滚：定稿未变更（{exc}）") from exc
     # 派生缓存刷新是 best-effort：失败不回滚已完成的 settle 事务（下一章 pack 依赖它可见新章）
     try:

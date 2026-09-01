@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -162,16 +163,19 @@ class IndexProjectionWriter:
             reason = str(change.get("reason") or "").strip()
             if self._state_change_exists(manager, entity_id, field, old_value, new_value, reason, chapter):
                 continue
-            manager.record_state_change(
-                StateChangeMeta(
-                    entity_id=entity_id,
-                    field=field,
-                    old_value=old_value,
-                    new_value=new_value,
-                    reason=reason,
-                    chapter=chapter,
+            try:
+                manager.record_state_change(
+                    StateChangeMeta(
+                        entity_id=entity_id,
+                        field=field,
+                        old_value=old_value,
+                        new_value=new_value,
+                        reason=reason,
+                        chapter=chapter,
+                    )
                 )
-            )
+            except sqlite3.IntegrityError:
+                continue  # 并发/replay 与预检查的竞态由唯一索引兜底（增量审阅 P3-21）
             applied += 1
         return applied
 

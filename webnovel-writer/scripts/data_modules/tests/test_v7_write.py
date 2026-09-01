@@ -34,6 +34,13 @@ def _git(repo: Path, *args: str) -> None:
     subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
 
 
+def _git_porcelain(repo: Path) -> str:
+    return subprocess.run(
+        ["git", "-C", str(repo), "-c", "core.quotepath=false", "status", "--porcelain"],
+        capture_output=True, text=True,
+    ).stdout
+
+
 def _v7_repo(tmp_path: Path) -> Path:
     repo = tmp_path / "repo"
     (repo / "定稿" / "正文").mkdir(parents=True)
@@ -92,6 +99,26 @@ class TestDecisionCard:
         assert "决策卡" in text and "0037" in text
         assert "不眠夜" in text and "内患收拢" in text
         assert "豁免" in text
+
+    def test_renders_promises_when_present(self, tmp_path):
+        """增量审阅 P2-9：决策 JSON 带承诺时必须渲染进决策卡（作者可见）。"""
+        repo = _v7_repo(tmp_path)
+        d = _decision()
+        d["promises"] = ["P-031 灭门真凶"]
+        d["waiver"] = ""
+
+        text = Path(write_decision_card(repo, d)).read_text(encoding="utf-8")
+
+        assert "- 推进承诺:" in text
+        assert "P-031 灭门真凶" in text
+        assert "承诺结转豁免: 否" in text
+
+    def test_no_promises_section_when_empty(self, tmp_path):
+        repo = _v7_repo(tmp_path)
+
+        text = Path(write_decision_card(repo, _decision())).read_text(encoding="utf-8")
+
+        assert "- 推进承诺:" not in text
 
 
 class TestContextPack:
@@ -224,6 +251,106 @@ class TestSettle:
         assert result["cache_rebuilt"] is True
         assert get_summary(repo, 37) == "内患收拢，备战开始。"
         assert find_entity(repo, "赵姓汉子")["name"] == "赵姓汉子"
+
+
+    def test_settle_refuses_same_chapter_different_title(self, tmp_path):
+        """增量审阅 P2-1：同章改标题不得绕过防双写（章号前缀判重，非精确文件名）。"""
+        repo = _v7_repo(tmp_path)
+        d = _decision()
+        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 120
+        (repo / "工作区" / "草稿-0037.md").write_text(body, encoding="utf-8")
+        (repo / "定稿" / "正文" / "0037-旧标题.md").write_text(body, encoding="utf-8")
+
+        with pytest.raises(RuntimeError, match="唯一写入路径"):
+            settle(repo, d, draft_path=repo / "工作区" / "草稿-0037.md", summary="s", commit=False)
+
+        assert not (repo / "定稿" / "正文" / "0037-不眠夜.md").exists()
+
+    def test_settle_rollback_clears_index_scope_only(self, tmp_path, monkeypatch):
+        """增量审阅 P2-2：commit 失败回滚时只清 定稿 的 index 条目，作者自行 staged 的无关改动不被波及。"""
+        import v7_write as v7w
+
+        repo = _v7_repo(tmp_path)
+        unrelated = repo / "大纲" / "总纲.md"
+        unrelated.parent.mkdir(exist_ok=True)
+        unrelated.write_text("# 总纲\n\n作者手改。\n", encoding="utf-8")
+        _git(repo, "add", "大纲/总纲.md")
+        assert "大纲/总纲.md" in _git_porcelain(repo)
+
+        d = _decision()
+        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 120
+        draft = repo / "工作区" / "草稿-0037.md"
+        draft.write_text(body, encoding="utf-8")
+
+        real_git = v7w._git
+
+        def _failing_git(r, *args):
+            if args and args[0] == "commit":
+                raise RuntimeError("git commit: 模拟失败")
+            return real_git(r, *args)
+
+        monkeypatch.setattr(v7w, "_git", _failing_git)
+
+        with pytest.raises(RuntimeError, match="settle 回滚"):
+            settle(repo, d, draft_path=draft, summary="s", commit=True)
+
+        porcelain = _git_porcelain(repo)
+        assert not any("定稿" in line for line in porcelain.splitlines()), porcelain
+        assert any("大纲/总纲.md" in line for line in porcelain.splitlines()), porcelain
+        assert not (repo / "定稿" / "正文" / "0037-不眠夜.md").exists()
+
+    def test_git_error_surfaces_stderr(self, tmp_path, monkeypatch):
+        """增量审阅 P2-3：git 失败的错误信息必须透出 stderr，而非只有 returncode。"""
+        import v7_write as v7w
+
+        def _fake_run(*_args, **_kwargs):
+            raise subprocess.CalledProcessError(1, ["git"], stderr="fatal: 无法读取对象")
+
+        monkeypatch.setattr(v7w.subprocess, "run", _fake_run)
+
+        with pytest.raises(RuntimeError, match="无法读取对象"):
+            v7w._git(tmp_path, "status")
+
+    def test_settle_commits_without_git_identity(self, tmp_path, monkeypatch):
+        """增量审阅 P2-3：无任何 git 身份配置的环境 settle 不应失败回滚，兜底身份完成提交。"""
+        repo = _v7_repo(tmp_path)
+        subprocess.run(["git", "-C", str(repo), "config", "--unset", "user.email"], capture_output=True)
+        subprocess.run(["git", "-C", str(repo), "config", "--unset", "user.name"], capture_output=True)
+        empty_cfg = tmp_path / "empty.gitconfig"
+        empty_cfg.write_text("", encoding="utf-8")
+        monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty_cfg))
+        monkeypatch.setenv("GIT_CONFIG_SYSTEM", str(empty_cfg))
+
+        d = _decision()
+        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 120
+        (repo / "工作区" / "草稿-0037.md").write_text(body, encoding="utf-8")
+
+        result = settle(repo, d, draft_path=repo / "工作区" / "草稿-0037.md", summary="s", commit=True)
+
+        assert result["committed"] is True
+        author = subprocess.run(
+            ["git", "-C", str(repo), "log", "-1", "--format=%an"],
+            capture_output=True, text=True,
+        ).stdout.strip()
+        assert author == "webnovel-settle"
+
+
+    def test_settle_reads_v6_root_from_git_config(self, tmp_path):
+        """增量审阅 P2-4：decision 未带 v6_project_root 时，从 v7 仓 git config 兜底读取迁移映射。"""
+        repo = _v7_repo(tmp_path)
+        v6 = tmp_path / "v6book"
+        (v6 / ".story-system" / "commits").mkdir(parents=True)
+        (v6 / ".story-system" / "commits" / "chapter_037.commit.json").write_text(
+            json.dumps({"meta": {"status": "accepted", "chapter": 37}}), encoding="utf-8"
+        )
+        _git(repo, "config", "dualformat.v6root", str(v6))
+
+        d = _decision()  # 不含 v6_project_root
+        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 120
+        (repo / "工作区" / "草稿-0037.md").write_text(body, encoding="utf-8")
+
+        with pytest.raises(RuntimeError, match="唯一写入路径"):
+            settle(repo, d, draft_path=repo / "工作区" / "草稿-0037.md", summary="s", commit=False)
 
 
 class TestContextPackBookBudget:

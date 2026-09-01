@@ -27,7 +27,7 @@ color: yellow
 python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" state get-entity --id "{entity_id}"
 
 # 查询最近状态变更
-python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" index get-state-changes --limit 20
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" index get-state-changes --entity "{entity_id}" --limit 20
 ```
 
 ## 3. 输入

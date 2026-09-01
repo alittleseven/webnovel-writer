@@ -286,3 +286,50 @@ def test_verify_review_chapter_alignment_skips_when_review_not_completed(tmp_pat
     )
 
     assert verify_review_chapter_alignment(tmp_path, 1, chapter_file) is None
+
+
+def test_record_write_step_waits_for_external_lock(tmp_path):
+    """增量审阅 P3-20：台账读-改-写必须持锁——外部持锁时记账阻塞，释放后完成。"""
+    import threading
+
+    import filelock
+
+    from data_modules.run_ledger import ledger_path, record_write_step
+
+    lock = filelock.FileLock(str(ledger_path(tmp_path)) + ".lock", timeout=30)
+    result: dict = {}
+    with lock:
+        thread = threading.Thread(
+            target=lambda: result.update(
+                entry=record_write_step(tmp_path, chapter=1, step="draft", status="completed")
+            )
+        )
+        thread.start()
+        thread.join(timeout=0.5)
+        assert thread.is_alive(), "记账未等待台账锁"
+        assert not ledger_path(tmp_path).exists(), "持锁期间台账被写出"
+
+    thread.join(timeout=10)
+    assert "entry" in result
+    assert ledger_path(tmp_path).exists()
+
+
+def test_concurrent_record_steps_all_persist(tmp_path):
+    """增量审阅 P3-20：并发记账不得互相覆盖（锁内 RMW）。"""
+    import concurrent.futures
+
+    from data_modules.run_ledger import WRITE_STEPS, load_ledger, record_write_step
+
+    (tmp_path / "正文").mkdir()
+    (tmp_path / "正文" / "第0001章.md").write_text("正文", encoding="utf-8")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+        futures = [
+            pool.submit(record_write_step, tmp_path, chapter=1, step=step, status="completed")
+            for step in WRITE_STEPS
+        ]
+        for future in futures:
+            future.result()
+
+    steps = load_ledger(tmp_path)["write"]["chapter_001"]["steps"]
+    assert set(steps) == set(WRITE_STEPS)

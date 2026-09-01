@@ -17,7 +17,7 @@ argument-hint: "[查询词，如 角色名/伏笔/境界]"
 export WORKSPACE_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
 export SCRIPTS_DIR="${CLAUDE_PLUGIN_ROOT}/scripts"
 export SKILL_ROOT="${CLAUDE_PLUGIN_ROOT}/skills/webnovel-query"
-export PROJECT_ROOT="$(python "${SCRIPTS_DIR}/webnovel.py" --project-root "${WORKSPACE_ROOT}" where)"
+export PROJECT_ROOT="$(python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${WORKSPACE_ROOT}" where)"
 ```
 
 - `PROJECT_ROOT` 必须包含 `.webnovel/state.json`
@@ -75,7 +75,7 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" kno
 python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" knowledge query-relationships --entity "{entity_id}" --at-chapter {N}
 
 # 世界规则
-python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" memory-contract query-rules --chapter {chapter_num}
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" memory-contract query-rules
 
 # 伏笔 / open loop
 python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" memory-contract get-open-loops

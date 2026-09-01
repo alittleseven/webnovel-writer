@@ -18,6 +18,7 @@ python migrate_v6_to_v7.py --project-root <v6书仓> --output <v7仓路径>
 
 - 只读源书仓（零写入）；输出目录已存在则拒绝。
 - 生成 `book.yaml`、`定稿/`（正文 spec 命名 `NNNN-标题.md` + 中文键 front matter）、`设定/`、`记忆/章摘要/`、`大纲/`、git 初始提交。
+- 自动在 v7 仓落 `git config dualformat.v6root`（settle 的唯一写入路径守卫兜底读取）；加 `--link-back` 可把 `STORY_REPO_ROOT` 写进 v6 项目 `.env` 激活 v6 侧守卫（默认不写，保持零写入）。
 - ≥3 章的书自动预填 `context_budget.sections.prev_chapter_tail`（按书史章均字数，clamp 1200–3000）。
 
 ## 2. 缓存：`v7_cache.py`

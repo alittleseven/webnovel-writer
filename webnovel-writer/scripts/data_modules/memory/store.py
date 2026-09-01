@@ -64,64 +64,82 @@ class ScratchpadManager:
     def _key_for(self, item: MemoryItem) -> tuple[Any, ...]:
         return memory_item_key(item)
 
-    def upsert_item(self, item: MemoryItem) -> Dict[str, int]:
-        normalized = item.normalized()
-        with self._lock:
-            data = self.load()
-            bucket = CATEGORY_TO_BUCKET[normalized.category]
-            rows: List[MemoryItem] = list(getattr(data, bucket))
-            target_key = self._key_for(normalized)
+    def _merge_into(self, data: ScratchpadData, normalized: MemoryItem) -> Dict[str, int]:
+        """把单条目合并进已加载的数据（不落盘）；upsert_item/upsert_items 共用。"""
+        bucket = CATEGORY_TO_BUCKET[normalized.category]
+        rows: List[MemoryItem] = list(getattr(data, bucket))
+        target_key = self._key_for(normalized)
 
-            outdated = 0
-            contradicted = 0
-            replaced_existing = False
-            new_rows: List[MemoryItem] = []
-            for row in rows:
-                row_key = self._key_for(row)
-                if row_key == target_key and row.id != normalized.id:
-                    if normalized.status == "tentative":
-                        # P1-3：tentative 候选不降级现有值（含 active），
-                        # 仅并存记录，等待确认（memory correct --status active）
-                        replaced_existing = True
-                        new_rows.append(row)
-                        continue
-                    if row.status == "active":
-                        old_value = str(row.value or "").strip()
-                        new_value = str(normalized.value or "").strip()
-                        if (
-                            normalized.category in FACT_CATEGORIES
-                            and old_value
-                            and new_value
-                            and old_value != new_value
-                        ):
-                            # P1-3：事实类同 key 出现不同值 → 矛盾嫌疑，
-                            # 旧值标 contradicted（保留审计轨迹，conflicts 可透出）
-                            row = MemoryItem(**{**asdict(row), "status": "contradicted", "updated_at": now_iso()})
-                            contradicted += 1
-                        else:
-                            # 同 key 旧值降级为 outdated，保留审计轨迹
-                            row = MemoryItem(**{**asdict(row), "status": "outdated", "updated_at": now_iso()})
-                            outdated += 1
-                    elif row.status not in {"outdated", "contradicted"}:
+        outdated = 0
+        contradicted = 0
+        replaced_existing = False
+        new_rows: List[MemoryItem] = []
+        for row in rows:
+            row_key = self._key_for(row)
+            if row_key == target_key and row.id != normalized.id:
+                if normalized.status == "tentative":
+                    # P1-3：tentative 候选不降级现有值（含 active），
+                    # 仅并存记录，等待确认（memory correct --status active）
+                    replaced_existing = True
+                    new_rows.append(row)
+                    continue
+                if row.status == "active":
+                    old_value = str(row.value or "").strip()
+                    new_value = str(normalized.value or "").strip()
+                    if (
+                        normalized.category in FACT_CATEGORIES
+                        and old_value
+                        and new_value
+                        and old_value != new_value
+                    ):
+                        # P1-3：事实类同 key 出现不同值 → 矛盾嫌疑，
+                        # 旧值标 contradicted（保留审计轨迹，conflicts 可透出）
+                        row = MemoryItem(**{**asdict(row), "status": "contradicted", "updated_at": now_iso()})
+                        contradicted += 1
+                    else:
+                        # 同 key 旧值降级为 outdated，保留审计轨迹
                         row = MemoryItem(**{**asdict(row), "status": "outdated", "updated_at": now_iso()})
                         outdated += 1
-                    replaced_existing = True
-                elif row.id == normalized.id:
-                    replaced_existing = True
-                    continue
-                new_rows.append(row)
+                elif row.status not in {"outdated", "contradicted"}:
+                    row = MemoryItem(**{**asdict(row), "status": "outdated", "updated_at": now_iso()})
+                    outdated += 1
+                replaced_existing = True
+            elif row.id == normalized.id:
+                replaced_existing = True
+                continue
+            new_rows.append(row)
 
-            normalized.updated_at = normalized.updated_at or now_iso()
-            new_rows.append(normalized)
-            setattr(data, bucket, new_rows)
-            self.save(data, _use_lock=False)
-
+        normalized.updated_at = normalized.updated_at or now_iso()
+        new_rows.append(normalized)
+        setattr(data, bucket, new_rows)
         return {
             "added": 0 if replaced_existing else 1,
             "updated": 1 if replaced_existing else 0,
             "outdated": outdated,
             "contradicted": contradicted,
         }
+
+    def upsert_item(self, item: MemoryItem) -> Dict[str, int]:
+        normalized = item.normalized()
+        with self._lock:
+            data = self.load()
+            result = self._merge_into(data, normalized)
+            self.save(data, _use_lock=False)
+        return result
+
+    def upsert_items(self, items: List[MemoryItem]) -> Dict[str, int]:
+        """批量 upsert（增量审阅 P3-22a）：一次 load/save，按序应用同 upsert_item 语义。"""
+        total = {"added": 0, "updated": 0, "outdated": 0, "contradicted": 0}
+        if not items:
+            return total
+        with self._lock:
+            data = self.load()
+            for item in items:
+                counts = self._merge_into(data, item.normalized())
+                for key in total:
+                    total[key] += counts[key]
+            self.save(data, _use_lock=False)
+        return total
 
     def mark_status(self, item_id: str, status: str) -> bool:
         if not item_id:

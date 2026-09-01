@@ -43,6 +43,39 @@ def test_state_projection_writer_handles_rejected_commit(tmp_path):
     assert state["progress"]["chapter_status"]["3"] == "chapter_rejected"
 
 
+def test_rejected_replay_does_not_downgrade_committed_chapter(tmp_path):
+    """增量审阅 P2-7：rejected 回放不得绕过单调状态机把已提交章回退为 rejected。"""
+    (tmp_path / ".webnovel").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".webnovel" / "state.json").write_text(
+        json.dumps({"progress": {"chapter_status": {"3": "chapter_committed"}}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    writer = StateProjectionWriter(tmp_path)
+
+    result = writer.apply(_commit_payload(status="rejected"))
+
+    assert result["applied"] is True
+    state = json.loads((tmp_path / ".webnovel" / "state.json").read_text(encoding="utf-8"))
+    assert state["progress"]["chapter_status"]["3"] == "chapter_committed"
+
+
+def test_state_changes_unique_constraint_blocks_duplicates(tmp_path):
+    """增量审阅 P3-21：state_changes 去重键有唯一索引兜底，绕过预检查的重复插入被库拒绝。"""
+    import pytest
+    from data_modules.index_manager import StateChangeMeta
+
+    cfg = DataModulesConfig.from_project_root(tmp_path)
+    meta = StateChangeMeta(
+        entity_id="xiaoyan", field="realm", old_value="斗者",
+        new_value="斗师", reason="突破", chapter=3,
+    )
+    manager = IndexManager(cfg)
+    manager.record_state_change(meta)
+
+    with pytest.raises(sqlite3.IntegrityError):
+        manager.record_state_change(meta)
+
+
 def test_state_projection_writer_applies_accepted_commit(tmp_path):
     (tmp_path / ".webnovel").mkdir(parents=True, exist_ok=True)
     (tmp_path / ".webnovel" / "state.json").write_text("{}", encoding="utf-8")

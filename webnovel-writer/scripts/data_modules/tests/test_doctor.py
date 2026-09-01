@@ -294,3 +294,58 @@ def test_sqlite_null_embedding_count_returns_none_when_table_missing(tmp_path):
     conn.close()
 
     assert doctor_module._sqlite_null_embedding_count(db_path) is None
+
+
+def _write_state_total_words(project_root: Path, total_words: int) -> None:
+    import json
+
+    state_path = project_root / ".webnovel" / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state.setdefault("progress", {})["total_words"] = total_words
+    state_path.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+
+
+def _write_index_chapter_words(project_root: Path, word_count: int) -> None:
+    import sqlite3
+
+    conn = sqlite3.connect(str(project_root / ".webnovel" / "index.db"))
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS chapters (chapter INTEGER PRIMARY KEY, word_count INTEGER,"
+        " title TEXT, summary TEXT, file_path TEXT)"
+    )
+    conn.execute("INSERT OR REPLACE INTO chapters (chapter, word_count) VALUES (1, ?)", (word_count,))
+    conn.commit()
+    conn.close()
+
+
+def test_doctor_warns_on_total_words_reconcile_mismatch(tmp_path, monkeypatch):
+    """增量审阅 P2-8：state.total_words 与 index SUM(word_count) 漂移超阈值时 doctor 亮警告。"""
+    import sqlite3  # noqa: F401
+
+    _make_init_ready(tmp_path)
+    monkeypatch.setattr(doctor_module, "_python_checks", lambda: [])
+    _write_state_total_words(tmp_path, 1000)
+    _write_index_chapter_words(tmp_path, 9000)
+
+    report = doctor_module.build_doctor_report(tmp_path)
+
+    mismatches = [
+        item for item in report["checks"]
+        if item["id"] == "state.total_words_reconcile" and item["status"] == doctor_module.CHECK_WARNING
+    ]
+    assert mismatches, "总字数对账漂移未被发现"
+    assert "1000" in mismatches[0]["actual"] and "9000" in mismatches[0]["actual"]
+
+
+def test_doctor_total_words_reconcile_within_tolerance_passes(tmp_path, monkeypatch):
+    _make_init_ready(tmp_path)
+    monkeypatch.setattr(doctor_module, "_python_checks", lambda: [])
+    _write_state_total_words(tmp_path, 5000)
+    _write_index_chapter_words(tmp_path, 5100)
+
+    report = doctor_module.build_doctor_report(tmp_path)
+
+    assert not [
+        item for item in report["checks"]
+        if item["id"] == "state.total_words_reconcile" and item["status"] == doctor_module.CHECK_WARNING
+    ]

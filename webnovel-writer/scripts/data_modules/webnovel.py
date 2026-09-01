@@ -823,10 +823,10 @@ def _main_impl() -> None:
 
     p_commit = sub.add_parser("chapter-commit", help="转发到 chapter_commit.py")
     p_commit.add_argument("--chapter", type=int, required=True, help="目标章节号")
-    p_commit.add_argument("--review-result", default="", help="review_result JSON 文件")
-    p_commit.add_argument("--fulfillment-result", default="", help="fulfillment_result JSON 文件")
-    p_commit.add_argument("--disambiguation-result", default="", help="disambiguation_result JSON 文件")
-    p_commit.add_argument("--extraction-result", default="", help="extraction_result JSON 文件")
+    p_commit.add_argument("--review-result", required=True, help="review_result JSON 文件")
+    p_commit.add_argument("--fulfillment-result", required=True, help="fulfillment_result JSON 文件")
+    p_commit.add_argument("--disambiguation-result", required=True, help="disambiguation_result JSON 文件")
+    p_commit.add_argument("--extraction-result", required=True, help="extraction_result JSON 文件")
 
     p_memory_contract = sub.add_parser("memory-contract", help="转发到 memory_cli.py")
     p_memory_contract.add_argument("args", nargs=argparse.REMAINDER)

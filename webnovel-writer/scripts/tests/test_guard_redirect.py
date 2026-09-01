@@ -35,6 +35,31 @@ class TestRedirectDetection:
         assert _looks_like_direct_projection_write(cmd) is True
 
 
+class TestBypassCommandCoverage:
+    """增量审阅 P3-17：cp/mv/tee/sed -i/dd/git checkout 等绕过命令同样拦截。"""
+
+    def test_cp_overwrite_index_db(self):
+        assert _looks_like_direct_projection_write("cp backup.db .webnovel/index.db") is True
+
+    def test_mv_overwrite_index_db(self):
+        assert _looks_like_direct_projection_write("mv x.db .webnovel/index.db") is True
+
+    def test_tee_append_projection_log(self):
+        assert _looks_like_direct_projection_write("echo x | tee .webnovel/projection_log.jsonl") is True
+
+    def test_sed_inplace_scratchpad(self):
+        assert _looks_like_direct_projection_write("sed -i 's/a/b/' .webnovel/memory_scratchpad.json") is True
+
+    def test_dd_of_commits(self):
+        assert _looks_like_direct_projection_write("dd if=x of=.story-system/commits/chapter_001.commit.json") is True
+
+    def test_git_checkout_commits(self):
+        assert _looks_like_direct_projection_write("git checkout HEAD -- .story-system/commits/") is True
+
+    def test_read_only_grep_on_protected_still_allowed(self):
+        assert _looks_like_direct_projection_write("grep foo .webnovel/index.db") is False
+
+
 
 
 

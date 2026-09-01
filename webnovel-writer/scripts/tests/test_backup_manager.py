@@ -161,3 +161,32 @@ def _run_local_backup_assertions(tmp_path, monkeypatch):
     snapshots = sorted((webnovel_dir / "backups").glob("snapshot_ch*"))
     assert len(snapshots) == 10
     assert snapshot not in snapshots
+
+
+def test_rollback_removes_files_created_after_target_tag(tmp_path):
+    """增量审阅 P3-19：回滚须删除 tag 之后新增的文件，与『恢复到备份点 100% 一致』承诺相符。"""
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    assert _run_git(project_root, "init", "-b", "main").returncode == 0
+    _configure_git_identity(project_root)
+
+    manuscript_dir = project_root / "正文"
+    manuscript_dir.mkdir()
+    chapter_file = manuscript_dir / "第0001章-test.md"
+    chapter_file.write_text("第一版", encoding="utf-8")
+    assert _run_git(project_root, "add", ".").returncode == 0
+    assert _run_git(project_root, "commit", "-m", "Chapter 1").returncode == 0
+    assert _run_git(project_root, "tag", "ch0001").returncode == 0
+
+    new_chapter = manuscript_dir / "第0002章-new.md"
+    new_chapter.write_text("第二章", encoding="utf-8")
+    assert _run_git(project_root, "add", ".").returncode == 0
+    assert _run_git(project_root, "commit", "-m", "Chapter 2").returncode == 0
+    assert _run_git(project_root, "tag", "ch0002").returncode == 0
+
+    manager = GitBackupManager(str(project_root))
+
+    assert manager.rollback(1) is True
+
+    assert chapter_file.read_text(encoding="utf-8") == "第一版"
+    assert not new_chapter.exists(), "tag 之后新增的章节文件在回滚后残留"

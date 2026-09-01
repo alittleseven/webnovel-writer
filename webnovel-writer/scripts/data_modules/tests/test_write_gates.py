@@ -86,6 +86,24 @@ def test_precommit_gate_accepts_valid_artifacts(tmp_path):
     assert report["details"]["artifact_report"]["ok"] is True
 
 
+def test_precommit_gate_blocks_dual_format_write(tmp_path, monkeypatch):
+    """增量审阅 P2-4：v7 侧已 settle 同章时 precommit 也拦截（守卫不只挂 prewrite）。"""
+    _make_init_ready(tmp_path)
+    _make_contracts(tmp_path, chapter=1)
+    (tmp_path / "正文" / "第0001章.md").write_text("正文\n", encoding="utf-8")
+    _write_valid_artifacts(tmp_path)
+
+    v7_repo = tmp_path / "v7repo"
+    (v7_repo / "定稿" / "正文").mkdir(parents=True)
+    (v7_repo / "定稿" / "正文" / "0001-天裂.md").write_text("---\n章号: 1\n---\n正文\n", encoding="utf-8")
+    monkeypatch.setenv("STORY_REPO_ROOT", str(v7_repo))
+
+    report = run_write_gate(tmp_path, chapter=1, stage="precommit")
+
+    assert report["ok"] is False
+    assert any(item["code"] == "dual_format_write_blocked" for item in report["errors"])
+
+
 def test_precommit_gate_rejects_fulfillment_missing_missed_nodes(tmp_path):
     _make_init_ready(tmp_path)
     _make_contracts(tmp_path, chapter=1)

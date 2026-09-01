@@ -315,7 +315,9 @@ def create_app(project_root: str | Path | None = None) -> FastAPI:
         db_path = _webnovel_dir() / "index.db"
         if not db_path.is_file():
             raise HTTPException(404, "index.db 不存在")
-        conn = sqlite3.connect(str(db_path))
+        # 严格只读（增量审阅 P2-6）：mode=ro 禁止写库、不产生 -wal/-shm
+        conn = sqlite3.connect(f"file:{db_path.as_posix()}?mode=ro", uri=True)
+        conn.execute("PRAGMA busy_timeout=3000")
         conn.row_factory = sqlite3.Row
         return conn
 
@@ -884,7 +886,13 @@ def create_app(project_root: str | Path | None = None) -> FastAPI:
         async def _gen():
             try:
                 while True:
-                    msg = await q.get()
+                    try:
+                        # 增量审阅 P3-18：15s 心跳保活——无事件的连接也能被代理/浏览器
+                        # 及时发现断开，而不是静默挂着
+                        msg = await asyncio.wait_for(q.get(), timeout=15.0)
+                    except asyncio.TimeoutError:
+                        yield ": ping\n\n"
+                        continue
                     yield f"data: {msg}\n\n"
             except asyncio.CancelledError:
                 pass

@@ -354,6 +354,19 @@ __pycache__/
             print(f"💡 提示：确保 tag '{tag_name}' 存在（运行 --list 查看所有备份）")
             return False
 
+        # 增量审阅 P3-19：checkout 只恢复 tag 内路径，tag 之后新增的文件会残留
+        # 并与回滚后的 state 撕裂——按 diff(A) 清单删除，兑现「恢复到备份点 100% 一致」
+        # -z：NUL 分隔原始路径，规避 core.quotepath 对中文路径的八进制转义
+        success, diff_out, _ = self._run_git_command(
+            ["diff", "--name-only", "-z", "--diff-filter=A", tag_name, "HEAD"], check=False
+        )
+        if success and diff_out.strip("\0").strip():
+            added_paths = [p for p in diff_out.split("\0") if p.strip()]
+            if added_paths:
+                self._run_git_command(
+                    ["rm", "-r", "--quiet", "--ignore-unmatch", "--", *added_paths], check=False
+                )
+
         success, stdout, stderr = self._run_git_command(["add", "-A"], check=False)
         if not success:
             print(f"❌ 回滚失败: {self._format_git_output(stdout, stderr)}")

@@ -46,7 +46,19 @@ def main():
     parser.add_argument("--host", default="127.0.0.1", help="监听地址")
     parser.add_argument("--port", type=int, default=8765, help="监听端口")
     parser.add_argument("--no-browser", action="store_true", help="不自动打开浏览器")
+    parser.add_argument(
+        "--allow-nonlocal",
+        action="store_true",
+        help="显式允许绑定非回环地址（Dashboard 无鉴权，暴露到局域网风险自担）",
+    )
     args = parser.parse_args()
+
+    # 增量审阅 P2-6：无鉴权服务禁止默认暴露到局域网，必须显式确认
+    if args.host not in {"127.0.0.1", "localhost", "::1"} and not args.allow_nonlocal:
+        parser.error(
+            f"拒绝绑定 {args.host}：Dashboard 无鉴权，非回环绑定会把全书内容暴露到网络。\n"
+            "确需局域网访问请加 --allow-nonlocal（风险自担）。"
+        )
 
     project_root = _resolve_project_root(args.project_root)
     print(f"项目路径: {project_root}")

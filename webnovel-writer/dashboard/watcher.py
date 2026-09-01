@@ -28,7 +28,9 @@ def _is_relative_to(path: Path, root: Path | None) -> bool:
 class _WebnovelFileHandler(FileSystemEventHandler):
     """关注 .webnovel/ 关键文件与 .story-system/ JSON 变更。"""
 
-    WATCH_NAMES = {"state.json", "index.db", "workflow_state.json"}
+    # index.db-wal/-shm（增量审阅 P3-18）：WAL 模式下 index.db 主文件 mtime
+    # 在 checkpoint 前不变，只盯主文件会漏掉实体写入 → SSE 迟滞
+    WATCH_NAMES = {"state.json", "index.db", "index.db-wal", "index.db-shm", "workflow_state.json"}
 
     def __init__(
         self,

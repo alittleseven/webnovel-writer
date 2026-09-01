@@ -61,7 +61,10 @@ class StateProjectionWriter:
                 with self._locked_state() as state:
                     progress = state.setdefault("progress", {})
                     chapter_status = progress.setdefault("chapter_status", {})
-                    chapter_status[str(chapter)] = "chapter_rejected"
+                    current = str(chapter_status.get(str(chapter)) or "")
+                    # 增量审阅 P2-7：单调状态机——已提交/更后段的章不因 rejected 回放而回退
+                    if not current or current == "chapter_rejected":
+                        chapter_status[str(chapter)] = "chapter_rejected"
             return {"applied": True, "writer": "state", "reason": "commit_rejected_status_updated"}
 
         if status != "accepted":
@@ -447,7 +450,10 @@ class StateProjectionWriter:
         return total
 
     def _load_cached_word_chapters(self) -> set[int]:
-        """P2-1：读已缓存字数的章号集合（避免重复计算）。"""
+        """P2-1：读已计字章节集合——以 chapter_status 中已 committed 的章号为准。
+
+        （增量审阅 P2-8：原 word_counted_chapters 缓存键只读无写，属死代码已移除。）
+        """
         try:
             import json
             state_path = self.project_root / ".webnovel" / "state.json"
@@ -456,10 +462,6 @@ class StateProjectionWriter:
             state = json.loads(state_path.read_text(encoding="utf-8"))
             progress = state.get("progress") if isinstance(state, dict) else {}
             if isinstance(progress, dict):
-                cached = progress.get("word_counted_chapters")
-                if isinstance(cached, list):
-                    return {int(ch) for ch in cached if ch}
-                # 回退：用 chapter_status 中已 committed 的章号
                 chapter_status = progress.get("chapter_status") or {}
                 if isinstance(chapter_status, dict):
                     return {

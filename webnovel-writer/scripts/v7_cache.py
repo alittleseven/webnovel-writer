@@ -127,7 +127,11 @@ def _iter_roster_directory(repo_root: Path):
     if not roster_dir.is_dir():
         return
     for path in sorted(roster_dir.glob("*.md")):
-        fields, _ = _parse_front_matter(_read(path))
+        # 单文件损坏只跳过该文件，不放大为整库不可用（增量审阅 P2-5，spec §10 永不堆栈崩溃）
+        try:
+            fields, _ = _parse_front_matter(_read(path))
+        except (OSError, UnicodeDecodeError, ValueError):
+            continue
         name = (fields.get("正名") or path.stem).strip()
         if not name:
             continue

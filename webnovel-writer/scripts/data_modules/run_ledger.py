@@ -21,6 +21,11 @@ except ImportError:  # pragma: no cover
     from scripts.chapter_paths import find_chapter_file
 
 try:
+    from security_utils import atomic_write_json
+except ImportError:  # pragma: no cover
+    from scripts.security_utils import atomic_write_json
+
+try:
     import long_paths
 except ImportError:  # pragma: no cover
     from scripts import long_paths
@@ -73,9 +78,23 @@ def load_ledger(project_root: str | Path) -> dict[str, Any]:
 
 def save_ledger(project_root: str | Path, ledger: dict[str, Any]) -> Path:
     path = ledger_path(project_root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(ledger, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    # 增量审阅 P3-20：临时文件 + os.replace 原子落盘（锁由 _mutate_ledger 持有，避免双重锁）
+    atomic_write_json(path, ledger, use_lock=False, backup=False)
     return path
+
+
+def _mutate_ledger(project_root: str | Path, mutate) -> Any:
+    """锁内 读-改-写：并发记账不得互相覆盖（增量审阅 P3-20）。"""
+    import filelock
+
+    root = Path(project_root)
+    path = ledger_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with filelock.FileLock(str(path) + ".lock", timeout=10):
+        ledger = load_ledger(root)
+        result = mutate(ledger)
+        save_ledger(root, ledger)
+    return result
 
 
 def file_signature(path: str | Path) -> dict[str, Any]:
@@ -125,8 +144,6 @@ def record_write_step(
     if step not in WRITE_STEPS:
         raise ValueError(f"unknown write step: {step}")
     root = Path(project_root)
-    ledger = load_ledger(root)
-    run = _write_run(ledger, chapter, mode)
     input_signatures = {
         str(name): file_signature(path)
         for name, path in (inputs or {}).items()
@@ -145,9 +162,13 @@ def record_write_step(
         "problems": list(problems or []),
         "auto_handled": list(auto_handled or []),
     }
-    run["steps"][step] = entry
-    save_ledger(root, ledger)
-    return entry
+
+    def _apply(ledger: dict[str, Any]) -> dict[str, Any]:
+        run = _write_run(ledger, chapter, mode)
+        run["steps"][step] = entry
+        return entry
+
+    return _mutate_ledger(root, _apply)
 
 
 def record_subagent_run(
@@ -200,12 +221,14 @@ def record_subagent_run(
     entry = redact_payload(entry)
 
     root = Path(project_root)
-    ledger = load_ledger(root)
-    runs = ledger["subagent_runs"]
-    runs[:] = [item for item in runs if not (isinstance(item, dict) and item.get("run_id") == run_id)]
-    runs.append(entry)
-    save_ledger(root, ledger)
-    return entry
+
+    def _apply(ledger: dict[str, Any]) -> dict[str, Any]:
+        runs = ledger["subagent_runs"]
+        runs[:] = [item for item in runs if not (isinstance(item, dict) and item.get("run_id") == run_id)]
+        runs.append(entry)
+        return entry
+
+    return _mutate_ledger(root, _apply)
 
 
 def read_subagent_runs(

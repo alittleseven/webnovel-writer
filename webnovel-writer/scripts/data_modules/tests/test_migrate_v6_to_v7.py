@@ -112,6 +112,57 @@ class TestMigrateProject:
         assert report.chapters == 0
 
 
+class TestRosterColumnOrder:
+    """增量审阅 P1-1：index.db 名册行（正名/别名/首现章）两列不得互换。"""
+
+    @staticmethod
+    def _with_index_db(src: Path) -> None:
+        import sqlite3
+
+        conn = sqlite3.connect(src / ".webnovel" / "index.db")
+        conn.executescript(
+            """
+            CREATE TABLE entities (id INTEGER PRIMARY KEY, canonical_name TEXT,
+                                   first_appearance INTEGER, is_archived INTEGER DEFAULT 0);
+            CREATE TABLE aliases (id INTEGER PRIMARY KEY, entity_id INTEGER, alias TEXT);
+            INSERT INTO entities (canonical_name, first_appearance) VALUES ('林晚', 3);
+            INSERT INTO aliases (entity_id, alias) VALUES (1, '晚晚'), (1, '林师妹');
+            INSERT INTO entities (canonical_name, first_appearance) VALUES ('王五', 5);
+            """
+        )
+        conn.commit()
+        conn.close()
+
+    def test_roster_columns_not_swapped(self, tmp_path):
+        src = _v6_project(tmp_path)
+        self._with_index_db(src)
+
+        out = tmp_path / "v7book"
+        migrate_project(src, out, use_git=False)
+
+        rows = [
+            line
+            for line in (out / "定稿" / "设定" / "名册.md").read_text(encoding="utf-8").splitlines()
+            if line.startswith("| ") and "正名" not in line
+        ]
+        by_name = {row.split("|")[1].strip(): row for row in rows}
+        assert by_name["林晚"] == "| 林晚 | 晚晚, 林师妹 | 3 |"
+        assert by_name["王五"] == "| 王五 |  | 5 |"
+
+    def test_roster_aliases_queryable_after_migration(self, tmp_path):
+        from v7_cache import find_entity, rebuild_cache
+
+        src = _v6_project(tmp_path)
+        self._with_index_db(src)
+        out = tmp_path / "v7book"
+        migrate_project(src, out, use_git=False)
+
+        rebuild_cache(out)
+
+        assert find_entity(out, "林师妹")["name"] == "林晚"
+        assert find_entity(out, "林晚")["first_chapter"] == "3"
+
+
 class TestBookYamlContextBudgetPrefill:
     """S23：迁移器按书史字数预填 context_budget（≥3 章；<3 章不写）。"""
 

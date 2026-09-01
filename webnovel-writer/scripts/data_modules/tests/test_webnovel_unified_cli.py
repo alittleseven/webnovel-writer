@@ -131,6 +131,48 @@ def test_extract_context_forwards_with_resolved_project_root(monkeypatch, tmp_pa
     ]
 
 
+def test_extract_context_default_format_is_json(monkeypatch, tmp_path):
+    """增量审阅 P1-3：不带 --format 调用 extract-context 必须可用且转发 json。
+
+    底层 extract_chapter_context.py 只接受 json（text 渲染归 context-agent），
+    包装层声明 default="text" 会让默认路径 exit 2。
+    """
+    module = _load_webnovel_module()
+
+    book_root = (tmp_path / "book").resolve()
+    called = {}
+
+    def _fake_resolve(explicit_project_root=None):
+        return book_root
+
+    def _fake_run_script(script_name, argv):
+        called["script_name"] = script_name
+        called["argv"] = list(argv)
+        return 0
+
+    monkeypatch.setattr(module, "_resolve_root", _fake_resolve)
+    monkeypatch.setattr(module, "_run_script", _fake_run_script)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["webnovel", "--project-root", str(tmp_path), "extract-context", "--chapter", "12"],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        module.main()
+
+    assert int(exc.value.code or 0) == 0
+    assert called["script_name"] == "extract_chapter_context.py"
+    assert called["argv"] == [
+        "--project-root",
+        str(book_root),
+        "--chapter",
+        "12",
+        "--format",
+        "json",
+    ]
+
+
 def test_backup_forwards_resolved_book_root_from_parent_workspace(monkeypatch, tmp_path):
     module = _load_webnovel_module()
 

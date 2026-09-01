@@ -207,6 +207,25 @@ class TestSettle:
         assert not (repo / "定稿" / "设定" / "名册" / "赵姓汉子.md").exists()  # 已写的也回滚
 
 
+    def test_settle_refreshes_cache_for_next_chapter(self, tmp_path):
+        """增量审阅 P1-2：settle 后不手动 rebuild，下一章查询面即含新摘要/新实体。"""
+        from v7_cache import find_entity, get_summary, rebuild_cache
+
+        repo = _v7_repo(tmp_path)
+        rebuild_cache(repo)  # settle 前的缓存：不含第 37 章
+        d = _decision()
+        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 120
+        (repo / "工作区" / "草稿-0037.md").write_text(body, encoding="utf-8")
+
+        result = settle(
+            repo, d, draft_path=repo / "工作区" / "草稿-0037.md", summary="内患收拢，备战开始。", commit=False
+        )
+
+        assert result["cache_rebuilt"] is True
+        assert get_summary(repo, 37) == "内患收拢，备战开始。"
+        assert find_entity(repo, "赵姓汉子")["name"] == "赵姓汉子"
+
+
 class TestContextPackBookBudget:
     """S23：book.yaml context_budget 覆盖（显式参数 > book.yaml > 常量）+ 截断汇总信号。"""
 

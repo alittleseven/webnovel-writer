@@ -810,7 +810,8 @@ def _main_impl() -> None:
 
     p_extract_context = sub.add_parser("extract-context", help="转发到 extract_chapter_context.py")
     p_extract_context.add_argument("--chapter", type=int, required=True, help="目标章节号")
-    p_extract_context.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    p_extract_context.add_argument("--format", choices=["json"], default="json",
+                                   help="输出格式（始终 JSON，text 渲染由 context-agent 负责）")
 
     p_story_system = sub.add_parser("story-system", help="转发到 story_system.py")
     p_story_system.add_argument("args", nargs=argparse.REMAINDER)

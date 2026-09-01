@@ -56,4 +56,4 @@ python -c "from v7_write import settle; ..."   # settle 走 Python API
 ## 已知边界（v7.0）
 
 - 承诺结转（spec §5）未实现：机检仅校验「承诺非空或显式豁免」；承诺档案读写排期 v7.1。
-- 决策卡 `new_entities` 与缓存的同步依赖 rebuild（首查自动触发）。
+- 缓存同步：settle 成功后自动 rebuild（best-effort，失败不影响已完成的 settle）；缓存文件缺失**或损坏**（零字节/坏库/缺表）时首查自动重建，无需手动干预。

@@ -1,7 +1,7 @@
 # 功能流程与数据流全景（v6.3 + v7.0）
 
 > 定位：一份**当前实现**的全景图——功能怎么串、数据落在哪、谁是真源谁是派生。面向维护者/审阅者，作为 [overview](overview.md)（v6 理念层）与 [story-repo-spec](story-repo-spec-2026-06-10.md)（v7 法律文本）之间的「实况层」。
-> 基线：`@7e3bfe2`（2026-09-02）。图中标注「⚠审阅」处为 [增量审阅报告](../reports/2026-09-02-增量代码审阅报告.md) 发现的缺陷位置，属当前真实行为。
+> 基线：`@7e3bfe2`（2026-09-02）+ P1 修复批（S25，同日）。图中标注「⚠审阅」处为 [增量审阅报告](../reports/2026-09-02-增量代码审阅报告.md) 发现的缺陷位置（P1-1/P1-2/P1-3 已于 S25 修复并移除标记，P2/P3 标记仍为当前真实行为），属当前实现实况。
 
 ## 1. 总体架构分层
 
@@ -137,10 +137,10 @@ flowchart TD
     CHK -->|不过| DR
     CHK -->|pass| ACC["⑤ 作者验收卡：接受/改完接受/打回<br/>（含章摘要扫一眼 + 新专名确认）"]
     ACC -->|接受| SET["settle（原子）：正文 NNNN-标题.md<br/>+ 章摘要 + 名册新实体 → 单次 git commit"]
-    SET --> RB["⚠审阅 P1-2：settle 不自动 rebuild<br/>连续写作需手动 v7_cache rebuild，<br/>否则下一章 pack 读到陈旧缓存"]
+    SET --> RB["settle 成功后自动 rebuild .cache<br/>（best-effort；缓存缺失/损坏首查亦自愈）"]
 ```
 
-v7 与 v6 的本质差异：**没有中间投影层**——正文/摘要/名册直接是定稿文件，git commit 即事务边界，`.cache` 可随时删（⚠审阅 P1-2：实现上「首查自动重建」只覆盖文件缺失一种情况）。
+v7 与 v6 的本质差异：**没有中间投影层**——正文/摘要/名册直接是定稿文件，git commit 即事务边界，`.cache` 可随时删（S25 后 settle 自动刷新、损坏自愈）。
 
 ### 3.3 初始化与规划
 
@@ -198,7 +198,7 @@ flowchart LR
     end
     CM["context 命令<br/>ContextManager 16 节 + Ranker 打分截断"]
     MC["memory-contract load-context<br/>合同+记忆包+大纲+摘要<br/>20k 总预算（SECTION_QUOTAS/DROP_ORDER）"]
-    EQC["extract-context（精简包）<br/>⚠审阅 P1-3：默认 --format 必败，需显式 json"]
+    EQC["extract-context（精简包，始终 JSON）"]
     ST --> CM
     SUMS --> CM
     IDBX --> CM
@@ -248,11 +248,11 @@ flowchart LR
 | `book.yaml` | YAML | 配置（唯一纯 YAML） | 迁移器/作者 | pack 预算、cache meta |
 | `定稿/正文/NNNN-标题.md`（中文键 front matter） | Markdown | **真源** | 仅 settle | cache rebuild、pack 尾部、字数统计 |
 | `定稿/记忆/章摘要/NNNN.md` | Markdown | 真源 | settle（作者可改） | cache、下章 pack |
-| `定稿/设定/名册.md` + `名册/<正名>.md` | Markdown | 真源（双落点） | 迁移器写单表；settle 写目录 | cache 兼读（目录优先）⚠迁移列序 P1-1 |
+| `定稿/设定/名册.md` + `名册/<正名>.md` | Markdown | 真源（双落点） | 迁移器写单表；settle 写目录 | cache 兼读（目录优先，含首现章列） |
 | `定稿/设定/`（角色/时间线/世界观） | Markdown | 真源 | 迁移器/作者 | （v7.0 尚无程序化读） |
 | `大纲/`、`文风/` | Markdown | 作者意图 | 作者（v7.0） | 未来 pack 扩展 |
 | `工作区/`（决策卡/上下文包/草稿） | Markdown | 瞬态（gitignored） | v7_write、LLM | 作者界面、机检 |
-| `.cache/index.db`（4 表） | SQLite | **唯一派生缓存** | rebuild_cache | 查询面三 API（可随时删；⚠损坏不自愈） |
+| `.cache/index.db`（4 表） | SQLite | **唯一派生缓存** | rebuild_cache（settle 后自动/首查触发） | 查询面三 API（可随时删；缺失/损坏首查自愈） |
 
 ### 4.5 hooks 数据流
 
@@ -278,7 +278,7 @@ flowchart LR
         Z7["定稿/正文/NNNN-标题.md<br/>（补中文键 front matter）"]
         S7["定稿/设定/ + 时间线合并"]
         M7["定稿/记忆/章摘要/"]
-        R7["名册.md（← index.db）⚠列序 P1-1"]
+        R7["名册.md（← index.db，含首现章）"]
         B7["book.yaml（≥3 章预填 prev_chapter_tail 配额）"]
         G7["git 初始提交"]
     end
@@ -298,7 +298,7 @@ flowchart LR
 |---|---|---|
 | 机检先于模型评审 | v7 `check` 硬闸 exit 2；v6 prewrite/precommit | ✅ 两章实测有效 |
 | 结转原子性（要么完成要么原样） | v7 settle 回滚；v6 commit+projection retry | ✅ / ⚠P2-2 缺口 |
-| 派生物可丢弃、首查重建 | `v7_cache._conn` / `projections replay` | ⚠P1-2 损坏不自愈 |
+| 派生物可丢弃、首查重建 | `v7_cache._conn` / `projections replay` | ✅（S25 后：settle 自动刷新 + 缺失/损坏首查重建） |
 | 唯一写入路径（v6/v7 互斥） | `dual_format_guard` + prewrite/settle 挂载 | ⚠P2-4 默认关闭 |
 | 定稿只增不改 | settle 仅新建文件 + git | ✅（⚠P2-1 同章改标题可双落） |
 | 容错读取（未知字段保留） | 各 schema 解析器 | ✅（名册目录除外 ⚠P2-5） |

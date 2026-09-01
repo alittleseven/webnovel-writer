@@ -169,3 +169,34 @@ class TestRosterDualLocation:
         rebuild_cache(repo)
 
         assert find_entity(repo, "熊铁山")["name"] == "熊哥"
+
+
+class TestCorruptCacheSelfHeals:
+    """增量审阅 P1-2：缓存存在但损坏 → 首查自动重建（spec §1.2 派生物可丢弃）。"""
+
+    def test_garbage_file_triggers_rebuild(self, tmp_path):
+        repo = _v7_repo(tmp_path)
+        rebuild_cache(repo)
+        cache_path(repo).write_bytes(b"this is not a sqlite database at all")
+
+        assert get_chapter(repo, 1)["标题"] == "天裂"
+
+    def test_zero_byte_file_triggers_rebuild(self, tmp_path):
+        repo = _v7_repo(tmp_path)
+        rebuild_cache(repo)
+        cache_path(repo).write_bytes(b"")
+
+        assert get_summary(repo, 1) == "第一章摘要"
+
+    def test_partial_schema_triggers_rebuild(self, tmp_path):
+        import sqlite3
+
+        repo = _v7_repo(tmp_path)
+        rebuild_cache(repo)
+        conn = sqlite3.connect(cache_path(repo))
+        conn.executescript("DROP TABLE chapters; DROP TABLE summaries;")
+        conn.commit()
+        conn.close()
+
+        assert get_chapter(repo, 1)["标题"] == "天裂"
+        assert get_summary(repo, 1) == "第一章摘要"

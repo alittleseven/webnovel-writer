@@ -115,7 +115,11 @@ def _iter_roster_single_table(repo_root: Path):
             continue
         cells = [c.strip() for c in line.strip("|").split("|")]
         if len(cells) >= 2 and cells[0]:
-            yield {"name": cells[0], "aliases": cells[1] if len(cells) > 1 else "", "first_chapter": ""}
+            yield {
+                "name": cells[0],
+                "aliases": cells[1],
+                "first_chapter": cells[2] if len(cells) > 2 else "",
+            }
 
 
 def _iter_roster_directory(repo_root: Path):
@@ -195,9 +199,25 @@ def rebuild_cache(repo_root: Path) -> dict[str, Any]:
     return {"chapters": len(chapters), "cache": str(cache)}
 
 
+def _cache_intact(path: Path) -> bool:
+    """健康检查：四张核心表齐备才算完好（零字节/半写坏/缺表 → False，首查重建）。"""
+    try:
+        conn = sqlite3.connect(path)
+        try:
+            row = conn.execute(
+                "SELECT count(*) FROM sqlite_master WHERE type='table'"
+                " AND name IN ('chapters','entities','summaries','meta')"
+            ).fetchone()
+            return bool(row) and row[0] == 4
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return False
+
+
 def _conn(repo_root: Path) -> sqlite3.Connection:
     path = cache_path(repo_root)
-    if not path.exists():
+    if not path.exists() or not _cache_intact(path):
         rebuild_cache(repo_root)
     return sqlite3.connect(path)
 

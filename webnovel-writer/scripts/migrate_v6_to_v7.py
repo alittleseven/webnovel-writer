@@ -156,7 +156,7 @@ def _migrate_settings(project_root: Path, out: Path, state: dict, report: Migrat
             conn = sqlite3.connect(index_db)
             try:
                 roster_rows = [
-                    (r[0], r[1] or "", str(r[2] or ""))
+                    (r[0], r[2] or "", str(r[1] or ""))
                     for r in conn.execute(
                         "SELECT e.canonical_name, e.first_appearance, GROUP_CONCAT(a.alias, ', ')"
                         " FROM entities e LEFT JOIN aliases a ON a.entity_id = e.id"

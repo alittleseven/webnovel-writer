@@ -377,6 +377,14 @@ def settle(
             except Exception:
                 pass  # 回滚清理失败不遮蔽原始错误
         raise RuntimeError(f"settle 回滚：定稿未变更（{exc}）") from exc
+    # 派生缓存刷新是 best-effort：失败不回滚已完成的 settle 事务（下一章 pack 依赖它可见新章）
+    try:
+        from v7_cache import rebuild_cache
+
+        rebuild_cache(repo)
+        result["cache_rebuilt"] = True
+    except Exception:
+        result["cache_rebuilt"] = False
     return result
 
 

@@ -1,7 +1,16 @@
+# 审阅报告 P2 修复：覆盖率只测源码面（含 v7 三个顶层脚本）。
+# 此前 pytest.ini 裸 `--cov` 在 `--no-cov` 同传时报告失真值（19.31%）触发 90% 门槛误报，
+# 逼出工作契约里的 `--no-cov` 绕过；实测限定范围 89%（12,485 语句/1,417 未覆盖）。
 [run]
-source = webnovel-writer/scripts/data_modules
+source = webnovel-writer/scripts
 omit =
     */tests/*
+    */test_*.py
+    */conftest.py
 
 [report]
 show_missing = True
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:

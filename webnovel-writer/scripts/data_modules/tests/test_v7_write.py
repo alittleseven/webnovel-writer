@@ -152,10 +152,10 @@ class TestSettle:
 
         result = settle(repo, d, draft_path=repo / "工作区" / "草稿-0037.md", summary="内患收拢，备战开始。", commit=True)
 
-        chapter_file = repo / "定稿" / "正文" / "ch0037.md"
+        chapter_file = repo / "定稿" / "正文" / "0037-不眠夜.md"
         assert chapter_file.exists()
         text = chapter_file.read_text(encoding="utf-8")
-        assert "chapter: 37" in text and "title: 不眠夜" in text
+        assert "章号: 37" in text and "标题: 不眠夜" in text and "字数:" in text
         assert (repo / "定稿" / "记忆" / "章摘要" / "0037.md").exists()
         assert result["committed"] is True
         log = subprocess.run(["git", "-C", str(repo), "log", "--oneline", "-1"], capture_output=True, text=True).stdout
@@ -166,7 +166,7 @@ class TestSettle:
         d = _decision()
         body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 120
         (repo / "工作区" / "草稿-0037.md").write_text(body, encoding="utf-8")
-        (repo / "定稿" / "正文" / "ch0037.md").write_text(body, encoding="utf-8")
+        (repo / "定稿" / "正文" / "0037-不眠夜.md").write_text(body, encoding="utf-8")
 
         with pytest.raises(RuntimeError, match="唯一写入路径"):
             settle(repo, d, draft_path=repo / "工作区" / "草稿-0037.md", summary="s", commit=False)
@@ -180,5 +180,5 @@ class TestSettle:
         with pytest.raises(RuntimeError, match="机检"):
             settle(repo, d, draft_path=draft, summary="s", commit=False)
 
-        assert not (repo / "定稿" / "正文" / "ch0037.md").exists()
+        assert not (repo / "定稿" / "正文" / "0037-不眠夜.md").exists()
         assert not (repo / "定稿" / "记忆" / "章摘要" / "0037.md").exists()

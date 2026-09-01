@@ -38,12 +38,28 @@ V7_SECTION_QUOTAS: dict[str, int] = {
 # ---------- 决策卡 ----------
 
 
+def book_word_stats(repo: Path) -> dict[str, int]:
+    """书史字数分布（从定稿正文直算，机检下限与决策卡目标字数的依据）。"""
+    counts: list[int] = []
+    for p in Path(repo).glob("定稿/正文/*.md"):
+        text = p.read_text(encoding="utf-8")
+        body = text.split("---", 2)[-1] if text.startswith("---") else text
+        counts.append(len(re.sub(r"\s", "", body)))
+    if not counts:
+        return {"mean": 0, "median": 0, "min": 0, "max": 0, "chapters": 0}
+    counts.sort()
+    n = len(counts)
+    return {"mean": int(sum(counts) / n), "median": counts[n // 2], "min": counts[0], "max": counts[-1], "chapters": n}
+
+
 def write_decision_card(repo: Path, decision: dict[str, Any]) -> Path:
     chapter = int(decision["chapter"])
     lines = [f"# 决策卡 · 第{chapter:04d}章", ""]
     for key in ("title", "pov", "time_anchor"):
         if decision.get(key):
             lines.append(f"- {key}: {decision[key]}")
+    if decision.get("target_words"):
+        lines.append(f"- 目标字数: {decision['target_words']}（下限 {int(decision['target_words'] * 0.75)}）")
     lines.append(f"- 目标: {decision.get('goal', '')}")
     lines.append("- 必须覆盖节点:")
     lines += [f"  - {n}" for n in decision.get("nodes") or []]
@@ -97,7 +113,7 @@ def build_context_pack(repo: Path, decision: dict[str, Any], *, db_path: Optiona
     sections["roster"] = [p.stem for p in roster_files]
 
     prev_chapter = chapter - 1
-    prev_files = list((repo / "定稿" / "正文").glob(f"ch{prev_chapter:04d}*.md"))
+    prev_files = list((repo / "定稿" / "正文").glob(f"{prev_chapter:04d}-*.md"))
     if prev_files:
         text = prev_files[0].read_text(encoding="utf-8")
         sections["prev_chapter_tail"] = "……" + text[-1200:]
@@ -107,6 +123,17 @@ def build_context_pack(repo: Path, decision: dict[str, Any], *, db_path: Optiona
     if book_yaml.exists():
         book_meta = {"raw": book_yaml.read_text(encoding="utf-8")[:500]}
     sections["book_meta"] = book_meta
+
+    # S19 诊断修复：字数契约——书史基准 + 本章目标进入上下文包
+    stats = book_word_stats(repo)
+    target = int(decision.get("target_words") or stats["mean"] or 2000)
+    sections["length_contract"] = {
+        "书史章数": stats["chapters"],
+        "书史均值": stats["mean"],
+        "书史中位": stats["median"],
+        "本章目标字数": target,
+        "下限": int(target * 0.75),
+    }
 
     stats_before = sum(estimate_tokens(v) for v in sections.values())
     for name, quota in V7_SECTION_QUOTAS.items():
@@ -167,10 +194,14 @@ def run_checks(repo: Path, decision: dict[str, Any], draft_text: str) -> dict[st
     known = set(decision.get("entities") or []) | roster_names | set((decision.get("title") or "").split())
     new_name_candidates = sorted({n for n in QUOTED_NAME_RE.findall(body) if n not in known})
 
-    ok = word_count >= MIN_WORDS and not placeholders and title_ok and promise_ok
+    target = int(decision.get("target_words") or 0)
+    min_words = max(1, int(target * 0.75)) if target else MIN_WORDS
+    ok = word_count >= min_words and not placeholders and title_ok and promise_ok
     return {
         "ok": ok,
         "word_count": word_count,
+        "min_words": min_words,
+        "target_words": target,
         "placeholders": placeholders,
         "title_ok": title_ok,
         "promise_ok": promise_ok,
@@ -216,7 +247,7 @@ def settle(
         blocker = check_unique_write_path(Path(v6_root), chapter, target_format="v7", story_repo_root=repo)
         if blocker:
             raise RuntimeError("唯一写入路径：" + blocker["message"])
-    chapter_file = repo / "定稿" / "正文" / f"ch{chapter:04d}.md"
+    chapter_file = repo / "定稿" / "正文" / f"{chapter:04d}-{title}.md"
     if chapter_file.exists():
         raise RuntimeError("唯一写入路径：该章已 settle（定稿正文已存在），禁止双写")
 
@@ -225,21 +256,22 @@ def settle(
     word_count = len(re.sub(r"\s", "", body_clean))
     front = [
         "---",
-        "spec_stage: manuscript",
-        f"chapter: {chapter}",
-        f"title: {title}",
+        f"章号: {chapter}",
+        f"标题: {title}",
+        f"卷: {decision.get('volume') or 1}",
     ]
-    if decision.get("time_anchor"):
-        front.append(f"time_anchor: {decision['time_anchor']}")
     if decision.get("pov"):
-        front.append(f"pov: {decision['pov']}")
-    front.append(f"word_count: {word_count}")
-    front.append("contract_digest:")
-    front += [f"- {c}" for c in decision.get("contract") or []]
+        front.append(f"视角: {decision['pov']}")
+    if decision.get("time_anchor"):
+        front.append(f"书内时间: {decision['time_anchor']}")
+    front.append(f"字数: {word_count}")
+    if decision.get("waiver"):
+        front.append(f"承诺豁免: {decision['waiver']}")
     if decision.get("promises"):
-        front.append("promises:")
-        front += [f"- {p}" for p in decision["promises"]]
-    front.append("settled_via: v7-vertical-slice-S19")
+        front.append("推进承诺:")
+        front += [f"  - {p}" for p in decision["promises"]]
+    front.append("合同:")
+    front += [f"  - {c}" for c in decision.get("contract") or []]
     front.append("---")
     chapter_file.write_text("\n".join(front) + "\n\n" + body_clean + "\n", encoding="utf-8")
 

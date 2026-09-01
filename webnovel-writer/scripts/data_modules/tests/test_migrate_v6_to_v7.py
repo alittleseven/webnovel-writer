@@ -110,3 +110,37 @@ class TestMigrateProject:
         report = migrate_project(src, tmp_path / "out", use_git=False)
 
         assert report.chapters == 0
+
+
+class TestBookYamlContextBudgetPrefill:
+    """S23：迁移器按书史字数预填 context_budget（≥3 章；<3 章不写）。"""
+
+    @staticmethod
+    def _source_mean(src: Path) -> int:
+        import re
+
+        counts = [
+            len(re.sub(r"\s", "", p.read_text(encoding="utf-8")))
+            for p in sorted((src / "正文").glob("第*.md"))
+        ]
+        return sum(counts) // len(counts)
+
+    def test_prefills_when_enough_chapters(self, tmp_path):
+        src = _v6_project(tmp_path)
+        (src / "正文" / "第0003章-备战.md").write_text("正文" + "夜" * 1998, encoding="utf-8")
+
+        out = tmp_path / "v7repo"
+        migrate_project(src, out, use_git=False)
+
+        text = (out / "book.yaml").read_text(encoding="utf-8")
+        assert "context_budget:" in text
+        expected = min(3000, max(1200, round(self._source_mean(src) * 0.5)))
+        assert f"prev_chapter_tail: {expected}" in text
+
+    def test_no_prefill_below_three_chapters(self, tmp_path):
+        src = _v6_project(tmp_path)  # 夹具仅 2 章
+
+        out = tmp_path / "v7repo"
+        migrate_project(src, out, use_git=False)
+
+        assert "context_budget" not in (out / "book.yaml").read_text(encoding="utf-8")

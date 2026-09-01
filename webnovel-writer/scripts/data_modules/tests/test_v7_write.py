@@ -19,6 +19,8 @@ if _scripts_dir not in sys.path:
     sys.path.insert(0, _scripts_dir)
 
 from v7_write import (  # noqa: E402
+    TOTAL_BUDGET_DEFAULT,
+    V7_SECTION_QUOTAS,
     build_context_pack,
     run_checks,
     settle,
@@ -203,3 +205,60 @@ class TestSettle:
         assert not (repo / "定稿" / "正文" / "0037-不眠夜.md").exists()
         assert not (repo / "定稿" / "记忆" / "章摘要" / "0037.md").exists()
         assert not (repo / "定稿" / "设定" / "名册" / "赵姓汉子.md").exists()  # 已写的也回滚
+
+
+class TestContextPackBookBudget:
+    """S23：book.yaml context_budget 覆盖（显式参数 > book.yaml > 常量）+ 截断汇总信号。"""
+
+    @staticmethod
+    def _write_prev_chapter(repo: Path, chars: int = 3000) -> None:
+        body = "夜" * chars
+        (repo / "定稿" / "正文" / "0036-放话.md").write_text(
+            "---\n章号: 36\n标题: 放话\n字数: 3000\n---\n" + body, encoding="utf-8"
+        )
+
+    def test_book_yaml_section_override_extends_tail(self, tmp_path):
+        repo = _v7_repo(tmp_path)
+        self._write_prev_chapter(repo)
+        (repo / "book.yaml").write_text(
+            "书名: 测试书\ncontext_budget:\n  sections:\n    prev_chapter_tail: 1600\n",
+            encoding="utf-8",
+        )
+
+        md, stats = build_context_pack(repo, _decision())
+
+        assert stats["sections"]["prev_chapter_tail"] == 1600
+        tail = md.split("上一章结尾", 1)[1]
+        assert tail.count("夜") > 1200  # 默认 1200 会截断，book.yaml 覆盖生效
+
+    def test_book_yaml_total_override_and_explicit_arg_wins(self, tmp_path):
+        repo = _v7_repo(tmp_path)
+        (repo / "book.yaml").write_text("书名: 测试书\ncontext_budget:\n  total: 3000\n", encoding="utf-8")
+
+        _, stats = build_context_pack(repo, _decision())
+        assert stats["total_budget"] == 3000
+
+        _, stats2 = build_context_pack(repo, _decision(), total_budget=20000)
+        assert stats2["total_budget"] == 20000  # 显式参数 > book.yaml
+
+    def test_no_override_zero_change(self, tmp_path):
+        repo = _v7_repo(tmp_path)
+
+        _, stats = build_context_pack(repo, _decision())
+
+        assert stats["sections"] == V7_SECTION_QUOTAS
+        assert stats["total_budget"] == TOTAL_BUDGET_DEFAULT
+        assert stats["truncated_sections"] == []
+
+    def test_truncated_sections_reported(self, tmp_path):
+        repo = _v7_repo(tmp_path)
+        self._write_prev_chapter(repo)
+        (repo / "book.yaml").write_text(
+            "书名: 测试书\ncontext_budget:\n  sections:\n    prev_chapter_tail: 100\n",
+            encoding="utf-8",
+        )
+
+        _, stats = build_context_pack(repo, _decision())
+
+        assert "prev_chapter_tail" in stats["truncated_sections"]
+        assert 0 < stats["budget_used_ratio"] <= 1.0

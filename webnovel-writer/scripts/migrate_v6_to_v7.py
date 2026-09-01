@@ -214,7 +214,21 @@ def _migrate_outlines(project_root: Path, out: Path, report: MigrationReport) ->
         report.outlines += 1
 
 
-def _write_book_yaml(out: Path, state: dict) -> None:
+def _context_budget_prefill(project_root: Path) -> int | None:
+    """S22/S23：按书史字数预填上一章结尾节配额（唯一有书史数据支撑的节）。
+
+    口径与 v7_write.book_word_stats 一致（正文非空白字符）；该节是实测唯一触顶节
+    （fantasy01 ch37 1,207/1,200），按章均字数缩放 clamp 到 [1200, 3000]。
+    <3 章样本不足以算书史均值，不预填；其余节无跨书数据支撑，保持构建期静态默认。
+    """
+    counts = [len(re.sub(r"\s", "", _read(p))) for p in sorted((Path(project_root) / "正文").glob("第*.md"))]
+    if len(counts) < 3:
+        return None
+    mean = sum(counts) / len(counts)
+    return min(3000, max(1200, round(mean * 0.5)))
+
+
+def _write_book_yaml(out: Path, state: dict, project_root: Path) -> None:
     info = state.get("project_info") or {}
     lines = [
         'spec_version: "7.0"',
@@ -229,6 +243,11 @@ def _write_book_yaml(out: Path, state: dict) -> None:
         lines.append(f"卷规模: 40")
     lines.append("高承诺最大搁置章数: 10")
     lines.append("连续弱钩上限: 3")
+    prefill = _context_budget_prefill(project_root)
+    if prefill is not None:
+        lines.append("context_budget:")
+        lines.append("  sections:")
+        lines.append(f"    prev_chapter_tail: {prefill}")
     (out / "book.yaml").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -259,7 +278,7 @@ def migrate_project(project_root: str | Path, output: str | Path, *, use_git: bo
     (out / "工作区").mkdir(exist_ok=True)
     (out / "文风").mkdir(exist_ok=True)
     (out / ".gitignore").write_text(".cache/\n工作区/\n", encoding="utf-8")
-    _write_book_yaml(out, state)
+    _write_book_yaml(out, state, Path(project_root))
 
     style = project_root / "设定集" / "风格契约.md"
     if style.exists():

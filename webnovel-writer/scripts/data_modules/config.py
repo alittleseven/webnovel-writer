@@ -211,7 +211,9 @@ class DataModulesConfig:
     context_recent_summaries_window: int = 3
     context_recent_meta_window: int = 3
     context_alerts_slice: int = 10
-    context_load_total_budget: int = 20000
+    context_load_total_budget: int = field(
+        default_factory=lambda: int(os.getenv("WEBNOVEL_CONTEXT_LOAD_TOTAL_BUDGET", "20000") or 20000)
+    )
     context_settings_digest_enabled: bool = True
     context_settings_digest_max_chars: int = 240
     # S18/E4：v7 story-repo 仓库根（双格式期间由 S16 迁移器/作者配置；空 = v7 侧不存在）

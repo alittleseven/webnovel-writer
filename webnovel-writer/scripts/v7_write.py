@@ -86,11 +86,60 @@ def _find_setting_path(settings_dir: Path, keyword: str) -> Optional[Path]:
     return matches[0] if matches else None
 
 
-def build_context_pack(repo: Path, decision: dict[str, Any], *, db_path: Optional[Path] = None, total_budget: int = TOTAL_BUDGET_DEFAULT):
+def load_context_budget(repo: Path) -> dict[str, Any]:
+    """book.yaml `context_budget:` 节解析（S22/S23 按书覆盖）。
+
+    识别迁移器/作者写入的防呆方言两级形态：
+        context_budget:
+          total: 20000
+          sections:
+            prev_chapter_tail: 1340
+    无该节返回 {"total": None, "sections": {}}（缺省 = 静态默认，零行为变化）。
+    """
+    out: dict[str, Any] = {"total": None, "sections": {}}
+    book_yaml = Path(repo) / "book.yaml"
+    if not book_yaml.exists():
+        return out
+    cb_indent = -1
+    sections_indent = -1
+    for raw in book_yaml.read_text(encoding="utf-8").splitlines():
+        if not raw.strip() or raw.strip().startswith("#"):
+            continue
+        indent = len(raw) - len(raw.lstrip(" "))
+        stripped = raw.strip()
+        if sections_indent >= 0:
+            if indent > sections_indent and ":" in stripped:
+                key, _, val = stripped.partition(":")
+                try:
+                    out["sections"][key.strip()] = int(val.strip())
+                except ValueError:
+                    pass
+                continue
+            sections_indent = -1  # 缩进回落 = sections 块结束
+        if cb_indent < 0:
+            if indent == 0 and stripped == "context_budget:":
+                cb_indent = 0
+            continue
+        if indent <= cb_indent:
+            cb_indent = -1  # 顶层键 = context_budget 块结束
+            continue
+        if stripped == "sections:":
+            sections_indent = indent
+        elif stripped.startswith("total:"):
+            try:
+                out["total"] = int(stripped.split(":", 1)[1].strip())
+            except ValueError:
+                pass
+    return out
+
+
+def build_context_pack(repo: Path, decision: dict[str, Any], *, db_path: Optional[Path] = None, total_budget: Optional[int] = None):
     repo = Path(repo)
     from v7_cache import find_entity, get_summary
 
     chapter = int(decision["chapter"])
+    book_budget = load_context_budget(repo)
+    quotas_effective = {**V7_SECTION_QUOTAS, **book_budget["sections"]}
     sections: dict[str, Any] = {}
 
     card_path = repo / "工作区" / f"决策卡-{chapter:04d}.md"
@@ -116,7 +165,7 @@ def build_context_pack(repo: Path, decision: dict[str, Any], *, db_path: Optiona
     prev_files = list((repo / "定稿" / "正文").glob(f"{prev_chapter:04d}-*.md"))
     if prev_files:
         text = prev_files[0].read_text(encoding="utf-8")
-        sections["prev_chapter_tail"] = "……" + text[-1200:]
+        sections["prev_chapter_tail"] = "……" + text[-int(quotas_effective["prev_chapter_tail"]):]
 
     book_meta = {}
     book_yaml = repo / "book.yaml"
@@ -136,16 +185,26 @@ def build_context_pack(repo: Path, decision: dict[str, Any], *, db_path: Optiona
     }
 
     stats_before = sum(estimate_tokens(v) for v in sections.values())
-    for name, quota in V7_SECTION_QUOTAS.items():
+    sizes_before = {name: estimate_tokens(v) for name, v in sections.items()}
+    for name, quota in quotas_effective.items():
         if name in sections:
             sections[name] = apply_quota(sections[name], quota)
+    truncated = [n for n, v in sections.items() if n in sizes_before and estimate_tokens(v) < sizes_before[n]]
 
+    effective_total = int(total_budget) if total_budget is not None else (book_budget["total"] or TOTAL_BUDGET_DEFAULT)
     md = _render_pack_markdown(chapter, sections)
     used = estimate_tokens(md)
-    if used > total_budget:
-        md = md[: total_budget - 8] + "…（预算截断）"
+    if used > effective_total:
+        md = md[: effective_total - 8] + "…（预算截断）"
         used = estimate_tokens(md)
-    stats = {"used": used, "total_budget": total_budget, "sections_before": stats_before, "sections": dict(V7_SECTION_QUOTAS)}
+    stats = {
+        "used": used,
+        "total_budget": effective_total,
+        "sections_before": stats_before,
+        "sections": dict(quotas_effective),
+        "truncated_sections": truncated,
+        "budget_used_ratio": round(used / effective_total, 3) if effective_total else 1.0,
+    }
     return md, stats
 
 

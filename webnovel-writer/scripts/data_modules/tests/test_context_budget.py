@@ -173,3 +173,19 @@ def test_enforce_budget_total_drop_order():
     assert "story_contracts" in out and "runtime_status" in out
     assert stats["dropped"][:2] == ["memory_pack.episodic_memory", "author_style_patterns"]
     assert stats["used"] == sum(estimate_tokens(v) for v in out.values())
+
+
+def test_enforce_budget_reports_truncated_sections():
+    """S23：配额层实际截断的 section 名单进 stats（占用信号，供按书校准判断）。"""
+    sections = {
+        "story_contracts": {"master": "m" * 100, "chapter": "c" * 100},
+        "protagonist": "p" * 3000,  # 配额 1500 → 触发截断
+        "outline": "o" * 50,  # 未触配额
+        "recent_summaries": ["s" * 10],
+    }
+
+    out, stats = enforce_budget(sections, total_budget=20000)
+
+    assert "protagonist" in stats["truncated_sections"]
+    assert "outline" not in stats["truncated_sections"]
+    assert "story_contracts" not in stats["truncated_sections"]

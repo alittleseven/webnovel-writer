@@ -183,6 +183,7 @@ def enforce_budget(sections: dict[str, Any], *, total_budget: int) -> tuple[dict
         }
 
     # 第一层：section / 子 section 配额
+    quota_before = {name: estimate_tokens(v) for name, v in sections.items()}
     for name, quota in SECTION_QUOTAS.items():
         if name not in sections:
             continue
@@ -215,5 +216,14 @@ def enforce_budget(sections: dict[str, Any], *, total_budget: int) -> tuple[dict
         _remove_path(sections, next_path)
         dropped.append(next_path)
 
-    stats = {"used": used(), "used_before": used_before, "dropped": dropped, "total_budget": total_budget}
+    stats = {
+        "used": used(),
+        "used_before": used_before,
+        "dropped": dropped,
+        "total_budget": total_budget,
+        # S23：配额层实际截断的 section 名单（占用信号，供按书校准判断；整体丢弃走 dropped）
+        "truncated_sections": [
+            n for n, v in sections.items() if n in quota_before and estimate_tokens(v) < quota_before[n]
+        ],
+    }
     return sections, stats

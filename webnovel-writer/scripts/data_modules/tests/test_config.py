@@ -61,3 +61,12 @@ def test_config_dynamic_template_weights_are_independent_instances(tmp_path):
     cfg1.context_template_weights_dynamic["early"]["plot"]["core"] = 0.77
 
     assert cfg2.context_template_weights_dynamic["early"]["plot"]["core"] != 0.77
+
+
+def test_context_load_total_budget_env_override(monkeypatch, tmp_path):
+    """S23：v6 侧总预算支持 per-book env 覆盖（项目 .env / 环境变量，同 STORY_REPO_ROOT 先例）。"""
+    monkeypatch.delenv("WEBNOVEL_CONTEXT_LOAD_TOTAL_BUDGET", raising=False)
+    assert DataModulesConfig.from_project_root(tmp_path).context_load_total_budget == 20000
+
+    monkeypatch.setenv("WEBNOVEL_CONTEXT_LOAD_TOTAL_BUDGET", "12345")
+    assert DataModulesConfig.from_project_root(tmp_path).context_load_total_budget == 12345

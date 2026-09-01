@@ -1,7 +1,7 @@
 # Webnovel Writer
 
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-6.5.0-brightgreen.svg)](.claude-plugin/marketplace.json)
+[![Version](https://img.shields.io/badge/version-7.0.0-brightgreen.svg)](.claude-plugin/marketplace.json)
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Compatible-purple.svg)](https://claude.ai/claude-code)
 [![Marketplace](https://img.shields.io/badge/Claude%20Code-Marketplace-black.svg)](.claude-plugin/marketplace.json)
@@ -315,7 +315,8 @@ Webnovel Writer 用业余时间维护。如果它帮你省下了梳理设定、�
 
 | 版本 | 主要变化 |
 |------|----------|
-| **v6.5.0 (当前)** | Phase C/D 收官：上下文预算实装（−68%）、L0 设定摘要（−93%）、往返压缩与大输出外置化、读侧提速 |
+| **v7.0.0 (当前)** | v7 Story-Repo 新架构上线：一键迁移、双格式守卫、两章实跑落定，上下文配额按书校准 |
+| **v6.5.0** | Phase C/D 收官：上下文预算实装（−68%）、L0 设定摘要（−93%）、往返压缩与大输出外置化、读侧提速 |
 | **v6.4.0** | 写章上下文瘦身：门禁/提交/审查一行结论、load-context 去重（实测 −72%）、中文参数乱码误报修复 |
 | **v6.3.0** | 修复伏笔回收、BM25 回退与事件审计链三个核心缺陷（本地发版，详见 releases/v6.3.0.md） |
 | **v6.2.1** | 修复 Windows 写章提交偶发的拒绝访问（WinError 5）：资料文件被短暂占用时自动重试 |

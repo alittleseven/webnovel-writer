@@ -59,6 +59,18 @@ def run_prewrite_gate(project_root: Path, chapter: int) -> dict[str, Any]:
             )
         )
 
+    # S18/E4：双格式唯一写入路径——v7 侧已落定该章时阻断 v6 写入
+    from ..config import DataModulesConfig
+    from ..dual_format_guard import check_unique_write_path
+
+    _cfg = DataModulesConfig.from_project_root(project_root)
+    _repo_root = str(getattr(_cfg, "story_repo_root", "") or "")
+    guard_issue = check_unique_write_path(
+        project_root, chapter, target_format="v6", story_repo_root=_repo_root or None
+    )
+    if guard_issue:
+        errors.append(guard_issue)
+
     runtime = load_runtime_sources(project_root, chapter)
     contracts = runtime.contracts
     story_contract = {

@@ -6,6 +6,7 @@
 
 ### 给作者看的变化
 
+- **v6/v7 双格式唯一写入路径守卫（E4，S18）**：新增 `dual_format_guard.py`——同一章节在双格式期间只允许一种格式落定：v6 = accepted 的 commit 文件、v7 = `定稿/正文/NNNN-*.md`（spec 0.4 §4.1）；`check_unique_write_path` 在另一格式已落定时返回 blocker `dual_format_write_blocked`，prewrite gate 已接入。v7 仓库根经项目 `.env`/环境变量 `STORY_REPO_ROOT` 配置，缺省为空 = 对既有 v6 项目零行为变化；v7 侧 settle 流程（S19）将对 称接入同一守卫。
 - **v7 缓存重建与「派生物可丢弃」验收（E2，S17）**：新增 `scripts/v7_cache.py`——`.cache/index.db` 从源文件全量重建（book.yaml + 定稿正文 + 名册 + 章摘要，每次重建重读源、缓存不遮蔽真相），查询面含章节/实体/章摘要；`verify` 子命令执行 CI 验收项「删光缓存→重建→查询快照等价」。fantasy01 迁移仓实测：36 章 verify 等价通过。
 - **v6→v7 迁移器（E1，S16）**：新增 `scripts/migrate_v6_to_v7.py`——一条命令把 v6 书项目只读迁移为 v7 story-repo（spec 0.4）：`book.yaml`（平铺防呆方言）、`定稿/正文/`（front matter 章号/标题/卷/字数，正文原样无损）、`定稿/设定/`（角色卡按主角正名落位、时间线合并、名册由 index.db 生成含别名）、`定稿/记忆/章摘要/`、`大纲/`（卷纲零填充）、`.gitignore` 与 git 初始提交（`core.quotepath false`）。对 v6 源零写入（测试含 mtime 断言）；输出目录已存在即拒绝；范围外项（承诺/审查报告/增强设定）显式列入 SKIP 清单。fantasy01 实测：36 章/36 摘要/8 设定一次迁移成功。
 - **修复章级计量漏计主会话（D1，S13 实测发现）**：fantasy01 第 36 章实测暴露——`meter start` 在写作会话首个轮次完成前执行时，「最近完成的非子代理轮」会话推断会指到别的会话（如并行开发会话），导致聚合漏计写作主会话本身（本章低估 129.6 万 tokens）。修复：聚合语义改为「窗口内全部轮次」（不再按推断会话过滤），主会话清单在结果中显式透出，检测到并行多主会话时输出 `WARN parallel_main_sessions=N`——写章期间并行跑其他会话的污染从此可见可查。真值重放验证：ch36 全窗口 2,853,338 与手工聚合一致。

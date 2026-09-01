@@ -214,6 +214,8 @@ class DataModulesConfig:
     context_load_total_budget: int = 20000
     context_settings_digest_enabled: bool = True
     context_settings_digest_max_chars: int = 240
+    # S18/E4：v7 story-repo 仓库根（双格式期间由 S16 迁移器/作者配置；空 = v7 侧不存在）
+    story_repo_root: str = field(default_factory=lambda: os.getenv("STORY_REPO_ROOT", ""))
     context_max_appearing_characters: int = 10
     context_max_urgent_foreshadowing: int = 5
     context_story_skeleton_interval: int = 20

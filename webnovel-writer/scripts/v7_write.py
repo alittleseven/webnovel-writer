@@ -3,7 +3,7 @@
 """v7_write — v7 story-repo 写路径最小闭环（S19/E3 垂直切片）。
 
 流程：决策卡 → 上下文包 →（LLM 草稿，工作区/）→ 机检 → 作者验收 → settle（原子 commit）。
-约定跟随迁移器实际产物：定稿/正文/chNNNN.md（front matter 英文键）、
+命名跟随 spec 0.4：定稿/正文/NNNN-标题.md（front matter 中文键）、
 定稿/记忆/章摘要/NNNN.md（v7_cache 唯一认的摘要路径）、定稿/设定/名册/<正名>.md。
 上下文包吸收 S1-S4 成果：20,000 字符总预算、section 配额、紧凑输出、缓存查询。
 """

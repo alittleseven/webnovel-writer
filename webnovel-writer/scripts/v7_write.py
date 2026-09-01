@@ -371,6 +371,11 @@ def settle(
     except Exception as exc:
         for p in created:
             p.unlink(missing_ok=True)
+        if commit:
+            try:
+                _git(repo, "reset", "--quiet")  # 清掉 add 进 index 的半成品条目（审阅报告 P2）
+            except Exception:
+                pass  # 回滚清理失败不遮蔽原始错误
         raise RuntimeError(f"settle 回滚：定稿未变更（{exc}）") from exc
     return result
 

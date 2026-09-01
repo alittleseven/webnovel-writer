@@ -89,6 +89,23 @@ def _iter_chapters(repo_root: Path):
 
 
 def _iter_roster(repo_root: Path):
+    """名册双落点兼容（审阅报告 P1 修复）。
+
+    - `名册.md` 单表：S16 迁移器产物（markdown 表：正名 | 别名）；
+    - `定稿/设定/名册/<正名>.md` 目录：S19 settle 产物（front matter 正名/别名/首现章）。
+
+    同名时目录形态优先（settle 写入的更新鲜）。只读 `名册.md` 会让 v7 原生新书
+    （不经迁移、无单表）的实体永远进不了缓存查询面。
+    """
+    merged: dict[str, dict[str, Any]] = {}
+    for entry in _iter_roster_single_table(repo_root):
+        merged[entry["name"]] = entry
+    for entry in _iter_roster_directory(repo_root):
+        merged[entry["name"]] = entry
+    yield from merged.values()
+
+
+def _iter_roster_single_table(repo_root: Path):
     roster = Path(repo_root) / "定稿" / "设定" / "名册.md"
     if not roster.exists():
         return
@@ -98,7 +115,25 @@ def _iter_roster(repo_root: Path):
             continue
         cells = [c.strip() for c in line.strip("|").split("|")]
         if len(cells) >= 2 and cells[0]:
-            yield {"name": cells[0], "aliases": cells[1] if len(cells) > 1 else ""}
+            yield {"name": cells[0], "aliases": cells[1] if len(cells) > 1 else "", "first_chapter": ""}
+
+
+def _iter_roster_directory(repo_root: Path):
+    roster_dir = Path(repo_root) / "定稿" / "设定" / "名册"
+    if not roster_dir.is_dir():
+        return
+    for path in sorted(roster_dir.glob("*.md")):
+        fields, _ = _parse_front_matter(_read(path))
+        name = (fields.get("正名") or path.stem).strip()
+        if not name:
+            continue
+        aliases_raw = fields.get("别名", "").strip()
+        try:
+            aliases = ", ".join(json.loads(aliases_raw)) if aliases_raw else ""
+        except (ValueError, TypeError):
+            aliases = aliases_raw
+        first = fields.get("首现章", "").strip()
+        yield {"name": name, "aliases": aliases, "first_chapter": first}
 
 
 def _iter_summaries(repo_root: Path):
@@ -128,7 +163,7 @@ def rebuild_cache(repo_root: Path) -> dict[str, Any]:
             """
             CREATE TABLE chapters (num INTEGER PRIMARY KEY, title TEXT, volume INTEGER,
                                    words INTEGER, file TEXT, body TEXT);
-            CREATE TABLE entities (name TEXT PRIMARY KEY, aliases TEXT);
+            CREATE TABLE entities (name TEXT PRIMARY KEY, aliases TEXT, first_chapter TEXT NOT NULL DEFAULT '');
             CREATE TABLE summaries (num INTEGER PRIMARY KEY, content TEXT);
             CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);
             """
@@ -139,8 +174,8 @@ def rebuild_cache(repo_root: Path) -> dict[str, Any]:
             [(c["num"], c["title"], c["volume"], c["words"], c["file"], c["body"]) for c in chapters],
         )
         conn.executemany(
-            "INSERT INTO entities VALUES (?,?)",
-            [(e["name"], e["aliases"]) for e in _iter_roster(repo_root)],
+            "INSERT INTO entities VALUES (?,?,?)",
+            [(e["name"], e["aliases"], e.get("first_chapter", "")) for e in _iter_roster(repo_root)],
         )
         conn.executemany(
             "INSERT INTO summaries VALUES (?,?)",
@@ -181,18 +216,18 @@ def get_chapter(repo_root: Path, num: int) -> Optional[dict[str, Any]]:
 
 
 def find_entity(repo_root: Path, name: str) -> Optional[dict[str, Any]]:
-    """实体查询：名册层只含正名/别名/首现章（表未存首现章时返回空串）。"""
+    """实体查询：正名/别名模糊匹配；首现章来自名册（缺省空串）。"""
     conn = _conn(repo_root)
     try:
         row = conn.execute(
-            "SELECT name, aliases FROM entities WHERE name = ? OR aliases LIKE ?",
+            "SELECT name, aliases, first_chapter FROM entities WHERE name = ? OR aliases LIKE ?",
             (name, f"%{name}%"),
         ).fetchone()
     finally:
         conn.close()
     if not row:
         return None
-    return {"name": row[0], "aliases": row[1], "first_chapter": ""}
+    return {"name": row[0], "aliases": row[1], "first_chapter": row[2]}
 
 
 def get_summary(repo_root: Path, num: int) -> Optional[str]:

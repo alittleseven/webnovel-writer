@@ -118,3 +118,54 @@ class TestDerivedCacheDisposable:
         assert result["equal"] is True  # 重建后快照自洽
         body = get_chapter(repo, 2)
         assert body is not None
+
+
+def _raw_v7_repo(tmp_path: Path) -> Path:
+    """不经迁移的 v7 原生书仓（无 名册.md 单表，只有 settle 的名册目录）。"""
+    repo = tmp_path / "v7native"
+    (repo / "定稿" / "正文").mkdir(parents=True)
+    (repo / "定稿" / "记忆" / "章摘要").mkdir(parents=True)
+    (repo / "定稿" / "设定" / "名册").mkdir(parents=True)
+    return repo
+
+
+class TestRosterDualLocation:
+    """审阅报告 P1：settle 写名册目录、缓存此前只读单表——v7 原生新书实体面为死。"""
+
+    def test_v7_native_book_directory_only(self, tmp_path):
+        repo = _raw_v7_repo(tmp_path)
+        (repo / "定稿" / "设定" / "名册" / "新人甲.md").write_text(
+            "---\n正名: 新人甲\n别名: [\"阿甲\", \"小甲\"]\n类型: 角色\n首现章: 38\n---\n", encoding="utf-8"
+        )
+
+        rebuild_cache(repo)
+
+        hit = find_entity(repo, "新人甲")
+        assert hit is not None
+        assert hit["first_chapter"] == "38"
+        assert "阿甲" in hit["aliases"]
+
+    def test_directory_overrides_single_table_on_overlap(self, tmp_path):
+        repo = _raw_v7_repo(tmp_path)
+        (repo / "定稿" / "设定" / "名册.md").write_text(
+            "| 正名 | 别名 |\n|---|---|\n| 老周 | 旧别名 |\n", encoding="utf-8"
+        )
+        (repo / "定稿" / "设定" / "名册" / "老周.md").write_text(
+            "---\n正名: 老周\n别名: [\"新别名\"]\n类型: 角色\n首现章: 5\n---\n", encoding="utf-8"
+        )
+
+        rebuild_cache(repo)
+
+        entities = dict(snapshot(repo)["entities"])
+        assert entities["老周"] == "新别名"  # 目录形态覆盖单表
+        assert find_entity(repo, "老周")["first_chapter"] == "5"
+
+    def test_find_entity_alias_fuzzy_still_works(self, tmp_path):
+        repo = _raw_v7_repo(tmp_path)
+        (repo / "定稿" / "设定" / "名册" / "熊哥.md").write_text(
+            "---\n正名: 熊哥\n别名: [\"熊铁山\"]\n类型: 角色\n首现章: 36\n---\n", encoding="utf-8"
+        )
+
+        rebuild_cache(repo)
+
+        assert find_entity(repo, "熊铁山")["name"] == "熊哥"

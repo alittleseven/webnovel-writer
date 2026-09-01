@@ -275,18 +275,25 @@ def settle(
     front.append("---")
     chapter_file.write_text("\n".join(front) + "\n\n" + body_clean + "\n", encoding="utf-8")
 
-    summary_dir = repo / "定稿" / "记忆" / "章摘要"
-    summary_dir.mkdir(parents=True, exist_ok=True)
-    summary_text = (summary or "").strip()[:200]
-    (summary_dir / f"{chapter:04d}.md").write_text(summary_text + "\n", encoding="utf-8")
+    # S19 原子性：任一步失败 → 清除本次新建的定稿文件（工作区草稿原样保留）
+    created: list[Path] = [chapter_file]
+    try:
+        summary_dir = repo / "定稿" / "记忆" / "章摘要"
+        summary_dir.mkdir(parents=True, exist_ok=True)
+        summary_text = (summary or "").strip()[:200]
+        summary_file = summary_dir / f"{chapter:04d}.md"
+        summary_file.write_text(summary_text + "\n", encoding="utf-8")
+        created.append(summary_file)
 
-    new_entities = decision.get("new_entities") or []
-    for entity in new_entities:
-        name = entity.get("name") or ""
-        if not name:
-            continue
-        entity_file = repo / "定稿" / "设定" / "名册" / f"{name}.md"
-        if not entity_file.exists():
+        new_entities = decision.get("new_entities") or []
+        for entity in new_entities:
+            name = entity.get("name") or ""
+            if not name:
+                continue
+            entity_file = repo / "定稿" / "设定" / "名册" / f"{name}.md"
+            if entity_file.is_file():
+                continue
+            entity_file.parent.mkdir(parents=True, exist_ok=True)
             entity_file.write_text(
                 "---\n"
                 f"正名: {name}\n"
@@ -295,12 +302,17 @@ def settle(
                 f"首现章: {chapter}\n---\n",
                 encoding="utf-8",
             )
+            created.append(entity_file)
 
-    result = {"chapter": chapter, "committed": False, "chapter_file": str(chapter_file), "checks": report}
-    if commit:
-        _git(repo, "add", "定稿")
-        _git(repo, "commit", "-m", f"settle: 第{chapter:04d}章 {title}")
-        result["committed"] = True
+        result = {"chapter": chapter, "committed": False, "chapter_file": str(chapter_file), "checks": report}
+        if commit:
+            _git(repo, "add", "定稿")
+            _git(repo, "commit", "-m", f"settle: 第{chapter:04d}章 {title}")
+            result["committed"] = True
+    except Exception as exc:
+        for p in created:
+            p.unlink(missing_ok=True)
+        raise RuntimeError(f"settle 回滚：定稿未变更（{exc}）") from exc
     return result
 
 

@@ -69,8 +69,12 @@ def _decision(chapter: int = 37) -> dict:
         "forbidden": ["不写城北决战", "风暴不来"],
         "promises": [],
         "waiver": "迁移仓无承诺档案，切片章豁免承诺结转",
-        "contract": ["内患收拢：赵姓汉子留下一并备战", "暗哨情报线开启"],
+        "contract": ["内患收拢：赵姓汉子留下并领了备战差事", "暗哨情报线开启"],
         "entities": ["苏小白", "林知夏", "老周", "老六", "赵姓汉子"],
+        "new_entities": [
+            {"name": "赵姓汉子", "type": "角色", "aliases": ["赵汉子"]},
+            {"name": "熊铁山", "type": "角色", "aliases": ["熊哥"]},
+        ],
     }
 
 
@@ -182,3 +186,20 @@ class TestSettle:
 
         assert not (repo / "定稿" / "正文" / "0037-不眠夜.md").exists()
         assert not (repo / "定稿" / "记忆" / "章摘要" / "0037.md").exists()
+
+    def test_settle_rolls_back_on_midway_failure(self, tmp_path):
+        """spec 不变量：settle 要么完成 commit，要么不落任何定稿文件。"""
+        repo = _v7_repo(tmp_path)
+        d = _decision()
+        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 120
+        draft = repo / "工作区" / "草稿-0037.md"
+        draft.write_text(body, encoding="utf-8")
+        # 第二个新实体的落点被目录占位 → 写入中途失败，模拟崩溃
+        (repo / "定稿" / "设定" / "名册" / "熊铁山.md").mkdir(parents=True)
+
+        with pytest.raises(RuntimeError, match="回滚|roll back"):
+            settle(repo, d, draft_path=draft, summary="s", commit=False)
+
+        assert not (repo / "定稿" / "正文" / "0037-不眠夜.md").exists()
+        assert not (repo / "定稿" / "记忆" / "章摘要" / "0037.md").exists()
+        assert not (repo / "定稿" / "设定" / "名册" / "赵姓汉子.md").exists()  # 已写的也回滚

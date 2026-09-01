@@ -185,7 +185,7 @@ echo "PROJECT_ROOT=${PROJECT_ROOT}"
 参数全部来自上面的采集对象（书名/题材/主角/金手指/世界观/反派/创意约束等），逐字段映射为 `webnovel.py init` 的 `--*` 选项；完整字段清单见 `references/init-collection-schema.md`，可用 `python "${SCRIPTS_DIR}/webnovel.py" init --help` 核对选项名。
 
 ```bash
-python "${SCRIPTS_DIR}/webnovel.py" init \
+python -X utf8 "${SCRIPTS_DIR}/webnovel.py" init \
   "${PROJECT_ROOT}" "{title}" "{genre}" \
   --protagonist-name "{protagonist_name}" \
   --target-words {target_words} --target-chapters {target_chapters} \

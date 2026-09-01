@@ -92,7 +92,7 @@
       "required": [
         "只读",
         "/api/story-runtime/health",
-        "python -m dashboard.server"
+        "python -X utf8 -m dashboard.server"
       ]
     },
     {

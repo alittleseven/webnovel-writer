@@ -2,6 +2,19 @@
 
 这里记录每个正式版本对作者和维护者的影响。发布说明优先面向中文网文作者：先说写作体验有什么变化，再补维护者关心的技术细节。
 
+## v7.1.0 - ZCode 原生化（MCP 服务 + 斜杠命令 + userConfig）
+
+> 本次发布覆盖 `v7.0.0..v7.1.0`（tmp/zcode 分支，单线队列 S1-S16）。发布说明详见 `releases/v7.1.0.md`；方案文档集见 `docs/zcode/zcode-native-adaptation/`。
+
+### 给作者看的变化
+
+- **ZCode 原生清单与安装链路**：插件本体迁移 `.zcode-plugin/plugin.json`（组件显式声明），marketplace 双位置镜像（仓库根 + `.claude-plugin/`）；本机 marketplace 换源至 `projects/zcode-plugins/webnovel-writer`，装卸手册见 `docs/zcode/zcode-native-adaptation/05-install-reinstall-runbook.md`。
+- **自带 `webnovel` MCP 服务（只读 9 工具）**：项目状态 / 体检 / 设定读取 / 时间线 / 计量 / RAG 检索 / 实体查询 / 上下文预算 / 根解析——会话自动连接，结构化查询不再拼 Bash 长命令；不暴露写路径（写操作仍走 skill 人工审阅）。
+- **`/webnovel:*` 九条短名命令**：status/doctor/query/write/plan/review/init/learn/dashboard（薄壳转发，无双实现）。
+- **userConfig「书项目根目录」**：GUI 配置注入 `WEBNOVEL_BOOK_ROOT`，解决会话 cwd ≠ 书项目根的定位问题；留空走既有探测链。
+- **宿主变量原生化**：`ZCODE_*` 优先 `CLAUDE_*` 回退；指针文件探测 `.zcode/` 与 `.claude/` 双位置；registry 默认 `~/.zcode` 有数据时优先。
+- **修复**：`run_tests.ps1` 陈旧 `.claude/scripts` 路径；skills/references/templates 的宿主措辞清理。
+
 ## v7.0.0 - Story Repo 主轴上线（迁移 → 两章实跑落定 → 按书校准 → 审阅加固）
 
 > 本次发布覆盖 `v6.5.0..v7.0.0`（v7-tmp 开发分支，单线队列 S13-S26）。发布说明详见 `releases/v7.0.0.md`。

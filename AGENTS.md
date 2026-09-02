@@ -5,42 +5,52 @@
 ## 技术栈
 
 - Python 3.10+ / pytest
-- Claude Code Plugin（skills + agents + hooks + scripts）
+- ZCode Plugin（`.zcode-plugin/` 清单：skills + agents + hooks + commands + MCP server）
+- MCP server：纯标准库 stdio JSON-RPC（`mcp/server.py`，零第三方依赖）
 - Dashboard 前端：预打包 dist/，不需要 npm build
 
 ## 常用命令
 
 ```powershell
-# 运行测试
-python -m pytest
+# 运行测试（根 pytest.ini：data_modules + scripts + mcp 三处，覆盖率门槛 80）
+python -X utf8 -m pytest
 
-# 本地加载插件到 Claude Code 测试
-claude --plugin-dir "C:\lgq\ai-workspace\projects\claude-plugins\webnovel-writer\webnovel-writer"
+# smoke 快速子集
+powershell -File webnovel-writer/scripts/run_tests.ps1 -Mode smoke
+
+# 打包校验 + 发版说明校验 + 版本三处一致性检查
+python -X utf8 webnovel-writer/scripts/validate_plugin_package.py
+python -X utf8 webnovel-writer/scripts/validate_release_notes.py
+python -X utf8 webnovel-writer/scripts/sync_plugin_version.py --check
 
 # CLI 预检（替换 <book-root> 为实际书项目路径）
-python -X utf8 scripts/webnovel.py --project-root "<book-root>" preflight
+python -X utf8 webnovel-writer/scripts/webnovel.py --project-root "<book-root>" preflight
 ```
 
 ## 目录结构
 
 ```
-webnovel-writer/              ← 外层仓库根（marketplace 清单）
-└── webnovel-writer/          ← 内层插件本体（skills/agents/hooks/scripts）
-    ├── .claude-plugin/
-    ├── skills/
-    ├── agents/
-    ├── hooks/
-    └── scripts/
+webnovel-writer/              ← 外层仓库根（marketplace.json 双位置：根 + .claude-plugin/）
+└── webnovel-writer/          ← 内层插件本体（.zcode-plugin 清单）
+    ├── .zcode-plugin/        ← plugin.json（组件声明 + mcpServers + userConfig）
+    ├── skills/               ← 8 个 skill
+    ├── agents/               ← 4 个子代理
+    ├── commands/webnovel/    ← 9 个 /webnovel:* 斜杠命令（薄壳）
+    ├── hooks/                ← 4 个 hook 脚本 + hooks.json（${ZCODE_PLUGIN_ROOT}）
+    ├── mcp/                  ← webnovel MCP server（stdio 只读查询 ×9）+ tests
+    ├── scripts/              ← 统一 CLI webnovel.py + data_modules
+    └── references/ templates/ dashboard/ evals/
 ```
 
-⚠️ 插件本体在内层目录，`--plugin-dir` 指向内层。
+⚠️ 插件本体在内层目录；装机走 marketplace（源=外层仓库根），文件级装卸见
+`docs/zcode/zcode-native-adaptation/05-install-reinstall-runbook.md`。
 
 ## 当前状态
 
-- 主开发分支：v6.3.0（原 fix/temp，2026-08-30 定名；下一步开发在 v7-tmp）
-- 上游：lingfengQAQ/webnovel-writer v6.2.1
-- 本地改造版本：v6.3.0（本地已 tag，待作者确认后推送发布）
+- 当前版本：v7.1.0（ZCode 原生化：MCP + commands + userConfig；tmp/zcode 分支）
+- 上游：lingfengQAQ/webnovel-writer（v6.2.1 起分叉，本地主轴已演进至 v7）
 - 远程：git@github.com:alittleseven/webnovel-writer.git
+- ZCode 装机：marketplace `webnovel-writer-marketplace` → 本仓库根（directory 源）
 
 ## OpenCode 工作区规则：任务状态必须与代码同步
 
@@ -57,4 +67,4 @@ webnovel-writer/              ← 外层仓库根（marketplace 清单）
 - Windows 下运行 Python 脚本必须加 `-X utf8` 避免 GBK 编码问题
 - 中文 commit message 用 UTF-8 文件 + `git commit -F` 方式提交
 - `.tmp/` 和 `.tmp_story_system_engine/` 是临时目录，已在 .gitignore 中
-- 修改 scripts/*.py 后可用 `/reload-plugins` 热重载，无需重启 Claude Code
+- 修改插件组件（skills/hooks/commands/MCP）后需重启 ZCode 会话生效；改 scripts/*.py 则即时生效（每次调用都是新进程）

@@ -1,14 +1,14 @@
 # Webnovel Writer
 
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-7.0.0-brightgreen.svg)](.claude-plugin/marketplace.json)
+[![Version](https://img.shields.io/badge/version-7.1.0-brightgreen.svg)](marketplace.json)
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
-[![Claude Code](https://img.shields.io/badge/Claude%20Code-Compatible-purple.svg)](https://claude.ai/claude-code)
-[![Marketplace](https://img.shields.io/badge/Claude%20Code-Marketplace-black.svg)](.claude-plugin/marketplace.json)
+[![ZCode](https://img.shields.io/badge/ZCode-Native-blue.svg)](https://cdn-zcode.z.ai)
+[![Marketplace](https://img.shields.io/badge/ZCode-Marketplace-black.svg)](marketplace.json)
 
 <a href="https://trendshift.io/repositories/22487" target="_blank"><img src="https://trendshift.io/api/badge/repositories/22487" alt="lingfengQAQ%2Fwebnovel-writer | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-一个跑在 Claude Code 上的长篇网文创作插件。从初始化设定、规划卷纲，到写章、审查、沉淀记忆、查询状态，再到一个只读的可视化面板——整条创作流程都给你串好了。
+一个跑在 ZCode 上的长篇网文创作插件（v7.1.0 起 ZCode 原生：自带 MCP 查询服务与 /webnovel:* 命令）。从初始化设定、规划卷纲，到写章、审查、沉淀记忆、查询状态，再到一个只读的可视化面板——整条创作流程都给你串好了。
 
 它想解决的其实就一件事：**让 AI 写到几百章，依然记得住设定、接得住伏笔、守得住大纲。**
 
@@ -51,7 +51,7 @@ Webnovel Writer 用业余时间维护。如果它帮你省下了梳理设定、�
 - 爽点、感情线、世界观扩展保持节奏
 - 每章写完后事实会沉淀到可检索的状态系统
 
-这套系统做的事，就是把上面这些“必须记住、不能写崩”的约束，变成 Claude Code 会自动执行的步骤：动笔前先查资料，写完后把新发生的事实记下来、做一致性审查，再把最新状态同步进检索索引、章节摘要、长期记忆和 Dashboard。它不只是“会写”，而是边写边攒。
+这套系统做的事，就是把上面这些“必须记住、不能写崩”的约束，变成 ZCode 会自动执行的步骤：动笔前先查资料，写完后把新发生的事实记下来、做一致性审查，再把最新状态同步进检索索引、章节摘要、长期记忆和 Dashboard。它不只是“会写”，而是边写边攒。
 
 ## 核心能力
 
@@ -70,7 +70,7 @@ Webnovel Writer 用业余时间维护。如果它帮你省下了梳理设定、�
 
 ```mermaid
 flowchart LR
-    User[作者 / Claude Code] --> Skills[8 个 Skill 命令]
+    User[作者 / ZCode] --> Skills[8 个 Skill 命令]
     Skills --> Agents[Context / Reviewer / Data / Deconstruction Agent]
     Agents --> Story[.story-system 合同与提交链]
     Story --> Commit[accepted CHAPTER_COMMIT]
@@ -94,16 +94,13 @@ v6.0.0 的默认主链叫 **Story System**，几个关键角色：
 
 ### 1. 安装插件
 
-通过 Claude Code Marketplace 安装：
+通过 ZCode 插件市场安装：
 
-```bash
-claude plugin marketplace add lingfengQAQ/webnovel-writer --scope user
-claude plugin install webnovel-writer@webnovel-writer-marketplace --scope user
-```
+1. Settings → Plugin Management → Discover → 点 `+` 添加 marketplace：GitHub 仓库 `lingfengQAQ/webnovel-writer`，或本地目录指向本仓库根；
+2. 在 Discover 中找到 **webnovel-writer** 点击 **Get** 安装（默认启用）；
+3. 重启会话后生效：8 个 skill、4 个 agent、`/webnovel:*` 斜杠命令、`webnovel` MCP 服务自动加载。
 
-只想在当前项目生效时，把 `--scope user` 改成 `--scope project`。
-
-> 插件的安装、启用与日常管理等更多用法，见 Claude Code 官方文档：[插件](https://docs.claude.com/en/docs/claude-code/plugins) · [插件市场](https://docs.claude.com/en/docs/claude-code/plugin-marketplaces)。
+> 文件级装卸、缓存与回滚步骤见 [`docs/zcode/zcode-native-adaptation/05-install-reinstall-runbook.md`](docs/zcode/zcode-native-adaptation/05-install-reinstall-runbook.md)。
 
 ### 2. 安装 Python 依赖
 
@@ -113,10 +110,10 @@ python -m pip install -r https://raw.githubusercontent.com/lingfengQAQ/webnovel-
 
 ### 3. 初始化一本书
 
-在 Claude Code 中输入：
+在 ZCode 中输入：
 
 ```bash
-/webnovel-init
+/webnovel:init
 ```
 
 初始化完成后会创建书项目目录，包含：
@@ -214,7 +211,7 @@ Dashboard 是个只读面板，能看项目状态、实体关系图、章节内�
 
 ## 命令速查
 
-### Claude Code Skill 命令
+### ZCode Skill 命令（`/webnovel:*` 短名命令亦可直达）
 
 | 命令 | 示例 | 用途 |
 |------|------|------|
@@ -232,7 +229,7 @@ Dashboard 是个只读面板，能看项目状态、实体关系图、章节内�
 所有命令行工具统一从 `scripts/webnovel.py` 进入：
 
 ```bash
-python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" <子命令> [参数]
+python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" <子命令> [参数]
 ```
 
 常用子命令：
@@ -293,8 +290,8 @@ npm run dev
 优先执行预检：
 
 ```bash
-python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" preflight
-python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" doctor --format text
+python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" preflight
+python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" doctor --format text
 ```
 
 重点查看：
@@ -332,7 +329,8 @@ git push origin feature/your-feature
 
 | 版本 | 主要变化 |
 |------|----------|
-| **v7.0.0 (当前)** | v7 Story-Repo 新架构上线：一键迁移、双格式守卫、两章实跑落定，上下文配额按书校准 |
+| **v7.1.0 (当前)** | ZCode 原生化：.zcode-plugin 清单、webnovel MCP 服务、/webnovel:* 命令、userConfig 书项目根配置 |
+| **v7.0.0** | v7 Story-Repo 新架构上线：一键迁移、双格式守卫、两章实跑落定，上下文配额按书校准 |
 | **v6.5.0** | Phase C/D 收官：上下文预算实装（−68%）、L0 设定摘要（−93%）、往返压缩与大输出外置化、读侧提速 |
 | **v6.4.0** | 写章上下文瘦身：门禁/提交/审查一行结论、load-context 去重（实测 −72%）、中文参数乱码误报修复 |
 | **v6.3.0** | 修复伏笔回收、BM25 回退与事件审计链三个核心缺陷（本地发版，详见 releases/v6.3.0.md） |

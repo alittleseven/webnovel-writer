@@ -1,6 +1,6 @@
 # Webnovel Writer（插件源目录）
 
-长篇网文创作插件的 Claude Code 安装包。完整介绍、安装方式与文档导航见仓库根目录的 [README](../README.md)。
+长篇网文创作插件的 ZCode 安装包。完整介绍、安装方式与文档导航见仓库根目录的 [README](../README.md)。
 
 > 本文件面向「拿到插件包」的使用者与维护者，列出包内组件与最小验证方式。
 
@@ -37,14 +37,23 @@
 | `data-agent` | 从正文提取事实，生成 commit artifacts | `/webnovel-write` Step 5 |
 | `deconstruction-agent` | 参考书拆解，提炼可迁移写法 | `/webnovel-init` Step 1.5 |
 
+## 书项目根配置（userConfig）
+
+插件在 ZCode 中提供一个 GUI 配置项：Settings → Plugin Management → webnovel-writer → Advanced →「书项目根目录」。
+
+- 填写后经 `${user_config.bookProjectRoot}` 注入 MCP 服务与脚本环境（`WEBNOVEL_BOOK_ROOT`），所有 MCP 查询工具缺省定位到该书项目；
+- 留空时按「显式 `--project-root` 参数 > 会话工作区向上探测 > 工作区指针/全局 registry」解析；
+- 显式参数永远最高优先。
+
 ## 依赖与安装
 
-通过 Claude Code Marketplace 安装（推荐）：
+通过 ZCode 插件市场安装（推荐）：
 
-```bash
-claude plugin marketplace add lingfengQAQ/webnovel-writer --scope user
-claude plugin install webnovel-writer@webnovel-writer-marketplace --scope user
-```
+1. Settings → Plugin Management → Discover → `+` 添加 marketplace（GitHub 仓库 `lingfengQAQ/webnovel-writer`，或本地目录指向本仓库根）；
+2. 在 Discover 中找到 webnovel-writer 点击 Get 安装；
+3. 重启会话后生效（8 个 skill、4 个 agent、`/webnovel:*` 命令、`webnovel` MCP server 自动加载）。
+
+> 文件级装卸/回滚步骤见仓库 `docs/zcode/zcode-native-adaptation/05-install-reinstall-runbook.md`。
 
 Python 依赖：
 
@@ -58,13 +67,13 @@ RAG 检索需在书项目根目录配置 `.env`（缺失时自动退回 BM25 关
 
 ```bash
 # 路径 / 项目根 / Story System 健康预检
-python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" preflight
+python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" preflight
 
 # 提示词与数据链测试
 python -m pytest -q --no-cov
 ```
 
-> clean-room 安装验证建议用 `git archive` 或干净克隆，避免把本地 `node_modules/`、`__pycache__/`、`.coverage` 等开发产物带进 `--plugin-dir` 测试。
+> clean-room 安装验证建议用 `git archive` 或干净克隆，避免把本地 `node_modules/`、`__pycache__/`、`.coverage` 等开发产物带进插件目录测试。
 
 ## 协议
 

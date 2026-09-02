@@ -60,7 +60,7 @@
 | 原提案                                      | 过滤理由                         | 恢复条件                 |
 | ---------------------------------------- | ---------------------------- | -------------------- |
 | init/title-patterns-and-anti-patterns.md | 可作为命名规则.csv 中几行条目            | CSV 覆盖不够、书名模板化严重时升级  |
-| init/protagonist-flaw-patterns.md        | Claude 通用能力可覆盖               | 网文场景缺陷设计空泛化时补 CSV 条目 |
+| init/protagonist-flaw-patterns.md        | 模型通用能力可覆盖               | 网文场景缺陷设计空泛化时补 CSV 条目 |
 | query/entity-alias-resolution.md         | 别名解析是代码逻辑 (entity_linker.py) | 语义歧义频发时补             |
 | query/foreshadowing-urgency-rules.md     | 紧急度排序已在 context-agent 实现     | 输出解释不稳定时补            |
 | learn/pattern-taxonomy.md                | 分类规则可内联 skill                | 分类质量持续不稳时补 CSV       |

@@ -38,7 +38,7 @@ def _load_text(path: Path) -> tuple[str, str]:
 
 
 def _current_version(root: Path) -> str:
-    payload = sync_plugin_version.load_json(root / "webnovel-writer" / ".claude-plugin" / "plugin.json")
+    payload = sync_plugin_version.load_json(sync_plugin_version.find_plugin_json())
     return str(payload.get("version") or "")
 
 

@@ -22,9 +22,9 @@ def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _write_release_files(root: Path, *, version: str = "1.2.3", previous_tag: str = "v1.2.2") -> None:
+def _write_release_files(root: Path, *, version: str = "1.2.3", previous_tag: str = "v1.2.2", manifest_dir: str = ".claude-plugin") -> None:
     _write_json(
-        root / "webnovel-writer" / ".claude-plugin" / "plugin.json",
+        root / "webnovel-writer" / manifest_dir / "plugin.json",
         {"name": "webnovel-writer", "version": version, "description": "desc"},
     )
     (root / "CHANGELOG.md").write_text(
@@ -123,3 +123,11 @@ def test_validate_release_notes_requires_previous_tag_in_current_changelog_secti
 
     assert report["ok"] is False
     assert any(item["code"] == "changelog.range" for item in report["issues"])
+
+
+def test_validate_release_notes_accepts_zcode_plugin_layout(tmp_path):
+    _write_release_files(tmp_path, manifest_dir=".zcode-plugin")
+
+    report = validate_release_notes(tmp_path, version="1.2.3", previous_tag="v1.2.2")
+
+    assert report["ok"] is True

@@ -8,10 +8,25 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parent.parent.parent
-PLUGIN_JSON_PATH = ROOT / "webnovel-writer" / ".claude-plugin" / "plugin.json"
-MARKETPLACE_JSON_PATH = ROOT / ".claude-plugin" / "marketplace.json"
+# 清单探测顺序与 ZCode 宿主一致：.zcode-plugin 优先，.claude-plugin 兼容回退。
+PLUGIN_JSON_CANDIDATES = (
+    ROOT / "webnovel-writer" / ".zcode-plugin" / "plugin.json",
+    ROOT / "webnovel-writer" / ".claude-plugin" / "plugin.json",
+)
+# marketplace 双位置镜像：仓库根（github 源先例）+ .claude-plugin/（directory 源先例）。
+MARKETPLACE_JSON_PATHS = (
+    ROOT / "marketplace.json",
+    ROOT / ".claude-plugin" / "marketplace.json",
+)
 README_PATH = ROOT / "README.md"
 PLUGIN_NAME = "webnovel-writer"
+
+
+def find_plugin_json() -> Path:
+    for candidate in PLUGIN_JSON_CANDIDATES:
+        if candidate.is_file():
+            return candidate
+    raise ValueError(f"plugin.json not found in any of: {[str(p) for p in PLUGIN_JSON_CANDIDATES]}")
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
 README_ROW_PATTERN = re.compile(
     r"^\| \*\*v(?P<version>[^\s*]+)(?P<current> \(当前\))?\*\* \| (?P<notes>.*) \|$"
@@ -123,8 +138,9 @@ def update_readme_release(content: str, version: str, release_notes: str | None)
 
 
 def sync_versions(version: str | None = None, release_notes: str | None = None) -> tuple[str, str, bool]:
-    plugin_payload = load_json(PLUGIN_JSON_PATH)
-    marketplace_payload = load_json(MARKETPLACE_JSON_PATH)
+    plugin_json_path = find_plugin_json()
+    plugin_payload = load_json(plugin_json_path)
+    marketplace_payload = load_json(MARKETPLACE_JSON_PATHS[0])
     readme_content = load_text(README_PATH)
     marketplace_plugin = get_marketplace_plugin(marketplace_payload)
 
@@ -146,15 +162,19 @@ def sync_versions(version: str | None = None, release_notes: str | None = None) 
         changed = True
 
     if changed:
-        save_json(PLUGIN_JSON_PATH, plugin_payload)
-        save_json(MARKETPLACE_JSON_PATH, marketplace_payload)
+        save_json(plugin_json_path, plugin_payload)
+        # 双位置同步写入，保持镜像一致。
+        for marketplace_path in MARKETPLACE_JSON_PATHS:
+            if marketplace_path.is_file() or marketplace_path == MARKETPLACE_JSON_PATHS[0]:
+                save_json(marketplace_path, marketplace_payload)
 
     return previous_version, target_version, changed
 
 
 def check_versions(expected_version: str | None = None) -> int:
-    plugin_payload = load_json(PLUGIN_JSON_PATH)
-    marketplace_payload = load_json(MARKETPLACE_JSON_PATH)
+    plugin_json_path = find_plugin_json()
+    plugin_payload = load_json(plugin_json_path)
+    marketplace_payload = load_json(MARKETPLACE_JSON_PATHS[0])
     readme_content = load_text(README_PATH)
     marketplace_plugin = get_marketplace_plugin(marketplace_payload)
 
@@ -168,6 +188,16 @@ def check_versions(expected_version: str | None = None) -> int:
         mismatches.append(
             f"plugin.json={plugin_version}, marketplace.json={marketplace_version}"
         )
+    mirror_path = MARKETPLACE_JSON_PATHS[1]
+    if mirror_path.is_file():
+        mirror_plugin = get_marketplace_plugin(load_json(mirror_path))
+        mirror_version = str(mirror_plugin.get("version", ""))
+        if mirror_version != plugin_version:
+            mismatches.append(
+                f"plugin.json={plugin_version}, marketplace mirror={mirror_version}"
+            )
+    else:
+        mismatches.append(f"marketplace mirror missing: {mirror_path}")
     if plugin_version != readme_version:
         mismatches.append(f"plugin.json={plugin_version}, README.md={readme_version}")
     if plugin_version != readme_badge_version:
@@ -188,7 +218,7 @@ def check_versions(expected_version: str | None = None) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sync Claude plugin release metadata")
+    parser = argparse.ArgumentParser(description="Sync ZCode plugin release metadata")
     parser.add_argument(
         "--check",
         action="store_true",

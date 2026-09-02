@@ -21,8 +21,9 @@ def _repo_root() -> Path:
 
 
 def _plugin_root(root: Path) -> Path:
-    if (root / ".claude-plugin" / "plugin.json").is_file():
-        return root
+    for manifest_dir in (".zcode-plugin", ".claude-plugin"):
+        if (root / manifest_dir / "plugin.json").is_file():
+            return root
     return root / "webnovel-writer"
 
 

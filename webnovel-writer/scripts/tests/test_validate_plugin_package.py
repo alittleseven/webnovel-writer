@@ -22,13 +22,20 @@ def _write_json(path: Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _write_minimal_package(root: Path, *, plugin_version: str = "1.2.3", marketplace_version: str = "1.2.3") -> None:
+def _write_minimal_package(
+    root: Path,
+    *,
+    plugin_version: str = "1.2.3",
+    marketplace_version: str = "1.2.3",
+    manifest_dir: str = ".claude-plugin",
+    marketplace_relative: str = ".claude-plugin/marketplace.json",
+) -> None:
     _write_json(
-        root / "webnovel-writer" / ".claude-plugin" / "plugin.json",
+        root / "webnovel-writer" / manifest_dir / "plugin.json",
         {"name": "webnovel-writer", "version": plugin_version, "description": "desc"},
     )
     _write_json(
-        root / ".claude-plugin" / "marketplace.json",
+        root / marketplace_relative,
         {
             "plugins": [
                 {
@@ -44,7 +51,7 @@ def _write_minimal_package(root: Path, *, plugin_version: str = "1.2.3", marketp
             [
                 "# Test",
                 "",
-                f"[![Version](https://img.shields.io/badge/version-{plugin_version}-brightgreen.svg)](.claude-plugin/marketplace.json)",
+                f"[![Version](https://img.shields.io/badge/version-{plugin_version}-brightgreen.svg)]({marketplace_relative})",
                 "",
                 "| 版本 | 说明 |",
                 "|------|------|",
@@ -111,3 +118,36 @@ def test_validate_plugin_package_detects_missing_skill_frontmatter(tmp_path):
 
     assert report["ok"] is False
     assert any(item["code"] == "skill.frontmatter" for item in report["issues"])
+
+
+def test_validate_plugin_package_accepts_zcode_plugin_layout(tmp_path):
+    # ZCode 原生布局：.zcode-plugin/plugin.json + 仓库根 marketplace.json
+    _write_minimal_package(tmp_path, manifest_dir=".zcode-plugin", marketplace_relative="marketplace.json")
+
+    report = validate_package(tmp_path)
+
+    assert report["ok"] is True
+    assert report["error_count"] == 0
+
+
+def test_validate_plugin_package_accepts_zcode_plugin_root(tmp_path):
+    _write_minimal_package(tmp_path, manifest_dir=".zcode-plugin", marketplace_relative="marketplace.json")
+
+    report = validate_package(tmp_path / "webnovel-writer")
+
+    assert report["ok"] is True
+    assert report["error_count"] == 0
+
+
+def test_validate_plugin_package_prefers_zcode_plugin_manifest(tmp_path):
+    # 双清单并存时以 .zcode-plugin 为准（版本取自 .zcode-plugin）
+    _write_minimal_package(tmp_path, manifest_dir=".zcode-plugin", marketplace_relative="marketplace.json", plugin_version="2.0.0", marketplace_version="2.0.0")
+    _write_json(
+        tmp_path / "webnovel-writer" / ".claude-plugin" / "plugin.json",
+        {"name": "webnovel-writer", "version": "0.0.1", "description": "stale"},
+    )
+
+    report = validate_package(tmp_path)
+
+    assert report["ok"] is True
+    assert report["error_count"] == 0

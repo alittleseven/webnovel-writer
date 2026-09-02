@@ -1,0 +1,49 @@
+{
+  "name": "webnovel-writer",
+  "version": "7.1.0",
+  "description": "长篇网文创作系统（skills + agents + data chain + RAG），ZCode 原生插件：自带只读 MCP 查询服务与 /webnovel:* 斜杠命令",
+  "author": {
+    "name": "lingfengQAQ"
+  },
+  "homepage": "https://github.com/lingfengQAQ/webnovel-writer",
+  "repository": "https://github.com/lingfengQAQ/webnovel-writer",
+  "license": "GPL-3.0",
+  "keywords": [
+    "webnovel",
+    "zcode",
+    "skills",
+    "agents",
+    "mcp",
+    "rag"
+  ],
+  "skills": "skills",
+  "hooks": "hooks",
+  "agents": "agents",
+  "commands": "commands",
+  "mcpServers": {
+    "webnovel": {
+      "command": "python",
+      "args": [
+        "-X",
+        "utf8",
+        "${ZCODE_PLUGIN_ROOT}/mcp/server.py"
+      ],
+      "env": {
+        "WEBNOVEL_PLUGIN_ROOT": "${ZCODE_PLUGIN_ROOT}",
+        "WEBNOVEL_BOOK_ROOT": "${user_config.bookProjectRoot}",
+        "WEBNOVEL_PROJECT_DIR": "${CLAUDE_PROJECT_DIR}",
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONUTF8": "1"
+      },
+      "timeoutMs": 60000
+    }
+  },
+  "userConfig": {
+    "bookProjectRoot": {
+      "type": "directory",
+      "title": "书项目根目录",
+      "description": "当前工作区绑定的书项目路径；留空则按 cwd 向上探测 + 全局指针解析。",
+      "required": false
+    }
+  }
+}

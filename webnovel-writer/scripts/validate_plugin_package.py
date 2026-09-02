@@ -79,25 +79,47 @@ def _marketplace_plugin(payload: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
+MANIFEST_DIRS = (".zcode-plugin", ".claude-plugin")
+MARKETPLACE_RELATIVE_PATHS = ("marketplace.json", ".claude-plugin/marketplace.json")
+
+
+def _manifest_dir(root: Path) -> str | None:
+    # 探测顺序与 ZCode 宿主一致：.zcode-plugin 优先。
+    for manifest_dir in MANIFEST_DIRS:
+        if (root / manifest_dir / "plugin.json").is_file():
+            return manifest_dir
+    return None
+
+
 def _is_plugin_root(root: Path) -> bool:
-    return (root / ".claude-plugin" / "plugin.json").is_file()
+    return _manifest_dir(root) is not None
 
 
 def _plugin_root(root: Path) -> Path:
     return root if _is_plugin_root(root) else root / PLUGIN_NAME
 
 
+def _find_marketplace(repo_root: Path) -> Path:
+    # 双位置：仓库根 marketplace.json 优先，.claude-plugin/marketplace.json 兼容。
+    for relative in MARKETPLACE_RELATIVE_PATHS:
+        candidate = repo_root / relative
+        if candidate.is_file():
+            return candidate
+    return repo_root / MARKETPLACE_RELATIVE_PATHS[0]
+
+
 def _repo_root(root: Path) -> Path:
-    if _is_plugin_root(root) and (root.parent / ".claude-plugin" / "marketplace.json").is_file():
+    if _is_plugin_root(root) and _find_marketplace(root.parent).is_file():
         return root.parent
     return root
 
 
 def _check_manifest(root: Path, issues: list[dict[str, str]]) -> tuple[str, str]:
-    plugin_json = _plugin_root(root) / ".claude-plugin" / "plugin.json"
+    manifest_dir = _manifest_dir(_plugin_root(root)) or MANIFEST_DIRS[0]
+    plugin_json = _plugin_root(root) / manifest_dir / "plugin.json"
     payload, error = _load_json(plugin_json)
     if error:
-        issues.append(_issue("manifest.plugin_json", message=error, path=str(plugin_json), repair="恢复 .claude-plugin/plugin.json。"))
+        issues.append(_issue("manifest.plugin_json", message=error, path=str(plugin_json), repair=f"恢复 {manifest_dir}/plugin.json。"))
         return "", ""
     name = str(payload.get("name") or "")
     version = str(payload.get("version") or "")
@@ -111,7 +133,7 @@ def _check_manifest(root: Path, issues: list[dict[str, str]]) -> tuple[str, str]
 
 
 def _check_marketplace(root: Path, plugin_version: str, issues: list[dict[str, str]]) -> None:
-    marketplace = _repo_root(root) / ".claude-plugin" / "marketplace.json"
+    marketplace = _find_marketplace(_repo_root(root))
     payload, error = _load_json(marketplace)
     if error:
         severity = "warning" if _is_plugin_root(root) else "error"
@@ -210,7 +232,8 @@ def _check_portability(root: Path, issues: list[dict[str, str]]) -> None:
     plugin_root = _plugin_root(root)
     targets = list((plugin_root / "skills").glob("*/SKILL.md"))
     targets.extend((plugin_root / "agents").glob("*.md"))
-    targets.extend((plugin_root / ".claude-plugin").glob("*.json"))
+    for manifest_dir in MANIFEST_DIRS:
+        targets.extend((plugin_root / manifest_dir).glob("*.json"))
     hooks_root = plugin_root / "hooks"
     if hooks_root.is_dir():
         targets.extend(path for path in hooks_root.rglob("*") if path.suffix in {".json", ".py", ".sh", ".md"})
@@ -226,7 +249,7 @@ def _check_portability(root: Path, issues: list[dict[str, str]]) -> None:
                     message="local absolute path found in plugin component",
                     severity="warning",
                     path=str(path),
-                    repair="插件组件内使用 ${CLAUDE_PLUGIN_ROOT} 或相对路径。",
+                    repair="插件组件内使用 ${ZCODE_PLUGIN_ROOT} 或相对路径。",
                 )
             )
 

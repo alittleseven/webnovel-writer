@@ -922,6 +922,23 @@ def build_doctor_report(
         checks.extend(_contract_version_checks(root))
         checks.extend(_run_log_checks(root))
         checks.extend(_rag_checks(root))
+        # T1（webnovel-copilot-300）：六域目录契约检查（只读）
+        try:
+            from .domain_contract import domain_contract_checks
+
+            checks.extend(domain_contract_checks(root))
+        except Exception as exc:  # 契约检查自身异常不应拖垮 doctor
+            checks.append(
+                _check(
+                    "domains.contract",
+                    status=CHECK_WARNING,
+                    severity="warning",
+                    message="domain contract check failed",
+                    actual=str(exc),
+                    impact="六域骨架（素材/作者/文风等）状态未知。",
+                    repair="检查书项目根目录可读性；可运行 webnovel.py domains check 获取详情。",
+                )
+            )
 
     checks.extend(_python_checks())
     if deep:

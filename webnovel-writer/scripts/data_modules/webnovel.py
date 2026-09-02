@@ -152,6 +152,25 @@ def cmd_where(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_domains(args: argparse.Namespace) -> int:
+    """六域目录契约（webnovel-copilot-300 T1）：init 幂等建骨架 / check 只读体检。
+
+    解析放宽：纯 v7 story-repo（book.yaml、无 .webnovel/state.json）直接按给定目录操作。
+    """
+    from data_modules import domain_contract
+
+    try:
+        root = _resolve_root(args.project_root)
+    except FileNotFoundError:
+        candidate = Path(args.project_root)
+        if candidate.is_dir() and domain_contract.is_story_repo(candidate):
+            root = candidate
+        else:
+            raise
+    argv = [args.action, "--project-root", str(root), "--format", args.format]
+    return domain_contract.main(argv)
+
+
 def _project_root_diagnostic(
     explicit_project_root: Optional[str], exc: FileNotFoundError
 ) -> str:
@@ -652,6 +671,11 @@ def _main_impl() -> None:
     p_doctor.add_argument("--deep", action="store_true", help="包含 dashboard 等较深检查")
     p_doctor.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_doctor.set_defaults(func=cmd_doctor)
+
+    p_domains = sub.add_parser("domains", help="书仓六域目录契约（init 建骨架 / check 体检）")
+    p_domains.add_argument("action", choices=["init", "check"], help="init=幂等创建缺失骨架；check=只读契约检查")
+    p_domains.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    p_domains.set_defaults(func=cmd_domains)
 
     p_timeline_check = sub.add_parser("timeline-check", help="程序化校验卷时间线（单调递增/倒计时算术）")
     p_timeline_check.add_argument("--volume", type=int, required=True, help="卷号")

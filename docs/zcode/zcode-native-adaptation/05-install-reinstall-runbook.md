@@ -77,6 +77,11 @@ marketplace 登记与克隆**保留 id 不动、原地改指向**（见 §2）�
 | 6 | userConfig | 插件详情 → Advanced 出现「书项目根目录」directory 字段 |
 | 7 | CLI 冒烟 | 在书项目内：`python -X utf8 <installPath>/scripts/webnovel.py preflight` 通过；`webnovel_doctor` MCP 工具返回体检 JSON |
 
+## 4.5 实测教训（2026-09-03 执行记录）
+
+- **不要改名「运行中会话已注册 hook」所依赖的缓存目录**。§1.3 把 `6.5.0` 改名为 `6.5.0.bak` 后，当前会话的 PreToolUse hook（路径已在会话启动时解析为 6.5.0 绝对路径）立即找不到脚本，python 退出码 2 = 阻断语义，导致会话内所有 Bash/Write/Edit 全部被拒。恢复：把目录改回原名（本次经桌面终端执行 `mv 6.5.0.bak 6.5.0` 后即恢复）。
+- **最终处置**：`6.5.0` 保留原目录名不动（惰性回滚产物，ZCode 只按 installed_plugins.json 的 installPath 定位，不会被扫描加载）；`6.2.1` 改名 `6.2.1.bak` 无副作用（无会话引用）。需要清理时，在重启 ZCode 后随意处置。
+
 ## 5. 回滚方案
 
 - 保留旧缓存即可秒回滚：恢复 `installed_plugins.json` 中 6.5.0 条目（installPath 指回 `…\webnovel-writer\6.5.0`）、config.json 开关键、marketplace source.path 指回旧路径，重启。

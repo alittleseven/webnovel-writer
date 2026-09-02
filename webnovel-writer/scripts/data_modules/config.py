@@ -18,12 +18,21 @@ from runtime_compat import normalize_windows_path
 from .context_weights import TEMPLATE_WEIGHTS_DYNAMIC_DEFAULT
 
 def _get_user_claude_root() -> Path:
-    raw = os.environ.get("WEBNOVEL_CLAUDE_HOME") or os.environ.get("CLAUDE_HOME")
+    # 双宿主：ZCODE_* 优先，CLAUDE_* 回退；默认 ZCode 目录有配置时优先。
+    raw = (
+        os.environ.get("WEBNOVEL_ZCODE_HOME")
+        or os.environ.get("ZCODE_HOME")
+        or os.environ.get("WEBNOVEL_CLAUDE_HOME")
+        or os.environ.get("CLAUDE_HOME")
+    )
     if raw:
         try:
             return normalize_windows_path(raw).expanduser().resolve()
         except Exception:
             return normalize_windows_path(raw).expanduser()
+    zcode_home = Path.home() / ".zcode"
+    if (zcode_home / "webnovel-writer").is_dir():
+        return zcode_home.resolve()
     return (Path.home() / ".claude").resolve()
 
 

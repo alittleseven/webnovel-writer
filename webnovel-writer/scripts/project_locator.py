@@ -22,16 +22,27 @@ from runtime_compat import normalize_windows_path
 
 
 DEFAULT_PROJECT_DIR_NAMES: tuple[str, ...] = ("webnovel-project",)
-CURRENT_PROJECT_POINTER_REL: Path = Path(".claude") / ".webnovel-current-project"
+CURRENT_PROJECT_POINTER_NAME = ".webnovel-current-project"
+# 指针文件所在目录：ZCode 工作区优先，Claude 兼容回退（读取时两处都探测）。
+POINTER_DIRS: tuple[str, ...] = (".zcode", ".claude")
 
-# 用户级全局映射（当 skills/agents 安装在 ~/.claude 时，项目目录可能在任意盘符）
+# 用户级全局映射（当 skills/agents 安装在用户目录时，项目目录可能在任意盘符）
 # 该文件用于在“空上下文 + CWD 不在项目内”的情况下仍能定位到正确 project_root。
 GLOBAL_REGISTRY_REL: Path = Path("webnovel-writer") / "workspaces.json"
 
-# Claude Code 常见环境变量（存在时优先作为“工作区根目录”提示）
+# 宿主环境变量（双宿主：ZCODE_* 优先，CLAUDE_* 回退）
+ENV_ZCODE_PROJECT_DIR = "ZCODE_PROJECT_DIR"
 ENV_CLAUDE_PROJECT_DIR = "CLAUDE_PROJECT_DIR"
+ENV_WEBNOVEL_BOOK_ROOT = "WEBNOVEL_BOOK_ROOT"
+ENV_ZCODE_HOME = "ZCODE_HOME"
+ENV_WEBNOVEL_ZCODE_HOME = "WEBNOVEL_ZCODE_HOME"
 ENV_CLAUDE_HOME = "CLAUDE_HOME"
 ENV_WEBNOVEL_CLAUDE_HOME = "WEBNOVEL_CLAUDE_HOME"
+
+
+def _workspace_hint_env() -> Optional[str]:
+    """宿主提供的会话工作区提示目录（ZCode 优先，Claude 回退）。"""
+    return os.environ.get(ENV_ZCODE_PROJECT_DIR) or os.environ.get(ENV_CLAUDE_PROJECT_DIR)
 
 
 def _find_git_root(cwd: Path) -> Optional[Path]:
@@ -60,12 +71,21 @@ def _normcase_path_key(p: Path) -> str:
 
 
 def _get_user_claude_root() -> Path:
-    raw = os.environ.get(ENV_WEBNOVEL_CLAUDE_HOME) or os.environ.get(ENV_CLAUDE_HOME)
+    raw = (
+        os.environ.get(ENV_WEBNOVEL_ZCODE_HOME)
+        or os.environ.get(ENV_ZCODE_HOME)
+        or os.environ.get(ENV_WEBNOVEL_CLAUDE_HOME)
+        or os.environ.get(ENV_CLAUDE_HOME)
+    )
     if raw:
         try:
             return normalize_windows_path(raw).expanduser().resolve()
         except Exception:
             return normalize_windows_path(raw).expanduser()
+    # 默认：ZCode 宿主目录优先（已有 registry 时），否则回落历史 Claude 目录。
+    zcode_home = Path.home() / ".zcode"
+    if (zcode_home / GLOBAL_REGISTRY_REL).is_file():
+        return zcode_home.resolve()
     return (Path.home() / ".claude").resolve()
 
 
@@ -135,7 +155,7 @@ def _resolve_project_root_from_global_registry(
         return None
 
     hints: list[Path] = []
-    env_ws = os.environ.get(ENV_CLAUDE_PROJECT_DIR)
+    env_ws = _workspace_hint_env()
     if env_ws:
         hints.append(normalize_windows_path(env_ws).expanduser())
     if workspace_hint is not None:
@@ -208,7 +228,7 @@ def update_global_registry_current_project(
 
     ws = workspace_root
     if ws is None:
-        env_ws = os.environ.get(ENV_CLAUDE_PROJECT_DIR)
+        env_ws = _workspace_hint_env()
         if env_ws:
             ws = normalize_windows_path(env_ws).expanduser()
     if ws is None:
@@ -256,7 +276,8 @@ def _is_project_root(path: Path) -> bool:
 def _pointer_candidates(cwd: Path, *, stop_at: Optional[Path] = None) -> Iterable[Path]:
     """Yield candidate pointer files from cwd up to parents (bounded by stop_at when provided)."""
     for candidate in (cwd, *cwd.parents):
-        yield candidate / CURRENT_PROJECT_POINTER_REL
+        for pointer_dir in POINTER_DIRS:
+            yield candidate / pointer_dir / CURRENT_PROJECT_POINTER_NAME
         if stop_at is not None and candidate == stop_at:
             break
 
@@ -267,7 +288,7 @@ def _resolve_project_root_from_pointer(cwd: Path, *, stop_at: Optional[Path] = N
 
     Pointer file format:
     - plain text absolute path, one line.
-    - relative path is also supported (resolved relative to pointer's `.claude/` dir).
+    - relative path is also supported (resolved relative to the pointer's config dir).
     """
     for pointer_file in _pointer_candidates(cwd, stop_at=stop_at):
         if not pointer_file.is_file():
@@ -329,13 +350,16 @@ def write_current_project_pointer(project_root: Path, *, workspace_root: Optiona
 
     pointer_file: Optional[Path] = None
     if ws_root is not None:
-        # 仅当工作区内已经存在 `.claude/` 时才写入指针，避免在任意目录下“凭空创建 .claude/”。
-        if (ws_root / ".claude").is_dir():
-            try:
-                pointer_file = ws_root / CURRENT_PROJECT_POINTER_REL
-                pointer_file.write_text(str(root), encoding="utf-8")
-            except Exception:
-                pointer_file = None
+        # 仅当工作区内已经存在 `.zcode/` 或 `.claude/` 时才写入指针，
+        # 避免在任意目录下“凭空创建配置目录”。
+        for pointer_dir in POINTER_DIRS:
+            if (ws_root / pointer_dir).is_dir():
+                try:
+                    pointer_file = ws_root / pointer_dir / CURRENT_PROJECT_POINTER_NAME
+                    pointer_file.write_text(str(root), encoding="utf-8")
+                except Exception:
+                    pointer_file = None
+                break
 
     # best-effort 更新用户级 registry（不阻断）
     try:
@@ -367,7 +391,7 @@ def resolve_project_root(explicit_project_root: Optional[str] = None, *, cwd: Op
         if _is_project_root(root):
             return root
 
-        # 兼容：显式传入“工作区根目录”（含 `.claude/.webnovel-current-project` 指针）
+        # 兼容：显式传入“工作区根目录”（含 `.zcode/` 或 `.claude/` 下的 `.webnovel-current-project` 指针）
         # 例如：D:\wk\xiaoshuo 不是项目根，但其指针指向 D:\wk\xiaoshuo\<书名>
         pointer_root = _resolve_project_root_from_pointer(root, stop_at=_find_git_root(root))
         if pointer_root is not None:
@@ -389,7 +413,7 @@ def resolve_project_root(explicit_project_root: Optional[str] = None, *, cwd: Op
 
         raise FileNotFoundError(f"Not a webnovel project root (missing .webnovel/state.json): {root}")
 
-    env_root = os.environ.get("WEBNOVEL_PROJECT_ROOT")
+    env_root = os.environ.get("WEBNOVEL_PROJECT_ROOT") or os.environ.get(ENV_WEBNOVEL_BOOK_ROOT)
     if env_root:
         root = normalize_windows_path(env_root).expanduser().resolve()
         if _is_project_root(root):
@@ -405,9 +429,9 @@ def resolve_project_root(explicit_project_root: Optional[str] = None, *, cwd: Op
         return pointer_root
 
     # 用户级 registry fallback（仅在“有上下文提示”时启用，避免误命中）
-    # - 若 CLAUDE_PROJECT_DIR 存在：认为 Claude Code 提供了工作区上下文
+    # - 若宿主 PROJECT_DIR 环境变量存在：认为宿主提供了工作区上下文
     # - 否则仅在 base 位于某个已记录 workspace 内时启用（前缀匹配）
-    allow_last_used = bool(os.environ.get(ENV_CLAUDE_PROJECT_DIR))
+    allow_last_used = bool(_workspace_hint_env())
     reg_root = _resolve_project_root_from_global_registry(
         base,
         workspace_hint=None,

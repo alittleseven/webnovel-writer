@@ -31,7 +31,7 @@ def test_hooks_json_uses_plugin_wrapper_and_plugin_root_paths():
     assert "SessionStart" in payload["hooks"]
     assert "PreToolUse" in payload["hooks"]
     serialized = json.dumps(payload, ensure_ascii=False)
-    assert "${CLAUDE_PLUGIN_ROOT}" in serialized
+    assert "${ZCODE_PLUGIN_ROOT}" in serialized
     assert "C:\\Users" not in serialized
 
 

@@ -16,8 +16,11 @@ def _ensure_scripts_on_path() -> None:
 @pytest.fixture(autouse=True)
 def isolate_project_locator_environment(monkeypatch, tmp_path):
     monkeypatch.delenv("WEBNOVEL_PROJECT_ROOT", raising=False)
+    monkeypatch.delenv("WEBNOVEL_BOOK_ROOT", raising=False)
     monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+    monkeypatch.delenv("ZCODE_PROJECT_DIR", raising=False)
     monkeypatch.setenv("WEBNOVEL_CLAUDE_HOME", str(tmp_path / "empty-claude-home"))
+    monkeypatch.setenv("WEBNOVEL_ZCODE_HOME", str(tmp_path / "empty-zcode-home"))
 
 
 def test_resolve_project_root_prefers_cwd_project(tmp_path):
@@ -130,3 +133,45 @@ def test_resolve_project_root_ignores_stale_pointer_and_fallbacks(tmp_path):
     resolved = resolve_project_root(cwd=workspace)
     assert resolved == default_project.resolve()
 
+
+
+def test_resolve_project_root_reads_zcode_workspace_pointer(tmp_path):
+    _ensure_scripts_on_path()
+
+    from project_locator import resolve_project_root
+
+    workspace = tmp_path / "workspace"
+    (workspace / ".git").mkdir(parents=True, exist_ok=True)
+    (workspace / ".zcode").mkdir(parents=True, exist_ok=True)
+    project_root = workspace / "凡人资本论"
+    (project_root / ".webnovel").mkdir(parents=True, exist_ok=True)
+    (project_root / ".webnovel" / "state.json").write_text("{}", encoding="utf-8")
+    (workspace / ".zcode" / ".webnovel-current-project").write_text(str(project_root), encoding="utf-8")
+
+    resolved = resolve_project_root(cwd=workspace)
+    assert resolved == project_root.resolve()
+
+
+def test_resolve_project_root_uses_webnovel_book_root_env(tmp_path):
+    _ensure_scripts_on_path()
+
+    from project_locator import resolve_project_root
+
+    project_root = tmp_path / "book"
+    (project_root / ".webnovel").mkdir(parents=True, exist_ok=True)
+    (project_root / ".webnovel" / "state.json").write_text("{}", encoding="utf-8")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir(parents=True, exist_ok=True)
+
+    import os
+
+    old = os.environ.get("WEBNOVEL_BOOK_ROOT")
+    os.environ["WEBNOVEL_BOOK_ROOT"] = str(project_root)
+    try:
+        resolved = resolve_project_root(cwd=elsewhere)
+    finally:
+        if old is None:
+            os.environ.pop("WEBNOVEL_BOOK_ROOT", None)
+        else:
+            os.environ["WEBNOVEL_BOOK_ROOT"] = old
+    assert resolved == project_root.resolve()

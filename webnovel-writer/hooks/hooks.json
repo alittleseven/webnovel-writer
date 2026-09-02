@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python -X utf8 \"${CLAUDE_PLUGIN_ROOT}/hooks/chapter_meter_hook.py\" --session \"${CLAUDE_SESSION_ID}\"",
+            "command": "python -X utf8 \"${ZCODE_PLUGIN_ROOT}/hooks/chapter_meter_hook.py\" --session \"${CLAUDE_SESSION_ID}\"",
             "timeout": 5
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python -X utf8 \"${CLAUDE_PLUGIN_ROOT}/hooks/session_start.py\"",
+            "command": "python -X utf8 \"${ZCODE_PLUGIN_ROOT}/hooks/session_start.py\"",
             "timeout": 5
           }
         ]
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python -X utf8 \"${CLAUDE_PLUGIN_ROOT}/hooks/guard_runtime_write.py\"",
+            "command": "python -X utf8 \"${ZCODE_PLUGIN_ROOT}/hooks/guard_runtime_write.py\"",
             "timeout": 5
           }
         ]
@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python -X utf8 \"${CLAUDE_PLUGIN_ROOT}/hooks/guard_runtime_write.py\"",
+            "command": "python -X utf8 \"${ZCODE_PLUGIN_ROOT}/hooks/guard_runtime_write.py\"",
             "timeout": 5
           }
         ]
@@ -52,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python -X utf8 \"${CLAUDE_PLUGIN_ROOT}/hooks/chapter_body_trace.py\"",
+            "command": "python -X utf8 \"${ZCODE_PLUGIN_ROOT}/hooks/chapter_body_trace.py\"",
             "timeout": 5
           }
         ]

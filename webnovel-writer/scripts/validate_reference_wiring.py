@@ -24,8 +24,14 @@ _SCHEMA = "reference-wiring-report/v1"
 _AUDIT_DIRS = ("references/index",)  # 自审文档本身不作为资产对账
 _EXCLUDED_FILES = {"README.md"}
 # 代码/数据驱动消费目录：init_project.py、genre 解析、CSV_CONFIG、reference_search、
-# 素材播种等按目录整批消费——文本引用扫描覆盖不到，豁免 orphan 判定（missing 仍报）。
-CODE_CONSUMED_DIRS: tuple[str, ...] = ("templates/genres", "templates/output", "references/csv")
+# 素材播种、domains init（book-AGENTS）等按目录整批消费——文本引用扫描覆盖不到，
+# 豁免 orphan 判定（missing 仍报）。
+CODE_CONSUMED_DIRS: tuple[str, ...] = (
+    "templates/genres",
+    "templates/output",
+    "references/csv",
+    "templates/book-AGENTS.md",
+)
 _PATH_TOKEN = re.compile(r"[\w\-／/]*(?:references|templates)/[\w\-./]+\.md")
 _MD_GLOB = "**/*.md"
 

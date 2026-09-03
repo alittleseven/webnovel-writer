@@ -93,6 +93,12 @@
 
 ## 当前非直接调用项
 
+### M7/T31 接线（2026-09-03）
+
+| Skill/Agent | 阶段 | 触发 | Reference | 读取方式 |
+|-------------|------|------|-----------|---------|
+| domains init（代码消费） | init 建骨架 | 书项目 AGENTS.md 缺失时 | `templates/book-AGENTS.md` | 全文（写入书项目根） |
+
 ### M5/T27 接线（2026-09-03，R11）
 
 | Skill/Agent | 阶段 | 触发 | Reference | 读取方式 |

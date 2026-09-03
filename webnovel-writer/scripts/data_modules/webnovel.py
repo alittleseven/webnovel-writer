@@ -356,6 +356,19 @@ def cmd_prose_check(args: argparse.Namespace) -> int:
     return prose_check.main(argv)
 
 
+def cmd_drafts(args: argparse.Namespace) -> int:
+    """多稿择优数据面（webnovel-copilot-300 M5/T24，R3/D0-4）。"""
+    from data_modules import draft_selection
+
+    root = _resolve_root_lenient(args.project_root)
+    argv = [args.action, "--chapter", str(args.chapter), "--project-root", str(root), "--format", args.format]
+    if args.action == "record":
+        argv.extend(["--draft", str(args.draft or 0), "--scores", args.scores, "--rationale", args.rationale])
+    if args.action == "link" and args.score is not None:
+        argv.extend(["--score", str(args.score)])
+    return draft_selection.main(argv)
+
+
 def _project_root_diagnostic(
     explicit_project_root: Optional[str], exc: FileNotFoundError
 ) -> str:
@@ -958,6 +971,16 @@ def _main_impl() -> None:
     p_prose_check = sub.add_parser("prose-check", help="程序化文笔检测（T23/R2）：高频词库/长句/同句式/说明腔六项")
     p_prose_check.add_argument("--file", required=True, help="正文文件（md/txt）")
     p_prose_check.set_defaults(func=cmd_prose_check)
+
+    p_drafts = sub.add_parser("drafts", help="多稿择优（T24/R3）：record 登记 rubric / choose 择优 / link 回填审查分 / report")
+    p_drafts.add_argument("action", choices=["record", "choose", "link", "report"], help="子动作")
+    p_drafts.add_argument("--chapter", type=int, required=True, help="目标章节号")
+    p_drafts.add_argument("--draft", type=int, default=None, help="record：稿号")
+    p_drafts.add_argument("--scores", default="", help="record：逗号分隔 维:分（六维，见 draft-rubric.md）")
+    p_drafts.add_argument("--rationale", default="", help="record：一句话理由（重写标记（rewrite_done）写于此）")
+    p_drafts.add_argument("--score", type=float, default=None, help="link：最终审查分")
+    p_drafts.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    p_drafts.set_defaults(func=cmd_drafts)
 
     p_timeline_check = sub.add_parser("timeline-check", help="程序化校验卷时间线（单调递增/倒计时算术）")
     p_timeline_check.add_argument("--volume", type=int, required=True, help="卷号")

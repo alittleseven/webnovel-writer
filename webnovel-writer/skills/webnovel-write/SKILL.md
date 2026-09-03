@@ -123,6 +123,14 @@ Task:
 
 只根据任务书起草。不加载 core-constraints/anti-ai-guide（已内化到任务书）。只输出纯正文，无占位符。有结构化节点时围绕 CBN→CPNs→CEN 展开。中文思维写作。
 
+**多稿择优（webnovel-copilot-300 M5/T24，R3/D0-4）**：默认 `--drafts 2`（`--fast/--minimal` 保持 1）：
+1. 每稿独立起草（同任务书，稿间互不可见）；
+2. 按 `references/draft-rubric.md` 对每稿自评（六维 1-5 分 + 一句话理由），逐稿落库
+   `webnovel.py drafts record --chapter {N} --draft {i} --scores "..." --rationale "..."`；
+3. `webnovel.py drafts choose --chapter {N}` 择优：取均分最高稿进入 Step 3；
+   均分 <3.5 时按返回的最弱项定向重写一次（`--rationale "（rewrite_done）..."` 重新登记）；
+4. Step 3 审查完成后 `webnovel.py drafts link --chapter {N} --score {审查分}` 回填对照（rubric 长期校准）。
+
 ### Step 3：审查
 
 必须使用 `Agent` 工具调用 `reviewer`，不得由主流程伪造审查 JSON。

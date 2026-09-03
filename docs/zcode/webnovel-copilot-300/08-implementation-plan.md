@@ -99,12 +99,19 @@
 
 ## M5 · 质量轨整编（吸收 W1-W10）
 
-- **T22 W1+R10+R5 上下文连续性包**：prev_chapter_tail/stale_notes section + 截断方向修正 + DROP_ORDER 重排。验收：饱和测试三段保全。
-- **T23 W2 prose_check 与第 6 维**：检测器 + reviewer 维度 + ai_flavor 回流激活。验收：F-11 增强点；行为评测更新绿。
-- **T24 W3 多稿择优**：--drafts N + rubric + 落库。验收：按 D0-4 档位实跑一章两稿记录完整。
-- **T25 W4 反馈闭合**：reading_power 投影 + reader_signal section（含 review 趋势）。验收：连续同型钩子两章后第三章任务书含差异化提醒。
-- **T26 W7/W8 资产接线与触发面**：孤儿接线（naming-and-voice/golden-finger/desire）+ write CSV 触发 5→9。验收：质量审阅 02 文档对应项复检清零。
-- **T27 W11-W15 择要**：技法盲区五类补齐 + v7 机检上限/承诺推进 + 题材模板补厚 + 引用对账脚本（R15）。验收：validate_csv 0 错；机检新分支测试绿。
+- [x] **T22 W1+R10+R5 上下文连续性包**：prev_chapter_tail/stale_notes section + 截断方向修正 + DROP_ORDER 重排。验收：饱和测试三段保全。
+  - 证据 8d95bf6：6 测试新增全绿；load-context 新增 prev_chapter_tail（上一章定稿尾段 1600 字默认，v7/v6 双布局，PROTECTED）+ stale_notes（作者已改未消费提醒）；recent_summaries 新章优先组装（ch-1 完整、ch-2 承受截断）；PROTECTED_PATHS（文风层+连续性层永不整体丢弃）+ DROP_ORDER 移除 author_style_patterns + memory_pack 比例压缩层；context-agent §3.1 任务书消费指引；test_context_budget 旧断言按 R5 验收要求更新。
+- [x] **T23 W2 prose_check 与第 6 维**：检测器 + reviewer 维度 + ai_flavor 回流激活。验收：F-11 增强点；行为评测更新绿。
+  - 证据 bb01308：11 测试新增全绿；prose_check 六项检测（A-N 十四类高频词库含位置/长句比例/said tag/连续同主语句/纯解释段/段落方差，词库数据 references/prose-lexicon.json）；reviewer 5→6 维（文笔维 category=ai_flavor，先取 prose_check 结果再通读）；write Step 4 anti_ai_force_check 必附 prose_check 结果；行为评测全 PASS。
+- [x] **T24 W3 多稿择优**：--drafts N + rubric + 落库。验收：按 D0-4 档位实跑一章两稿记录完整。
+  - 证据 83907be（+3d59991 路径修复）：9 测试新增全绿；draft_selection 落库 index.db draft_evaluations 表（rubric 六维 1-5 分+理由）；choose 取均分最高稿，<3.5 按最弱项定向重写提示（最多 1 次）；link 回填审查分校准；references/draft-rubric.md；write Step 2 默认 --drafts 2（D0-4）四步流程；CLI drafts record|choose|link|report。
+- [x] **T25 W4 反馈闭合**：reading_power 投影 + reader_signal section（含 review 趋势）。验收：连续同型钩子两章后第三章任务书含差异化提醒。
+  - 证据 b439d50：8 测试新增全绿；reading_power_projection 挂章提交投影链（accepted 自动落 chapter_reading_power，钩子字段取 extraction 顶层/摘要 front matter，闭合 F-05 无生产者）；reader_signal_builder（追读力/钩子分布/review 趋势汇总 + derive_differentiation_reminder 连续两章同型钩子差异化提醒）；load-context 新增 reader_signal section（闭合 F-06 趋势不进主路径）；index get-reader-signals 补 review_trend。
+- [x] **T26 W7/W8 资产接线与触发面**：孤儿接线（naming-and-voice/golden-finger/desire）+ write CSV 触发 5→9。验收：质量审阅 02 文档对应项复检清零。
+  - 证据 0046dd7：naming-and-voice-gaps → context-agent 人物段；golden-finger-templates → init Step 4（启发对照，禁照抄）；desire-description → write Step 4 言情/狗血类；write 触发条件 5→9（+爽点与节奏/桥段套路/人设与关系/金手指与设定）+ context-agent 四表按需补查命令；loading-map/gap-register 登记同步；prompt 完整性测试绿；R15 复检 drift=0（见 T27）。
+- [x] **T27 W11-W15 择要**：技法盲区五类补齐 + v7 机检上限/承诺推进 + 题材模板补厚 + 引用对账脚本（R15）。验收：validate_csv 0 错；机检新分支测试绿。
+  - 证据 3dde421：R11 写作技法.csv +16 条（幽默×8/修辞×4/商业文案×3/亲密戏分档×1）+ pov-management.md 新共享资产并接线，validate_csv 0 错 0 警；R12 v7 机检升级（上限闸 high 疑似灌水不阻断/承诺推进存在性匹配/占位符正则扩容/body_clean 口径统一/回退改书史均值×0.75）新分支 7 测试绿；R14 系统流 97→141 行、都市异能 99→143 行（流派细分/能力边界/大纲结构/Strand Weave/反套路五段补全）；R15 validate_reference_wiring.py 三方对账（orphan/unwired/missing），当前 drift=0。
+  - 收尾：全量 1415 passed，覆盖率 81.90%。
 
 ## M6 · 连贯性专项（A3/A4/A5/A6/A7 收尾）
 

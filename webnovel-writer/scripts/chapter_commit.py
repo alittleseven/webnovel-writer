@@ -49,6 +49,16 @@ def main() -> None:
     )
     service.persist_commit(payload)
     payload = service.apply_projections(payload)
+
+    # 素材使用轨迹落账（webnovel-copilot-300 M2/T12）：静默，绝不阻断写章事务
+    try:
+        from data_modules.material_usage import settle_materials_for_chapter
+
+        if settle_materials_for_chapter(Path(args.project_root), args.chapter):
+            print("materials: 素材引用轨迹已落账")
+    except Exception as exc:  # noqa: BLE001 - 轨迹失败不影响提交
+        print(f"materials: 轨迹落账跳过（{exc}）")
+
     print(summarize_commit_payload(payload))
 
 

@@ -835,8 +835,8 @@ def _main_impl() -> None:
     p_domains.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_domains.set_defaults(func=cmd_domains)
 
-    p_materials = sub.add_parser("materials", help="素材工作台（list/validate/assemble/seed，M2 后续扩展 log/propose/review 等）")
-    p_materials.add_argument("action", choices=["list", "validate", "assemble", "seed"], help="子动作")
+    p_materials = sub.add_parser("materials", help="素材工作台（T11 list/validate/assemble/seed；T12 log/trajectory；M2 后续 propose/adopt/review）")
+    p_materials.add_argument("action", choices=["list", "validate", "assemble", "seed", "log", "trajectory"], help="子动作")
     p_materials.add_argument("material_args", nargs=argparse.REMAINDER, help="子动作参数（--table/--k/--genre 等）")
     p_materials.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_materials.set_defaults(func=cmd_materials)

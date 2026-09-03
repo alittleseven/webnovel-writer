@@ -66,6 +66,14 @@ hook_strength: "strong"
 - 不额外调 LLM；置信度<0.5 不自动写入；不回滚上游步骤。
 - 只生成三份 tmp artifact；不直接写 state/index/summaries/memory/vectors/projection（这些由 chapter-commit 投影链完成）。
 
+## 5.1 素材轨迹（webnovel-copilot-300 M2/T12）
+
+- 章纲卡 `素材引用` 的使用轨迹由 **chapter-commit 自动落账**（`settle_materials_for_chapter`），data-agent 无需手写轨迹。
+- 若主流程未走 chapter-commit（如补录章），可手动落账一次：
+  `python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" materials log --chapter {N}`
+  （重复落账会被幂等闸拒绝；缺失引用只告警不落账）。
+- 查询：`materials trajectory --chapter {N}`；章纲卡引用格式 `表:ID`（表名可用短名，如 `场景:SP-007`）。
+
 ## 6. 校验清单
 
 实体识别完整、三份 artifact 已生成且 schema 合格、`summary_text` 已填写、`scenes` 已作为 artifact 字段填写。

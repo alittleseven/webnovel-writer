@@ -61,6 +61,25 @@ _GENRE_KEYWORDS: dict[str, tuple[str, ...]] = {
 }
 
 
+# 引用短名归一（06 §2 示例用短名：素材引用: [桥段:TR-012, 场景:SP-007]）
+TABLE_ALIASES: dict[str, str] = {
+    "桥段": "桥段", "爽点": "爽点节奏", "爽点节奏": "爽点节奏",
+    "人设": "人设关系", "人设关系": "人设关系",
+    "场景": "场景写法", "场景写法": "场景写法",
+    "技法": "写作技法", "写作技法": "写作技法",
+    "命名": "命名风格", "命名风格": "命名风格",
+    "金手指": "金手指零件", "金手指零件": "金手指零件",
+    "世界观": "世界观零件", "世界观零件": "世界观零件",
+    "金句": "台词金句", "台词金句": "台词金句",
+    "梗": "梗与反差", "梗与反差": "梗与反差",
+}
+
+
+def normalize_table(name: str) -> str | None:
+    """表短名/全名 → 规范表名；未知返回 None。"""
+    return TABLE_ALIASES.get(str(name).strip())
+
+
 def material_dir(project_root: str | Path) -> Path:
     return Path(project_root) / "素材" / "活"
 
@@ -350,11 +369,18 @@ def seed_materials(
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI 入口：python -X utf8 material_store.py {list|validate|assemble|seed} [options]"""
+    """CLI 入口：python -X utf8 material_store.py {list|validate|assemble|seed|log|trajectory|propose|candidates|adopt|discard|review|apply-ruling} [options]
+
+    M2 统一素材 CLI：T12 log/trajectory（material_usage）、T13 propose/candidates/adopt/discard
+    （material_intake）、T14 review/apply-ruling（material_review）经此分发。
+    """
     import argparse
 
-    parser = argparse.ArgumentParser(description="素材数据面（T11）")
-    parser.add_argument("action", choices=["list", "validate", "assemble", "seed"])
+    parser = argparse.ArgumentParser(description="素材工作台（T11-T14）")
+    parser.add_argument(
+        "action",
+        choices=["list", "validate", "assemble", "seed", "log", "trajectory", "propose", "candidates", "adopt", "discard", "review", "apply-ruling"],
+    )
     parser.add_argument("--table", action="append", default=[], help="限定表（可重复）")
     parser.add_argument("--k", type=int, default=ASSEMBLY_TOP_K_DEFAULT)
     parser.add_argument("--version", type=int, default=None)
@@ -362,10 +388,61 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--source-dir", default="")
     parser.add_argument("--project-root", default=".")
     parser.add_argument("--format", choices=["text", "json"], default="text")
+    # T12 轨迹参数
+    parser.add_argument("--chapter", type=int, default=None)
+    parser.add_argument("--usage", default="章纲引用")
+    parser.add_argument("--force", action="store_true")
+    # T13 入库参数
+    parser.add_argument("--channel", default="", help="AI归纳 | 拆书:<出处>")
+    parser.add_argument("--file", default="", help="候选条目 CSV 文件")
+    parser.add_argument("--batch", default="", help="画廊批次文件名")
+    parser.add_argument("--ids", default="", help="逗号分隔条目 id（adopt 限定；缺省整批）")
+    # T14 审阅参数
+    parser.add_argument("--volume", type=int, default=None)
+    parser.add_argument("--decay-volumes", type=int, default=1)
+    parser.add_argument("--ruling", action="append", default=[], help="裁决 表:ID:动作[:并入ID]（可重复）")
     args = parser.parse_args(argv)
 
     root = Path(args.project_root)
     tables = args.table or None
+
+    if args.action in ("log", "trajectory"):
+        from . import material_usage
+
+        sub_argv = [args.action, "--project-root", str(root), "--format", args.format]
+        if args.chapter is not None:
+            sub_argv.extend(["--chapter", str(args.chapter)])
+        if args.action == "log":
+            sub_argv.extend(["--usage", args.usage])
+            if args.force:
+                sub_argv.append("--force")
+        return material_usage.main(sub_argv)
+
+    if args.action in ("propose", "candidates", "adopt", "discard"):
+        from . import material_intake
+
+        sub_argv = [args.action, "--project-root", str(root), "--format", args.format]
+        if args.channel:
+            sub_argv.extend(["--channel", args.channel])
+        if args.file:
+            sub_argv.extend(["--file", args.file])
+        if args.batch:
+            sub_argv.extend(["--batch", args.batch])
+        if args.ids:
+            sub_argv.extend(["--ids", args.ids])
+        return material_intake.main(sub_argv)
+
+    if args.action in ("review", "apply-ruling"):
+        from . import material_review
+
+        sub_argv = [args.action, "--project-root", str(root), "--format", args.format]
+        if args.volume is not None:
+            sub_argv.extend(["--volume", str(args.volume)])
+        sub_argv.extend(["--decay-volumes", str(args.decay_volumes)])
+        for ruling in args.ruling:
+            sub_argv.extend(["--ruling", ruling])
+        return material_review.main(sub_argv)
+
     if args.action == "list":
         payload: dict[str, Any] = {}
         for table in tables or MATERIAL_TABLES:

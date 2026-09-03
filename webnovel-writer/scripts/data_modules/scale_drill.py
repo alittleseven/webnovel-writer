@@ -186,13 +186,15 @@ def run_drill(*, chapters: int = DEFAULT_CHAPTERS, workdir: Path | None = None, 
         )
         return {"exit": proc.returncode, "stdout_tail": (proc.stdout or "")[-100_000:]}
 
+    last_volume = max(1, (chapters + CHAPTERS_PER_VOLUME - 1) // CHAPTERS_PER_VOLUME)
+
     doctor = run_step("doctor", lambda: cli("doctor", "--format", "json"))
-    timeline = run_step("timeline_build_v6", lambda: cli("timeline", "build", "--volume", "6", "--format", "json"))
-    check = run_step("timeline_check_v6", lambda: cli("timeline-check", "--volume", "6", "--format", "json"))
-    scan = run_step("foreshadow_scan_300", lambda: cli("foreshadow-scan", "scan", "--chapter", str(chapters), "--no-apply", "--format", "json"))
+    timeline = run_step("timeline_build_last", lambda: cli("timeline", "build", "--volume", str(last_volume), "--format", "json"))
+    check = run_step("timeline_check_last", lambda: cli("timeline-check", "--volume", str(last_volume), "--format", "json"))
+    scan = run_step("foreshadow_scan", lambda: cli("foreshadow-scan", "scan", "--chapter", str(chapters), "--no-apply", "--format", "json"))
     assemble = run_step("materials_assemble", lambda: cli("materials", "assemble", "--k", "20", "--format", "json"))
     validate = run_step("materials_validate", lambda: cli("materials", "validate", "--format", "json"))
-    reconcile = run_step("volume_reconcile_v6", lambda: cli("volume-reconcile", "--volume", "6", "--format", "json"))
+    reconcile = run_step("volume_reconcile_last", lambda: cli("volume-reconcile", "--volume", str(last_volume), "--format", "json"))
 
     # 正确性断言
     assemble_dump = target / ".webnovel" / "tmp" / "cli_out" / "materials.txt"
@@ -210,7 +212,7 @@ def run_drill(*, chapters: int = DEFAULT_CHAPTERS, workdir: Path | None = None, 
         "steps_ok": all(
             s["result"].get("exit") == 0
             for s in steps
-            if s["step"] in ("timeline_build_v6", "timeline_check_v6", "materials_validate", "volume_reconcile_v6")
+            if s["step"] in ("timeline_build_last", "timeline_check_last", "materials_validate", "volume_reconcile_last")
         ),
         "reconcile_ok": reconcile.get("exit") == 0,
     }

@@ -166,6 +166,17 @@ def _resolve_root_lenient(raw: str) -> Path:
         raise
 
 
+def cmd_zones(args: argparse.Namespace) -> int:
+    """总纲三区（T6）：migrate 自动分区 / show 状态。"""
+    from data_modules import master_outline_zones
+
+    root = _resolve_root_lenient(args.project_root)
+    argv = [args.action, "--project-root", str(root), "--format", args.format]
+    if args.dry_run:
+        argv.append("--dry-run")
+    return master_outline_zones.main(argv)
+
+
 def cmd_impact(args: argparse.Namespace) -> int:
     """影响反查（T5）：对指定文件路径输出受影响面与三选项建议（只读）。"""
     from data_modules import impact_analyzer
@@ -697,6 +708,12 @@ def _main_impl() -> None:
     p_doctor.add_argument("--deep", action="store_true", help="包含 dashboard 等较深检查")
     p_doctor.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_doctor.set_defaults(func=cmd_doctor)
+
+    p_zones = sub.add_parser("zones", help="总纲三区结构（migrate 自动分区 / show 状态）")
+    p_zones.add_argument("action", choices=["migrate", "show"])
+    p_zones.add_argument("--dry-run", action="store_true")
+    p_zones.add_argument("--format", choices=["text", "json"], default="text")
+    p_zones.set_defaults(func=cmd_zones)
 
     p_impact = sub.add_parser("impact", help="影响反查：路径→受影响章/资产+三选项裁决建议（只读）")
     p_impact.add_argument("--path", required=True, help="书仓内相对路径")

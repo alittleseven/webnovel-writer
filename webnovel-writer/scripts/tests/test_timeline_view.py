@@ -64,7 +64,8 @@ class TestBuildView:
         assert report["ok"] is True
         view = (book / "大纲" / "卷纲" / "第02卷-时间线.md").read_text(encoding="utf-8")
         assert "<!-- timeline-view" in view
-        assert view.index("39") < view.index("40"), "按章排序"
+        # 精确匹配表格行首：generated 时间戳可能含 "39"/"40" 数字，裸子串会撞车（时间敏感假失败）
+        assert view.index("| 39 |") < view.index("| 40 |"), "按章排序"
         assert "发现账本异常" in view
         assert "F-003" in view
         assert "凝罡突破" in view

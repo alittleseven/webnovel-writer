@@ -59,6 +59,21 @@ def main() -> None:
     except Exception as exc:  # noqa: BLE001 - 轨迹失败不影响提交
         print(f"materials: 轨迹落账跳过（{exc}）")
 
+    # 文风域落账（webnovel-copilot-300 M3/T17 + F-11）：高分采样 + 指纹增量，静默不阻断
+    try:
+        from data_modules.style_domain import settle_style_domain
+
+        style_report = settle_style_domain(
+            Path(args.project_root),
+            chapter=args.chapter,
+            review_file=args.review_result,
+            extraction_file=args.extraction_result,
+        )
+        if style_report.get("recorded"):
+            print(f"style: 高分样本 +{style_report['recorded']}，指纹已更新（{style_report['fingerprint_chapters']} 章）")
+    except Exception as exc:  # noqa: BLE001 - 文风落账失败不影响提交
+        print(f"style: 文风落账跳过（{exc}）")
+
     print(summarize_commit_payload(payload))
 
 

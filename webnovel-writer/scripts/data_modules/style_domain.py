@@ -363,6 +363,123 @@ def write_fingerprint_from_book(
     return {"ok": True, "schema_version": STYLE_SCHEMA_VERSION, "chapters": fingerprint["定稿章数"]}
 
 
+# ---------------------------------------------------------------------------
+# style_anchor 接线（M3/T17 = 质量审阅 W6/R6/F-08）
+# ---------------------------------------------------------------------------
+
+STYLE_ANCHOR_MIN_SCORE = 85.0  # R6：accepted 且 overall_score ≥85 才采样
+STYLE_ANCHOR_MAX_CHARS = 500  # R6：注入 1 段 300-500 字高分原文
+
+
+def _sampler_for(project_root: Path):
+    from .config import DataModulesConfig
+    from .style_sampler import StyleSampler
+
+    return StyleSampler(DataModulesConfig.from_project_root(project_root))
+
+
+def record_style_samples(
+    project_root: str | Path,
+    *,
+    chapter: int,
+    content: str,
+    review_score: float,
+    scenes: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """高分章采样入 style_samples.db（R6：≥85 分；低分章一律不采）。"""
+    score = float(review_score or 0)
+    if score < STYLE_ANCHOR_MIN_SCORE:
+        return {"ok": True, "recorded": 0, "reason": "below_threshold", "score": score}
+    sampler = _sampler_for(Path(project_root))
+    candidates = sampler.extract_candidates(int(chapter), content, score, scenes)
+    recorded = sum(1 for candidate in candidates if sampler.add_sample(candidate))
+    return {"ok": True, "recorded": recorded, "score": score, "schema_version": STYLE_SCHEMA_VERSION}
+
+
+def build_style_anchor_section(project_root: str | Path) -> dict[str, Any]:
+    """context 装配的 style_anchor section（R6：1 段高分原文 + 语气节奏参照 + 指纹摘要）。"""
+    root = Path(project_root)
+    samples = _sampler_for(root).get_best_samples(limit=1)
+    if not samples:
+        return {}
+    sample = samples[0]
+    fingerprint = read_fingerprint(root)
+    digest: dict[str, Any] = {}
+    if fingerprint:
+        digest = {
+            "句长均值": (fingerprint.get("句长") or {}).get("均值"),
+            "对话占比": fingerprint.get("对话占比"),
+            "said_tag_ratio": fingerprint.get("said_tag_ratio"),
+            "口头禅": [g.get("词") for g in (fingerprint.get("高频口头禅") or [])[:3]],
+        }
+    return {
+        "说明": "语气节奏参照：以下为本书高分原文样本（W6/R6）",
+        "样本": sample.content[:STYLE_ANCHOR_MAX_CHARS],
+        "章": sample.chapter,
+        "场景类型": sample.scene_type,
+        "指纹摘要": digest,
+    }
+
+
+def settle_style_domain(
+    project_root: str | Path,
+    *,
+    chapter: int,
+    review_file: str | Path | None = None,
+    extraction_file: str | Path | None = None,
+) -> dict[str, Any]:
+    """chapter-commit 后的文风域落账（F-11 settle 追加）：高分采样 + 指纹增量。
+
+    采样门：review 无阻塞 issue 且 overall_score ≥85。失败由调用方静默处理，不阻断提交。
+    """
+    import json as _json
+
+    root = Path(project_root)
+    review: dict[str, Any] = {}
+    if review_file and Path(review_file).is_file():
+        review = _json.loads(Path(review_file).read_text(encoding="utf-8"))
+    issues = review.get("issues") or []
+    rejected = any(
+        issue.get("blocking") is True or str(issue.get("severity") or "") == "critical" for issue in issues
+    )
+    score = float(review.get("overall_score") or 0)
+
+    recorded = 0
+    if not rejected and score >= STYLE_ANCHOR_MIN_SCORE:
+        scenes: list[dict[str, Any]] = []
+        if extraction_file and Path(extraction_file).is_file():
+            scenes = _json.loads(Path(extraction_file).read_text(encoding="utf-8")).get("scenes") or []
+        content = _read_chapter_body(root, int(chapter))
+        if content:
+            recorded = record_style_samples(
+                root, chapter=int(chapter), content=content, review_score=score, scenes=scenes
+            )["recorded"]
+
+    fingerprint_report = write_fingerprint_from_book(root)
+    return {
+        "ok": True,
+        "recorded": recorded,
+        "score": score,
+        "rejected": rejected,
+        "fingerprint_chapters": fingerprint_report["chapters"],
+    }
+
+
+def _read_chapter_body(project_root: Path, chapter: int) -> str:
+    chapter_dir = project_root / CHAPTER_DIR
+    if not chapter_dir.is_dir():
+        return ""
+    matches = sorted(chapter_dir.glob(f"{int(chapter):04d}-*.md"))
+    if not matches:
+        return ""
+    text = matches[0].read_text(encoding="utf-8")
+    if text.startswith("---"):
+        parts = text.split("---", 2)
+        if len(parts) == 3:
+            text = parts[2]
+    return text.strip()
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI 入口：python -X utf8 style_domain.py {migrate|fingerprint|golden-add|golden-list|golden-feed}"""
     import argparse

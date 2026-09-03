@@ -73,6 +73,8 @@ class ContextManager:
         "runtime_status",
         "latest_commit",
         "prewrite_validation",
+        "style_anchor",
+        "author_model",
     }
     SECTION_ORDER = [
         "core",
@@ -85,11 +87,13 @@ class ContextManager:
         "reader_signal",
         "genre_profile",
         "writing_guidance",
+        "style_anchor",
         "plot_structure",
         "story_skeleton",
         "memory",
         "long_term_memory",
         "preferences",
+        "author_model",
         "alerts",
     ]
     SUMMARY_SECTION_RE = re.compile(r"##\s*剧情摘要\s*\r?\n(.*?)(?=\r?\n##|\Z)", re.DOTALL)
@@ -122,8 +126,8 @@ class ContextManager:
 
     # S2/C2：总预算超限时低价值 section 先弃（meta/core/story_contract/runtime_status/latest_commit 受保护）
     PAYLOAD_DROP_ORDER = [
-        "long_term_memory", "scene", "alerts", "preferences", "memory", "global",
-        "prewrite_validation", "reader_signal", "writing_guidance",
+        "long_term_memory", "scene", "alerts", "preferences", "author_model", "memory", "global",
+        "prewrite_validation", "style_anchor", "reader_signal", "writing_guidance",
         "genre_profile", "story_skeleton", "plot_structure",
     ]
 
@@ -302,6 +306,10 @@ class ContextManager:
             plot_structure=plot_structure,
             story_contract=story_contract,
         )
+        # M3/T16+T17：author_model 注入（F-12）与 style_anchor 注入（W6/R6）——
+        # 文风域缺失（无样本/无模型文件）时为空 section，不影响既有装配。
+        style_anchor = self._load_style_anchor()
+        author_model = self._load_author_model()
 
         return {
             "meta": {"chapter": chapter},
@@ -316,9 +324,11 @@ class ContextManager:
             "reader_signal": reader_signal,
             "genre_profile": genre_profile,
             "writing_guidance": writing_guidance,
+            "style_anchor": style_anchor,
             "plot_structure": plot_structure,
             "story_skeleton": story_skeleton,
             "preferences": preferences,
+            "author_model": author_model,
             "memory": memory,
             "long_term_memory": long_term_memory,
             "alerts": {
@@ -330,6 +340,26 @@ class ContextManager:
                 ),
             },
         }
+
+    def _load_style_anchor(self) -> Dict[str, Any]:
+        """文风锚点（W6/R6）：本书高分原文样本 + 指纹摘要；文风域缺失时为空。"""
+        try:
+            from .style_domain import build_style_anchor_section
+
+            return build_style_anchor_section(self.config.project_root)
+        except Exception as exc:
+            logger.warning("style_anchor_failed: %s", exc)
+            return {}
+
+    def _load_author_model(self) -> Dict[str, Any]:
+        """作者模型注入（F-12）：author_model.md + 跨书偏好.yaml；缺失时为空。"""
+        try:
+            from .author_model import load_author_model_section
+
+            return load_author_model_section(self.config.project_root)
+        except Exception as exc:
+            logger.warning("author_model_failed: %s", exc)
+            return {}
 
     def _load_reader_signal(self, chapter: int) -> Dict[str, Any]:
         if not getattr(self.config, "context_reader_signal_enabled", True):

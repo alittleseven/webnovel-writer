@@ -1,6 +1,6 @@
 ---
 name: deconstruction-agent
-description: /webnovel-init 的参考书拆解子代理。抽取可迁移的创作模式与 init 候选，不污染新书 canon。
+description: /webnovel-init 的参考书拆解子代理。抽取可迁移的创作模式与 init 候选，不污染新书 canon。兼做素材拆书投喂（webnovel-copilot-300 F-05：候选入素材画廊）。
 tools: Read, Grep, Bash
 model: inherit
 color: magenta
@@ -122,7 +122,21 @@ color: magenta
 - `duration_ms`：由主流程计时记录。
 - `outputs`：`init_reference_research` JSON。
 
-## 9. 边界、确认与错误处理
+## 9. 素材投喂模式（webnovel-copilot-300 M2/T13，`/webnovel:materials 拆书`）
+
+调用方传 `mode=materials_feed`（或用户明确要求"拆书入素材库"）时，走本模式而非 init 拆解：
+
+1. 按第 6 节抽象转化规则，从参考文本抽取**可迁移零件**（不带入原作专有名词），映射到 10 张素材表：
+   `桥段 / 爽点节奏 / 人设关系 / 场景写法 / 写作技法 / 命名风格 / 金手指零件 / 世界观零件 / 台词金句 / 梗与反差`。
+2. 产出候选 CSV（列：`表,id,名称,分类,核心摘要,详细展开,正例,反例`；`表` 用上表全名或短名如 `场景`；
+   `id` 自拟且带来源前缀避免冲突，如 `CS-<书名缩写>-001`），写到 `工作区/素材候选-拆书.csv`。
+3. 调 CLI 入画廊（**先进画廊，作者采纳才入活层**，绝不直写 `素材/活/`）：
+   `python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" materials propose --channel "拆书:<书名>" --file "工作区/素材候选-拆书.csv"`
+4. 向主流程汇报：批号（如 `chaishu-v1.csv`）、条数、各表分布；提示作者用 `materials adopt --batch <批号>` 逐条采纳或 `materials discard --batch <批号>` 整批丢弃。
+
+边界：本模式只允许写 `工作区/` 下的候选 CSV 与调用 `materials propose`；`表` 列非法或 id 缺失会被 CLI 拒绝——修正后重提，不得绕过画廊直写活层。
+
+## 10. 边界、确认与错误处理
 
 边界：
 - 不生成新书 canon，不替用户做最终设定决定。

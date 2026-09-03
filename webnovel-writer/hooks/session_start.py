@@ -25,6 +25,26 @@ def _clip(text: str) -> str:
     return clipped
 
 
+def _run_webnovel(webnovel: Path, workspace_root: str, *args: str, timeout: int = 4) -> str:
+    try:
+        proc = subprocess.run(
+            [sys.executable, "-X", "utf8", str(webnovel), "--project-root", workspace_root, *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=timeout,
+        )
+    except Exception:
+        return ""
+    return proc.stdout or proc.stderr or ""
+
+
+def compose_hook_output(status_text: str, sync_brief: str) -> str:
+    """会话注入内容 = 作者修改摘要（若有）+ 项目状态（clip 各自独立，总量有界）。"""
+    parts = [part for part in (sync_brief.strip(), _clip(status_text)) if part]
+    return "\n".join(parts)
+
+
 def main() -> int:
     if _truthy(os.environ.get(DISABLE_ENV)):
         return 0
@@ -35,28 +55,18 @@ def main() -> int:
     if not webnovel.is_file():
         return 0
 
-    try:
-        proc = subprocess.run(
-            [
-                sys.executable,
-                "-X",
-                "utf8",
-                str(webnovel),
-                "--project-root",
-                str(workspace_root),
-                "project-status",
-                "--format",
-                "summary",
-            ],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=4,
-        )
-    except Exception:
-        return 0
+    # T4（webnovel-copilot-300 M0）：author-sync 留账 + 作者影响摘要（best-effort）
+    sync_brief = _run_webnovel(webnovel, workspace_root, "author-sync", "--format", "text", timeout=6)
 
-    output = _clip(proc.stdout or proc.stderr or "")
+    status_text = _run_webnovel(
+        webnovel,
+        workspace_root,
+        "project-status",
+        "--format",
+        "summary",
+    )
+
+    output = compose_hook_output(status_text, sync_brief)
     if output:
         print(output)
     return 0

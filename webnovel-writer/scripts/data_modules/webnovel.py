@@ -369,6 +369,38 @@ def cmd_drafts(args: argparse.Namespace) -> int:
     return draft_selection.main(argv)
 
 
+def cmd_foreshadow_scan(args: argparse.Namespace) -> int:
+    """承诺账本扫描与本章应推进项（webnovel-copilot-300 M6/T28，A3）。"""
+    from data_modules import promise_ledger
+
+    root = _resolve_root_lenient(args.project_root)
+    argv = [args.action, "--chapter", str(args.chapter), "--project-root", str(root), "--format", args.format]
+    if args.action == "scan" and args.no_apply:
+        argv.append("--no-apply")
+    return promise_ledger.main(argv)
+
+
+def cmd_promise_ledger(args: argparse.Namespace) -> int:
+    """承诺账本 CRUD（webnovel-copilot-300 M6/T28）：create/list/update。"""
+    from data_modules import promise_ledger
+
+    root = _resolve_root_lenient(args.project_root)
+    argv = [args.action, "--project-root", str(root), "--format", args.format]
+    if args.action == "create":
+        argv.extend([
+            "--kind", args.kind, "--name", args.name,
+            "--planted-chapter", str(args.planted_chapter),
+            "--due-chapter", str(args.due_chapter), "--note", args.note,
+        ])
+    if args.action == "list" and args.kind:
+        argv.extend(["--kind", args.kind])
+    if args.action == "update":
+        argv.extend(["--id", args.id, "--status", args.status])
+        if args.chapter:
+            argv.extend(["--chapter", str(args.chapter)])
+    return promise_ledger.crud_main(argv)
+
+
 def _project_root_diagnostic(
     explicit_project_root: Optional[str], exc: FileNotFoundError
 ) -> str:
@@ -981,6 +1013,26 @@ def _main_impl() -> None:
     p_drafts.add_argument("--score", type=float, default=None, help="link：最终审查分")
     p_drafts.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_drafts.set_defaults(func=cmd_drafts)
+
+    p_fscan = sub.add_parser("foreshadow-scan", help="承诺逾期扫描与本章应推进项（T28/A3）：scan / pending")
+    p_fscan.add_argument("action", choices=["scan", "pending"], help="scan=逾期扫描（有逾期时非零退出）；pending=本章应推进项")
+    p_fscan.add_argument("--chapter", type=int, required=True, help="当前章号")
+    p_fscan.add_argument("--no-apply", dest="no_apply", action="store_true", help="scan 只报告不标记逾期")
+    p_fscan.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    p_fscan.set_defaults(func=cmd_foreshadow_scan)
+
+    p_ledger = sub.add_parser("promise-ledger", help="承诺账本 CRUD（T28）：create/list/update")
+    p_ledger.add_argument("action", choices=["create", "list", "update"], help="子动作")
+    p_ledger.add_argument("--kind", choices=["伏笔", "悬念", "感情线"], default="", help="create/list：条目类型")
+    p_ledger.add_argument("--name", default="", help="create：条目名称")
+    p_ledger.add_argument("--planted-chapter", type=int, default=0, help="create：埋设章")
+    p_ledger.add_argument("--due-chapter", type=int, default=0, help="create：最晚回收章")
+    p_ledger.add_argument("--note", default="", help="create：备注")
+    p_ledger.add_argument("--id", default="", help="update：条目编号")
+    p_ledger.add_argument("--status", choices=["open", "推进中", "已回收", "作废", "逾期"], default="", help="update：目标状态")
+    p_ledger.add_argument("--chapter", type=int, default=None, help="update：回收章（已回收时）")
+    p_ledger.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    p_ledger.set_defaults(func=cmd_promise_ledger)
 
     p_timeline_check = sub.add_parser("timeline-check", help="程序化校验卷时间线（单调递增/倒计时算术）")
     p_timeline_check.add_argument("--volume", type=int, required=True, help="卷号")

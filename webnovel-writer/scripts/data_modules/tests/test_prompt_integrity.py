@@ -60,6 +60,7 @@ REGISTERED_CLI_SUBCOMMANDS = {
     "meter", "setting-read",
     "materials",
     "style-domain", "learn", "power", "forge", "prose-check", "drafts",
+    "foreshadow-scan", "promise-ledger",
 }
 
 

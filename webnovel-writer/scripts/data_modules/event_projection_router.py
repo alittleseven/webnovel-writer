@@ -35,6 +35,9 @@ class EventProjectionRouter:
         if status == "accepted":
             writers.add("state")
             writers.add("index")
+            # M5/T25（R4/F-05）：追读力投影——accepted 提交自动落 chapter_reading_power
+            #（writer 自检钩子字段，缺失时 skipped，不影响提交链）
+            writers.add("reading_power")
         if extraction_list(commit_payload, "entity_deltas"):
             writers.add("index")
         if extraction_text(commit_payload, "summary_text"):

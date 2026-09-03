@@ -267,6 +267,16 @@ class MemoryContractAdapter:
         except Exception as e:
             logger.warning("load_context: stale_notes failed: %s", e)
 
+        # M5/T25（R4/F-06）：reader_signal section（追读力/钩子分布/审查趋势/差异化提醒）
+        try:
+            from .reader_signal_builder import build_reader_signal
+
+            signal = build_reader_signal(self.config.project_root)
+            if signal.get("recent_reading_power") or signal.get("review_trend") or signal.get("differentiation_reminder"):
+                sections["reader_signal"] = signal
+        except Exception as e:
+            logger.warning("load_context: reader_signal failed: %s", e)
+
         # 4. 主角状态 + 进度
         try:
             sm = self._state_manager()

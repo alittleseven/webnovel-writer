@@ -228,6 +228,7 @@ class ChapterCommitService:
     def _projection_writers(self) -> dict[str, Any]:
         from .index_projection_writer import IndexProjectionWriter
         from .memory_projection_writer import MemoryProjectionWriter
+        from .reading_power_projection import ReadingPowerProjectionWriter
         from .state_projection_writer import StateProjectionWriter
         from .summary_projection_writer import SummaryProjectionWriter
         from .vector_projection_writer import VectorProjectionWriter
@@ -238,6 +239,7 @@ class ChapterCommitService:
             "summary": SummaryProjectionWriter(self.project_root),
             "memory": MemoryProjectionWriter(self.project_root),
             "vector": VectorProjectionWriter(self.project_root),
+            "reading_power": ReadingPowerProjectionWriter(self.project_root),
         }
 
     def _writer_status(self, result: dict[str, Any]) -> str:

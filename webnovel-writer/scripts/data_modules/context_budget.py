@@ -29,6 +29,8 @@ SECTION_QUOTAS: dict[str, int] = {
     # M5/T22（R1/W1）：上一章原文尾段与作者已改提醒
     "prev_chapter_tail": 1700,
     "stale_notes": 1200,
+    # M5/T25（R4）：追读力信号（近期追读/钩子分布/审查趋势/差异化提醒）
+    "reader_signal": 1600,
 }
 
 # 嵌套 section 的子配额（memory_pack / story_contracts 内部）

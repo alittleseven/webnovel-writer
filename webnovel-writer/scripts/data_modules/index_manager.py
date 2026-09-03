@@ -1344,6 +1344,8 @@ def main():
             "recent_reading_power": manager.get_recent_reading_power(args.limit),
             "pattern_usage_stats": manager.get_pattern_usage_stats(args.last_n),
             "hook_type_stats": manager.get_hook_type_stats(args.last_n),
+            # M5/T25（R4/F-06）：审查趋势并入 reader signals（主路径可消费）
+            "review_trend": manager.get_recent_review_metrics(5),
         }
         emit_success(signals, message="reader_signals")
 

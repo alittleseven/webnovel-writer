@@ -166,6 +166,17 @@ def _resolve_root_lenient(raw: str) -> Path:
         raise
 
 
+def cmd_timeline(args: argparse.Namespace) -> int:
+    """卷纲时间线视图（T9）：build 导出 / sync 反向回写（默认 dry-run）。"""
+    from data_modules import timeline_view
+
+    root = _resolve_root_lenient(args.project_root)
+    argv = [args.action, "--volume", str(args.volume), "--project-root", str(root), "--format", args.format]
+    if args.apply:
+        argv.append("--apply")
+    return timeline_view.main(argv)
+
+
 def cmd_chapter_batch(args: argparse.Namespace) -> int:
     """章纲批量（T8）：confirm 一次确认一批。"""
     from data_modules import chapter_outline_batch
@@ -733,6 +744,13 @@ def _main_impl() -> None:
     p_doctor.add_argument("--deep", action="store_true", help="包含 dashboard 等较深检查")
     p_doctor.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_doctor.set_defaults(func=cmd_doctor)
+
+    p_timeline = sub.add_parser("timeline", help="卷纲时间线视图（build 导出 / sync 反向对账回写）")
+    p_timeline.add_argument("action", choices=["build", "sync"])
+    p_timeline.add_argument("--volume", type=int, required=True, help="卷号")
+    p_timeline.add_argument("--apply", action="store_true", help="sync 时回写章纲卡")
+    p_timeline.add_argument("--format", choices=["text", "json"], default="text")
+    p_timeline.set_defaults(func=cmd_timeline)
 
     p_chapter_batch = sub.add_parser("chapter-batch", help="章纲批量（confirm 一次确认一批）")
     p_chapter_batch.add_argument("action", choices=["confirm"])

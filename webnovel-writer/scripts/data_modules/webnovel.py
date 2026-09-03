@@ -324,6 +324,26 @@ def cmd_power(args: argparse.Namespace) -> int:
     return power_anchor.main(argv)
 
 
+def cmd_forge(args: argparse.Namespace) -> int:
+    """设定工坊（webnovel-copilot-300 M4/T20，F-08）：prepare/save/adopt/confirm/list。"""
+    from data_modules import setting_forge
+
+    root = _resolve_root_lenient(args.project_root)
+    argv = [args.action, "--project-root", str(root), "--format", args.format]
+    if args.category:
+        argv.extend(["--category", args.category])
+    if args.file:
+        argv.extend(["--file", args.file])
+    if args.action == "adopt":
+        if args.version:
+            argv.extend(["--version", str(args.version)])
+        if args.proposal:
+            argv.extend(["--proposal", str(args.proposal)])
+    if args.action == "confirm" and args.draft:
+        argv.extend(["--draft", args.draft])
+    return setting_forge.main(argv)
+
+
 def _project_root_diagnostic(
     explicit_project_root: Optional[str], exc: FileNotFoundError
 ) -> str:
@@ -912,6 +932,16 @@ def _main_impl() -> None:
     p_power.add_argument("power_args", nargs=argparse.REMAINDER, help="子动作参数（--chapter/--matchup/--apply 等）")
     p_power.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_power.set_defaults(func=cmd_power)
+
+    p_forge = sub.add_parser("forge", help="设定工坊（T20，F-08，提案模式）：prepare/save/adopt/confirm/list")
+    p_forge.add_argument("action", choices=["prepare", "save", "adopt", "confirm", "list"], help="子动作")
+    p_forge.add_argument("--category", default="", help="境界/功法/法宝/命名")
+    p_forge.add_argument("--file", default="", help="save：提案 md 文件")
+    p_forge.add_argument("--version", type=int, default=None, help="adopt：画廊版本")
+    p_forge.add_argument("--proposal", type=int, default=None, help="adopt：提案编号（1-5）")
+    p_forge.add_argument("--draft", default="", help="confirm：草案文件")
+    p_forge.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    p_forge.set_defaults(func=cmd_forge)
 
     p_timeline_check = sub.add_parser("timeline-check", help="程序化校验卷时间线（单调递增/倒计时算术）")
     p_timeline_check.add_argument("--volume", type=int, required=True, help="卷号")

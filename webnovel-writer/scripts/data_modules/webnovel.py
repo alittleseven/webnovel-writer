@@ -279,6 +279,37 @@ def cmd_materials(args: argparse.Namespace) -> int:
     return material_store.main(argv)
 
 
+def cmd_style_domain(args: argparse.Namespace) -> int:
+    """文风域数据面（webnovel-copilot-300 M3/T15）：宪法迁移 / 指纹 / 金句库。"""
+    from data_modules import style_domain
+
+    root = _resolve_root_lenient(args.project_root)
+    argv = [args.action, "--project-root", str(root), "--format", args.format]
+    if args.action == "fingerprint" and args.chapter:
+        argv.extend(["--chapter", str(args.chapter)])
+    if args.action == "golden-add":
+        argv.extend(["--chapter", str(args.chapter or 0), "--text", args.text, "--note", args.note])
+    if args.action == "golden-feed":
+        argv.extend(["--id", args.id])
+    return style_domain.main(argv)
+
+
+def cmd_learn(args: argparse.Namespace) -> int:
+    """学习闭环（webnovel-copilot-300 M3/T16，F-12）：learn --from-journal / apply / show。"""
+    from data_modules import author_model
+
+    root = _resolve_root_lenient(args.project_root)
+    argv = [args.action, "--project-root", str(root), "--format", args.format]
+    if args.action == "learn":
+        if args.from_journal:
+            argv.append("--from-journal")
+        if args.volume:
+            argv.extend(["--volume", str(args.volume)])
+    if args.action == "apply" and args.suggestion:
+        argv.extend(["--suggestion", args.suggestion])
+    return author_model.main(argv)
+
+
 def _project_root_diagnostic(
     explicit_project_root: Optional[str], exc: FileNotFoundError
 ) -> str:
@@ -844,6 +875,23 @@ def _main_impl() -> None:
     p_materials.add_argument("material_args", nargs=argparse.REMAINDER, help="子动作参数（--table/--k/--genre 等）")
     p_materials.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_materials.set_defaults(func=cmd_materials)
+
+    p_style_domain = sub.add_parser("style-domain", help="文风域（migrate 宪法迁移 / fingerprint 指纹 / golden-* 金句库）")
+    p_style_domain.add_argument("action", choices=["migrate", "fingerprint", "golden-add", "golden-list", "golden-feed"], help="子动作")
+    p_style_domain.add_argument("--chapter", type=int, default=None, help="指纹单章口径 / 金句所在章")
+    p_style_domain.add_argument("--text", default="", help="golden-add 金句摘录")
+    p_style_domain.add_argument("--note", default="", help="golden-add 备注")
+    p_style_domain.add_argument("--id", default="", help="golden-feed 金句编号")
+    p_style_domain.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    p_style_domain.set_defaults(func=cmd_style_domain)
+
+    p_learn = sub.add_parser("learn", help="学习闭环（F-12）：learn --from-journal 卷级归纳 / apply 确认回写 / show")
+    p_learn.add_argument("action", choices=["learn", "apply", "show"], help="子动作")
+    p_learn.add_argument("--from-journal", action="store_true", help="learn 数据源（journal）")
+    p_learn.add_argument("--volume", type=int, default=None, help="卷级归纳口径")
+    p_learn.add_argument("--suggestion", default="", help="apply 的建议文件")
+    p_learn.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    p_learn.set_defaults(func=cmd_learn)
 
     p_timeline_check = sub.add_parser("timeline-check", help="程序化校验卷时间线（单调递增/倒计时算术）")
     p_timeline_check.add_argument("--volume", type=int, required=True, help="卷号")

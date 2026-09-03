@@ -166,6 +166,31 @@ def _resolve_root_lenient(raw: str) -> Path:
         raise
 
 
+def cmd_chapter_batch(args: argparse.Namespace) -> int:
+    """章纲批量（T8）：confirm 一次确认一批。"""
+    from data_modules import chapter_outline_batch
+
+    root = _resolve_root_lenient(args.project_root)
+    return chapter_outline_batch.main(["confirm", "--chapters", args.chapters, "--project-root", str(root), "--format", args.format])
+
+
+def cmd_regen(args: argparse.Namespace) -> int:
+    """regen 画廊（T7）。"""
+    from data_modules import regen_gallery
+
+    root = _resolve_root_lenient(args.project_root)
+    argv = [args.action, "--domain", args.domain, "--key", args.key, "--project-root", str(root), "--format", args.format]
+    if args.version is not None:
+        argv.extend(["--version", str(args.version)])
+    if args.against is not None:
+        argv.extend(["--against", str(args.against)])
+    if args.content_file:
+        argv.extend(["--content-file", args.content_file])
+    if args.force:
+        argv.append("--force")
+    return regen_gallery.main(argv)
+
+
 def cmd_zones(args: argparse.Namespace) -> int:
     """总纲三区（T6）：migrate 自动分区 / show 状态。"""
     from data_modules import master_outline_zones
@@ -708,6 +733,23 @@ def _main_impl() -> None:
     p_doctor.add_argument("--deep", action="store_true", help="包含 dashboard 等较深检查")
     p_doctor.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_doctor.set_defaults(func=cmd_doctor)
+
+    p_chapter_batch = sub.add_parser("chapter-batch", help="章纲批量（confirm 一次确认一批）")
+    p_chapter_batch.add_argument("action", choices=["confirm"])
+    p_chapter_batch.add_argument("--chapters", default="", help="逗号分隔章号")
+    p_chapter_batch.add_argument("--format", choices=["text", "json"], default="text")
+    p_chapter_batch.set_defaults(func=cmd_chapter_batch)
+
+    p_regen = sub.add_parser("regen", help="regen 画廊（save/list/diff/adopt/discard）")
+    p_regen.add_argument("action", choices=["save", "list", "diff", "adopt", "discard"])
+    p_regen.add_argument("--domain", choices=["总纲", "章纲"], required=True)
+    p_regen.add_argument("--key", default="")
+    p_regen.add_argument("--version", type=int, default=None)
+    p_regen.add_argument("--against", type=int, default=None)
+    p_regen.add_argument("--content-file", default="")
+    p_regen.add_argument("--force", action="store_true")
+    p_regen.add_argument("--format", choices=["text", "json"], default="text")
+    p_regen.set_defaults(func=cmd_regen)
 
     p_zones = sub.add_parser("zones", help="总纲三区结构（migrate 自动分区 / show 状态）")
     p_zones.add_argument("action", choices=["migrate", "show"])

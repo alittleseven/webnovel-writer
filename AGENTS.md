@@ -35,9 +35,9 @@ webnovel-writer/              ← 外层仓库根（marketplace.json 双位置�
     ├── .zcode-plugin/        ← plugin.json（组件声明 + mcpServers + userConfig）
     ├── skills/               ← 8 个 skill
     ├── agents/               ← 4 个子代理
-    ├── commands/webnovel/    ← 9 个 /webnovel:* 斜杠命令（薄壳）
-    ├── hooks/                ← 4 个 hook 脚本 + hooks.json（${ZCODE_PLUGIN_ROOT}）
-    ├── mcp/                  ← webnovel MCP server（stdio 只读查询 ×9）+ tests
+    ├── commands/webnovel/    ← 13 个 /webnovel:* 斜杠命令（薄壳）
+    ├── hooks/                ← 4 个 hook 脚本 + hooks.json（${ZCODE_PLUGIN_ROOT}；SessionStart 会写 .webnovel/ journal）
+    ├── mcp/                  ← webnovel MCP server（stdio 只读查询 ×14）+ tests
     ├── scripts/              ← 统一 CLI webnovel.py + data_modules
     └── references/ templates/ dashboard/ evals/
 ```
@@ -47,10 +47,11 @@ webnovel-writer/              ← 外层仓库根（marketplace.json 双位置�
 
 ## 当前状态
 
-- 当前版本：v7.1.0（ZCode 原生化：MCP + commands + userConfig；tmp/zcode 分支）
-- 上游：lingfengQAQ/webnovel-writer（v6.2.1 起分叉，本地主轴已演进至 v7）
+- 当前版本：v8.0.0（作者主权 + 300 章连贯：六域书仓治理 + MCP 14 只读工具 + 13 条命令；`v8-author` 分支，57 提交领先 master，尚未打 tag / 推送）
+- 上游：lingfengQAQ/webnovel-writer（v6.2.1 起分叉；上游 v7/v8 路线与本仓无关）
 - 远程：git@github.com:alittleseven/webnovel-writer.git
 - ZCode 装机：marketplace `webnovel-writer-marketplace` → 本仓库根（directory 源）
+- 当前待办入口：`docs/zcode/v8-gap-review-3rounds/README.md`（41 项缺口 + 4 阶段修复计划）与 `docs/cursor/项目复审/2026-09-04-项目复审报告.md` §9；`docs/plans/2026-08-25-status-and-pending-work.md` 已 superseded，只作历史
 
 ## OpenCode 工作区规则：任务状态必须与代码同步
 
@@ -58,7 +59,7 @@ webnovel-writer/              ← 外层仓库根（marketplace.json 双位置�
 - 每个 OpenCode 任务 / todo 必须写清 WHERE、HOW、WHY、EXPECTED RESULT，并在任务开始前核对 `git status`、相关代码和现有测试。
 - 文档状态统一使用：`[x]` 已完成且有代码/测试证据，`[~]` 部分完成并注明剩余项，`[ ]` 未完成，`[blocked]` 被明确阻塞，`[superseded]` 被新方案取代。
 - 完成代码、修复或迁移后，必须在同一任务中更新对应清单和计划的状态、证据（文件/测试/commit）及剩余工作；不得只改代码不改状态文档。
-- 发现文档与代码不一致时，先在 `docs/plans/2026-08-25-status-and-pending-work.md` 登记实际状态，再同步相关文档；该清单是当前待办的唯一入口，历史方案只保留设计背景。
+- 发现文档与代码不一致时，先在当前待办入口（见「当前状态」）登记实际状态，再同步相关文档；历史方案只保留设计背景。方案集（`docs/zcode/<任务名>/`）的 spec 每个 F-项都必须在 plan 里有对应 T-项或显式「不覆盖」声明，宣告「全队列完毕」前先做 F→T 反向对账。
 - `[x]` 只能在相关测试或可复现命令通过后标记；未验证的实现只能标为 `[~]` 或 `[ ]`。提交前再次检查文档状态、代码差异和测试结果。
 - 不新增未被项目要求支持的状态文件或 `code_state` 字段；使用 OpenCode 原生 todo 状态和 Git/测试证据即可。
 

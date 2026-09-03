@@ -1,6 +1,8 @@
 # 命令详解
 
-## Skill 命令（在 Claude Code 中使用）
+> 口径：v8.0.0（ZCode 插件）。三层命令面：① 8 个 skill（`/webnovel-<name>`）；② 13 条 `/webnovel:<name>` 短名命令（薄壳，前 8 条转发同名 skill，后 5 条转发 CLI 治理子命令）；③ 统一 CLI `webnovel.py` 子命令；另有会话自动挂载的 `webnovel` MCP 服务（14 只读工具）。
+
+## Skill 命令（在 ZCode 中使用；`/webnovel:<name>` 短名等价）
 
 ### `/webnovel-init`
 
@@ -87,13 +89,52 @@
 - 不写入项目，不安装依赖，不启动服务
 - 会先判断当前项目阶段，init 刚结束时不会按终态项目误报
 
+## 仅命令形式的 5 条 `/webnovel:*`（v8 新增，无同名 skill）
+
+| 命令 | 转发到 | 用途 |
+|---|---|---|
+| `/webnovel:status` | `webnovel.py project-status` | 阶段、断点、计量一行短状态 |
+| `/webnovel:materials` | `webnovel.py materials …` | 素材工作台会话：十表状态 / 装配预览 / 入库三通道（AI 归纳 / 拆书 / 工坊采纳）/ 卷审裁决 |
+| `/webnovel:forge` | `webnovel.py forge …` | 设定工坊：境界 / 功法 / 法宝 / 命名四生成器；提案模式——AI 只提议、作者只确认、确认后才落设定域 |
+| `/webnovel:power` | `webnovel.py power check` | 战力校验：跨阶依据完备性 / 境界链矛盾（high，阻断）/ 通胀偏差（medium） |
+| `/webnovel:style` | `webnovel.py style-domain …` | 文风域：风格契约迁移为文风宪法 / 指纹计算 / 金句库喂入 |
+
+## MCP 服务 `webnovel`（会话自动挂载，只读）
+
+14 个工具全部是 CLI 子命令的薄壳转发，不暴露写路径：`webnovel_where` / `webnovel_project_status` / `webnovel_doctor` / `webnovel_setting_read` / `webnovel_timeline_check` / `webnovel_meter` / `webnovel_rag_search` / `webnovel_knowledge` / `webnovel_context` / `webnovel_materials_status` / `webnovel_materials_assemble` / `webnovel_power_check` / `webnovel_foreshadow_scan`（强制 `--no-apply`）/ `webnovel_reader_signals`。书项目根来自 userConfig `bookProjectRoot`（注入 `WEBNOVEL_BOOK_ROOT`），留空走探测链。
+
 ## 统一 CLI（命令行使用）
 
 所有 CLI 命令的入口都是 `webnovel.py`，格式：
 
 ```bash
-python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" <子命令> [参数]
+python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" <子命令> [参数]
 ```
+
+### v8 治理子命令（书仓六域，v7 书仓可用）
+
+| 子命令 | 动作 | 说明 |
+|---|---|---|
+| `domains` | `init` / `check` | 六域目录契约：一键补骨架（作者手改永不覆盖）/ 体检 |
+| `author-sync` | — | 作者手改留账：git diff → 六域分类 → journal + stale 提醒（0 token；SessionStart hook 自动跑） |
+| `materials` | `list` / `validate` / `assemble` / `seed` / `log` / `trajectory` / `propose` / `candidates` / `adopt` / `discard` / `review` / `apply-ruling` | 素材十表：状态 / 校验 / 装配预览（定版 + 活层 top-K）/ 题材播种 / 章后使用轨迹 / 入库画廊三通道（propose → candidates → adopt 或 discard）/ 卷审统计 / 裁决落盘 |
+| `regen` | `save` / `list` / `diff` / `adopt` / `discard` | 总纲 regen 画廊（只增不改，采纳才入正典） |
+| `style-domain` | `migrate` / `fingerprint` / `golden-add` / `golden-list` / `golden-feed` | 文风宪法迁移 / 指纹 / 金句库 |
+| `learn` | `learn --from-journal` / `apply` / `show` | 学习闭环：卷级归纳 → 作者确认 → author_model 回写（注意 `learn learn --from-journal` 的子动作位置参数，见缺口 N9） |
+| `power` | `extract` / `validate` / `battle` / `inflate` / `check` | 战力锚点提取与校验、战例 / 通胀账本、硬 ① ② 阻断校验 |
+| `forge` | `prepare` / `save` / `adopt` / `confirm` / `list` | 设定工坊提案流；`confirm` 才写设定域并留 `power_anchor_sync` / `contract_rebuild` 标记 |
+| `prose-check` | — | 程序化文笔六项：高频词 / 长句比例 / said tag / 连续同主语 / 纯解释段 / 段落方差 |
+| `drafts` | `record` / `choose` / `link` / `report` | 多稿择优：rubric 六维评分 → 取均分最高稿 → 回填审查分 |
+| `promise-ledger` | `create` / `list` / `update` | 承诺账本（伏笔 F- / 悬念 S- / 感情线 R-）状态机 |
+| `foreshadow-scan` | `scan` / `pending` | 逾期扫描（存在逾期非零退出 = 门禁）/ 本章应推进项 |
+| `name-check` | — | 新名 vs 名册正名 / 别名：编辑距离 + 相似度 + 包含三重检查 |
+| `volume-reconcile` | — | 卷纲-实际三方对账（节点覆盖率 / 伏笔兑现 / 战力里程碑）→ `大纲/卷纲/第NN卷-对账报告.md` |
+| `freeze` | — | 卷收尾冻结 + retcon 三选项裁决 |
+| `timeline` | `build` / `sync` | 卷纲时间线视图导出（含年龄推演）/ 反向对账（默认 dry-run） |
+| `chapter-batch` | `confirm` | 章纲批量确认（自检 warning 不阻断） |
+| `zones` / `impact` / `knowledge boundary` | — | 总纲三区迁移与状态 / 影响反查 / 信息差知识边界 |
+
+各子命令的完整参数以 `webnovel.py <子命令> -h` 输出为准。
 
 ### 作者友好运行体验
 
@@ -115,13 +156,13 @@ python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJE
 1. 生成合同
 
 ```bash
-python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" story-system "玄幻退婚流" --chapter 12 --persist --emit-runtime-contracts --format both
+python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" story-system "玄幻退婚流" --chapter 12 --persist --emit-runtime-contracts --format both
 ```
 
 2. 提交章节
 
 ```bash
-python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" chapter-commit \
+python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" chapter-commit \
   --chapter 12 \
   --review-result ".webnovel/tmp/review_results.json" \
   --fulfillment-result ".webnovel/tmp/fulfillment_result.json" \
@@ -132,7 +173,7 @@ python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJE
 3. 检查主链健康
 
 ```bash
-python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" preflight --format json
+python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" preflight --format json
 ```
 
 其中 `.story-system/` 是主链真源，`.webnovel/*` 是投影/read-model。
@@ -155,9 +196,9 @@ python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJE
 示例：
 
 ```bash
-python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" user-report --stage write --chapter 12 --format text
-python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" run-ledger write-resume --chapter 12 --format text
-python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" run-log --event write_failed --payload-json "{\"chapter\":12,\"reason\":\"projection timeout\"}"
+python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" user-report --stage write --chapter 12 --format text
+python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" run-ledger write-resume --chapter 12 --format text
+python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" run-log --event write_failed --payload-json "{\"chapter\":12,\"reason\":\"projection timeout\"}"
 ```
 
 ### 数据模块子命令
@@ -196,8 +237,8 @@ python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJE
 示例：
 
 ```bash
-python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" memory stats
-python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" memory query --category character_state --subject xiaoyan
+python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" memory stats
+python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" memory query --category character_state --subject xiaoyan
 ```
 
 ### Story System 子命令
@@ -226,9 +267,9 @@ python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJE
 示例：
 
 ```bash
-python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" story-system "玄幻退婚流" --persist
-python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" chapter-commit --chapter 12 --review-result .webnovel/tmp/review.json
-python -X utf8 "<CLAUDE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" story-events --health
+python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" story-system "玄幻退婚流" --persist
+python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" chapter-commit --chapter 12 --review-result .webnovel/tmp/review.json
+python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJECT_ROOT>" story-events --health
 ```
 
 产物：

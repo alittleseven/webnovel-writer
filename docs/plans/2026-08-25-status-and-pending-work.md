@@ -1,7 +1,9 @@
 # Webnovel Writer 当前状态与待完成清单
 
+> **[superseded] 2026-09-04**：本清单停在 v6.3.0/v7 前夜，其 P2「v7 Story Repo 迁移」四项已在 v7.0.0 交付、「多宿主适配」已在 v7.1.0 交付（ZCode 原生化），不再作为待办入口。当前待办见 `docs/zcode/v8-gap-review-3rounds/README.md`（41 项缺口 + 4 阶段修复计划）与 `docs/cursor/项目复审/2026-09-04-项目复审报告.md` §9。以下内容只作历史记录，不再更新。
+>
 > 核对日期：2026-08-25
-> 适用范围：`C:\lgq\ai-workspace\projects\claude-plugins\webnovel-writer`
+> 适用范围：当时位于 `projects/claude-plugins/webnovel-writer`（现已迁至 `projects/zcode-plugins/webnovel-writer`）
 > 状态依据：当前代码、测试输出、Git 提交记录；方案文档只作为设计意图和历史记录。
 >
 > **2026-08-30 进度修订**：fantasy01 实际写作进度已至第 34 章（真源为 `C:\lgq\workspace\opc_space\projects\webnovel-projects\fantasy01`，`project-status` 报 latest_accepted_chapter=34 / target_chapter=35）。本清单中「以 fantasy01 第 23 章做第一条垂直切片」顺延为**第 35 章实跑**；「用第 23-25 章确认设定卡效果」改为**30-34 章回看 + 35 章前瞻**。修订详情见 [2026-08-30-v7-开发方案.md](2026-08-30-v7-开发方案.md)。

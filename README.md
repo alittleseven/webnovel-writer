@@ -14,15 +14,16 @@
 
 一句话定位：这是一套面向长篇连载的一致性系统，不是写完就忘的一次性生成器。
 
-> **版本导览（2026-08-19 更新）**
+> **版本导览（2026-09-04 更新，本仓 `alittleseven/webnovel-writer`）**
+>
+> 本仓自上游 [lingfengQAQ/webnovel-writer](https://github.com/lingfengQAQ/webnovel-writer) v6.2.1 分叉，之后独立演进到 v7（Story-Repo 书仓）、v7.1（ZCode 原生化）与 v8（作者主权 + 300 章连贯）。上游的 v7/v8 路线与本仓无关。
 >
 > | 分支 | 版本 | 状态 |
 > |---|---|---|
-> | `master`（本分支） | v6 · Claude Code 插件 | 维护中（只修致命 bug），Claude Code 用户请用此版本 |
-> | `v7` | v7 · CLI 多宿主重写 | 已冻结，未发布，仅作开发档案 |
-> | `v8` | v8 · 基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的写作工作台 | 开发中，下一代主线 |
->
-> 原 v7 设计公示（[Discussions #118](https://github.com/lingfengQAQ/webnovel-writer/discussions/118)）所征集的反馈仍是 v8 设计的重要输入；v7 的 CLI 形态经评估后不再发布，下一代改以 dsh 插件形态开发，设计文档随 v8 分支公开。
+> | `v8-author` | v8.0.0 · ZCode 插件（MCP 14 只读工具 + 13 条 `/webnovel:*` 命令 + 六域书仓治理） | **当前主线**，本 README 描述的即此版本 |
+> | `tmp/zcode` | v7.1.0 · ZCode 原生化 | 已并入 v8-author，保留作档案 |
+> | `v7-tmp` | v7.0.0 · Story-Repo 书仓迁移 | 已并入 v8-author，保留作档案 |
+> | `master` | v6.x · Claude Code 插件基线 | 只修致命 bug，Claude Code 用户可用 |
 
 ## 赞助与支持
 
@@ -55,16 +56,25 @@ Webnovel Writer 用业余时间维护。如果它帮你省下了梳理设定、�
 
 ## 核心能力
 
+13 条 `/webnovel:*` 短名命令（薄壳转发到同名 skill 或 CLI；前 8 条也可用 `/webnovel-<name>` skill 名直呼）：
+
 | 能力 | 命令 | 说明 |
 |------|------|------|
-| 深度初始化 | `/webnovel-init` | 分阶段问答，帮你把书的骨架、设定集、总纲和初始状态搭起来 |
-| 卷纲规划 | `/webnovel-plan` | 基于总纲拆卷、拆章、补时间线，并写回新增设定 |
-| 章节创作 | `/webnovel-write` | 一条龙写完一章：备上下文、起草、审查、润色、记录事实、自动备份 |
-| 质量审查 | `/webnovel-review` | 从爽点、一致性、节奏、OOC、连贯性、追读力等维度审查章节 |
-| 状态查询 | `/webnovel-query` | 查询角色、伏笔、节奏、实体关系和运行时信息 |
-| 项目学习 | `/webnovel-learn` | 把这本书里好用的写法记下来，存进项目长期记忆 |
-| 可视化面板 | `/webnovel-dashboard` | 只读浏览项目状态、实体图谱、章节内容和追读力数据 |
-| 项目体检 | `/webnovel-doctor` | 阶段感知检查目录、文件、数据库、RAG、依赖和 Dashboard 产物 |
+| 深度初始化 | `/webnovel:init` | 分阶段问答，帮你把书的骨架、设定集、总纲和初始状态搭起来 |
+| 卷纲规划 | `/webnovel:plan` | 基于总纲拆卷、拆章、补时间线，并写回新增设定 |
+| 章节创作 | `/webnovel:write` | 一条龙写完一章：备上下文、起草（默认双稿择优）、审查、润色、记录事实、自动备份 |
+| 质量审查 | `/webnovel:review` | 从爽点、一致性、节奏、OOC、连贯性、文笔（prose_check）等六维审查章节 |
+| 状态查询 | `/webnovel:query` | 查询角色、伏笔、节奏、实体关系和运行时信息（只读） |
+| 项目学习 | `/webnovel:learn` | 把这本书里好用的写法记下来，存进项目长期记忆 |
+| 可视化面板 | `/webnovel:dashboard` | 只读浏览项目状态、实体图谱、章节内容、追读力与治理六视图 |
+| 项目体检 | `/webnovel:doctor` | 阶段感知检查目录、文件、数据库、RAG、依赖和 Dashboard 产物 |
+| 短状态 | `/webnovel:status` | 书项目阶段、断点、计量一行看 |
+| 素材工作台 | `/webnovel:materials` | 素材十表状态 / 装配预览 / 入库三通道 / 卷审 |
+| 设定工坊 | `/webnovel:forge` | 境界 / 功法 / 法宝 / 命名四生成器，提案模式（AI 只提议、作者只确认） |
+| 战力校验 | `/webnovel:power` | 跨阶依据 / 境界链矛盾 / 通胀曲线 |
+| 文风域 | `/webnovel:style` | 文风宪法迁移 / 指纹 / 金句库 |
+
+会话内还自动挂载 `webnovel` MCP 服务（14 个只读工具：where / project_status / doctor / setting_read / timeline_check / meter / rag_search / knowledge / context / materials_status / materials_assemble / power_check / foreshadow_scan / reader_signals），供 AI 结构化查询，不暴露写路径。
 
 ## 系统长什么样
 
@@ -96,7 +106,7 @@ v6.0.0 的默认主链叫 **Story System**，几个关键角色：
 
 通过 ZCode 插件市场安装：
 
-1. Settings → Plugin Management → Discover → 点 `+` 添加 marketplace：GitHub 仓库 `lingfengQAQ/webnovel-writer`，或本地目录指向本仓库根；
+1. Settings → Plugin Management → Discover → 点 `+` 添加 marketplace：GitHub 仓库 `alittleseven/webnovel-writer`（分支 `v8-author`），或本地目录指向本仓库根（上游 `lingfengQAQ` 仓库没有 ZCode 版本，勿用）；
 2. 在 Discover 中找到 **webnovel-writer** 点击 **Get** 安装（默认启用）；
 3. 重启会话后生效：8 个 skill、4 个 agent、`/webnovel:*` 斜杠命令、`webnovel` MCP 服务自动加载。
 
@@ -105,7 +115,7 @@ v6.0.0 的默认主链叫 **Story System**，几个关键角色：
 ### 2. 安装 Python 依赖
 
 ```bash
-python -m pip install -r https://raw.githubusercontent.com/lingfengQAQ/webnovel-writer/HEAD/requirements.txt
+python -m pip install -r https://raw.githubusercontent.com/alittleseven/webnovel-writer/v8-author/requirements.txt
 ```
 
 ### 3. 初始化一本书
@@ -223,6 +233,11 @@ Dashboard 是个只读面板，能看项目状态、实体关系图、章节内�
 | `/webnovel-learn` | `/webnovel-learn "这个钩子设计有效"` | 写入项目经验记忆 |
 | `/webnovel-dashboard` | `/webnovel-dashboard` | 启动只读可视化面板 |
 | `/webnovel-doctor` | `/webnovel-doctor --chapter 12` | 只读体检项目文件、DB、RAG 和依赖 |
+| `/webnovel:status` | `/webnovel:status` | 阶段、断点、计量短状态（仅命令形式） |
+| `/webnovel:materials` | `/webnovel:materials` | 素材工作台（仅命令形式） |
+| `/webnovel:forge` | `/webnovel:forge` | 设定工坊四生成器，提案模式（仅命令形式） |
+| `/webnovel:power` | `/webnovel:power` | 战力校验（仅命令形式） |
+| `/webnovel:style` | `/webnovel:style` | 文风域：宪法 / 指纹 / 金句库（仅命令形式） |
 
 ### CLI 入口
 
@@ -248,6 +263,22 @@ python -X utf8 "<ZCODE_PLUGIN_ROOT>/scripts/webnovel.py" --project-root "<PROJEC
 | `memory` | 查看、查询、导出和回填长期记忆 |
 | `rag` | 管理向量索引和检索状态 |
 | `status` | 输出项目健康报告 |
+
+v8 治理子命令（书仓六域）：
+
+| 子命令 | 说明 |
+|--------|------|
+| `domains` | 六域目录契约：`init` 建骨架 / `check` 体检 |
+| `author-sync` | 作者手改留账：git diff → 六域分类 → journal + stale（0 token） |
+| `materials` | 素材工作台：list / validate / assemble / seed / log / review / apply-ruling |
+| `style-domain` | 文风域：migrate 宪法迁移 / fingerprint 指纹 / golden-* 金句库 |
+| `learn` | 学习闭环：`learn --from-journal` 卷级归纳 / `apply` 确认回写 / `show` |
+| `power` | 战力域：extract / validate 锚点、battle / inflate 账本、check 校验 |
+| `forge` | 设定工坊：prepare / save / adopt / confirm / list（提案模式） |
+| `prose-check` | 程序化文笔检测六项（高频词 / 长句 / 同句式 / 说明腔…） |
+| `drafts` | 多稿择优：record / choose / link / report |
+| `promise-ledger` / `foreshadow-scan` | 承诺账本 CRUD；逾期扫描与本章应推进项 |
+| `name-check` / `volume-reconcile` | 命名冲突检查；卷纲-实际对账报告 |
 
 更多命令见 [命令详解](docs/guides/commands.md)。
 

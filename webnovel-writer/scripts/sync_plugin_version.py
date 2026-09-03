@@ -19,6 +19,8 @@ MARKETPLACE_JSON_PATHS = (
     ROOT / ".claude-plugin" / "marketplace.json",
 )
 README_PATH = ROOT / "README.md"
+# MCP server 通过 initialize 响应对外报版本，必须与 plugin.json 同步（复审报告 P1-7）。
+MCP_SERVER_PATH = ROOT / "webnovel-writer" / "mcp" / "server.py"
 PLUGIN_NAME = "webnovel-writer"
 
 
@@ -34,6 +36,20 @@ README_ROW_PATTERN = re.compile(
 README_BADGE_PATTERN = re.compile(r"(badge/version-)(?P<version>\d+\.\d+\.\d+)(-brightgreen\.svg)")
 README_HEADERS = {"| 版本 | 说明 |", "| 版本 | 主要变化 |"}
 README_SEPARATORS = {"|------|------|", "|------|----------|"}
+SERVER_VERSION_PATTERN = re.compile(r'^(SERVER_VERSION = ")(?P<version>\d+\.\d+\.\d+)(")$', re.MULTILINE)
+
+
+def get_server_version(content: str) -> str:
+    match = SERVER_VERSION_PATTERN.search(content)
+    if not match:
+        raise ValueError("mcp/server.py SERVER_VERSION not found")
+    return str(match.group("version"))
+
+
+def update_server_version(content: str, version: str) -> str:
+    if not SERVER_VERSION_PATTERN.search(content):
+        raise ValueError("mcp/server.py SERVER_VERSION not found")
+    return SERVER_VERSION_PATTERN.sub(rf"\g<1>{version}\g<3>", content, count=1)
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -161,6 +177,12 @@ def sync_versions(version: str | None = None, release_notes: str | None = None) 
         save_text(README_PATH, updated_readme)
         changed = True
 
+    server_content = load_text(MCP_SERVER_PATH)
+    updated_server = update_server_version(server_content, target_version)
+    if updated_server != server_content:
+        save_text(MCP_SERVER_PATH, updated_server)
+        changed = True
+
     if changed:
         save_json(plugin_json_path, plugin_payload)
         # 双位置同步写入，保持镜像一致。
@@ -202,6 +224,9 @@ def check_versions(expected_version: str | None = None) -> int:
         mismatches.append(f"plugin.json={plugin_version}, README.md={readme_version}")
     if plugin_version != readme_badge_version:
         mismatches.append(f"plugin.json={plugin_version}, README badge={readme_badge_version}")
+    server_version = get_server_version(load_text(MCP_SERVER_PATH))
+    if plugin_version != server_version:
+        mismatches.append(f"plugin.json={plugin_version}, mcp/server.py SERVER_VERSION={server_version}")
     if expected_version and plugin_version != expected_version:
         mismatches.append(
             f"expected={expected_version}, current release metadata={plugin_version}"

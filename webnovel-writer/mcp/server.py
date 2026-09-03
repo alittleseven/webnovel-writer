@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 SERVER_NAME = "webnovel"
-SERVER_VERSION = "7.1.0"
+SERVER_VERSION = "8.0.0"
 PROTOCOL_VERSION = "2024-11-05"
 SUBPROCESS_TIMEOUT_SECONDS = 25
 

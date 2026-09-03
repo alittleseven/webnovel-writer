@@ -57,6 +57,11 @@ claude_inventory.csv
 *_utf8_sample.txt
 C*tool-results*.txt
 
+# Secrets (workspace red line: only .env.example may be tracked)
+.env
+.env.*
+!.env.example
+
 # Test / diagnostic files
 test_gemini.env
 test_gemini_diag.py

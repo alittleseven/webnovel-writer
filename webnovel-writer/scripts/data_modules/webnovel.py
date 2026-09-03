@@ -1150,6 +1150,11 @@ def _main_impl() -> None:
     qr_parser.add_argument("--entity", required=True, help="实体 ID")
     qr_parser.add_argument("--at-chapter", type=int, required=True, help="目标章节号")
 
+    kb_parser = knowledge_sub.add_parser("boundary", help="知识边界（A1/T21）：信息差按章输出知晓状态")
+    kb_parser.add_argument("--chapter", type=int, required=True, dest="boundary_chapter", help="目标章节号")
+    kb_parser.add_argument("--entity", default="", dest="boundary_entity", help="限定实体（可选）")
+    kb_parser.add_argument("--format", choices=["json", "text"], default="json", dest="boundary_format", help="输出格式")
+
     # 兼容：允许 `--project-root` 出现在任意位置（减少 agents/skills 拼命令的出错率）
     from .cli_args import normalize_global_project_root
 
@@ -1177,6 +1182,24 @@ def _main_impl() -> None:
     # init 是创建项目，不应该依赖/注入已存在 project_root
     if tool == "init":
         raise SystemExit(_run_script("init_project.py", rest))
+
+    # knowledge boundary（M4/T21，A1）：信息差表为纯 md，不依赖 index.db——宽松解析支持纯 v7 书仓
+    if tool == "knowledge" and getattr(args, "knowledge_action", "") == "boundary":
+        from .info_gap import boundary as knowledge_boundary
+        from .cli_output import print_success
+
+        boundary_root = _resolve_root_lenient(args.project_root)
+        boundary_report = knowledge_boundary(
+            boundary_root, chapter=args.boundary_chapter, entity=args.boundary_entity or None
+        )
+        if getattr(args, "boundary_format", "json") == "json":
+            print_success(boundary_report, message="knowledge_boundary")
+        else:
+            for fact in boundary_report["facts"]:
+                state = "已知" if fact["该章已知"] else "未知"
+                taboo = f"｜禁忌 {fact['泄露禁忌']}" if fact["泄露禁忌"] else ""
+                print(f"[{state}] {fact['信息点']}（知晓者 {'、'.join(fact['知晓者'])}，自第 {fact['知晓章']} 章）{taboo}")
+        raise SystemExit(0)
 
     # 其余工具：统一解析 project_root 后前置给下游
     project_root = _resolve_root(args.project_root)

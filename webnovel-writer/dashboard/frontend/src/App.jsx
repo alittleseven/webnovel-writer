@@ -19,6 +19,7 @@ const NAV_ITEMS = [
     { to: '/foreshadowing', label: '伏笔追踪', icon: BookmarkIcon },
     { to: '/files', label: '文档浏览', icon: FolderIcon },
     { to: '/system', label: '系统状态', icon: SlidersIcon },
+    { to: '/governance', label: '治理面板', icon: BookmarkIcon },
 ]
 
 export default function App() {

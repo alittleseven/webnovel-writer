@@ -23,6 +23,10 @@ export function fetchStoryRuntimeHealth() {
     return fetchJSON('/api/story-runtime/health')
 }
 
+export function fetchGovernance() {
+    return fetchJSON('/api/governance')
+}
+
 export function fetchChapterTrend(params = {}) {
     return fetchJSON('/api/stats/chapter-trend', params)
 }

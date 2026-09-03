@@ -307,6 +307,13 @@ def create_app(project_root: str | Path | None = None) -> FastAPI:
     def story_runtime_health():
         return _build_story_runtime_health_report(_get_project_root())
 
+    @app.get("/api/governance")
+    def governance_snapshot():
+        """治理六视图只读快照（M7/T32，F-14）：三区/冻结/journal/素材/通胀/红点。"""
+        from dashboard.governance import build_governance_snapshot
+
+        return build_governance_snapshot(_get_project_root())
+
     # ===========================================================
     # API：实体数据库（index.db 只读查询）
     # ===========================================================

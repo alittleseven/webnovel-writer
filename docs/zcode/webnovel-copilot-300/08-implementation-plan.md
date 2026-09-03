@@ -4,6 +4,8 @@
 > 吸收关系声明：本队列**吸收并取代** A 线 P0 实施计划（M0 对应其 T1-T7）与质量审阅 W1-W10（编入 M5）；loom 线不在此队列（设计借鉴已就地体现）。
 > 动工前必须先过 §0 决策门。
 >
+> **✅ 2026-09-03：T1-T34 全部完成（M0-M7 七个里程碑勾选完毕），v8.0.0 已发版（发版链全绿）。**
+
 > **✅ D-0 已裁决（2026-09-03，作者）**：D0-4 = **2**（`--drafts` 默认 2，质量优先）；其余 D0-1/2/3/5/6/7 按方案建议生效（v8.0.0 线、`.story-system/` 入库+对账、journal 补全每会话一次 ≤50 条、素材按题材子集播种、fantasy01 验收场、D1-D8 核对完成）。D0-7 核对结果见 §0.1。
 
 ## 0. 决策门 D-0（动工前置裁决，作者拍板）
@@ -127,10 +129,16 @@
 
 ## M7 · 体验层与收尾
 
-- **T31 ZCode 面扩展**：MCP 5 个治理只读工具 + 4 条新命令 + userConfig 两项 + 书项目 AGENTS.md 模板。验收：全部有 CLI 等价物（P7 复查）。
-- **T32 dashboard 治理视图组**：六视图（只读）。验收：F-14 视图可用。
-- **T33 300 章规模演练**：脚本合成 300 章书仓 → doctor/sync/scan/装配全链性能与正确性。验收：01 §6 成功标准 5。
-- **T34 文档与发版**：README/CHANGELOG/releases/v8.0.0.md + guides 更新 + 全量回归（pytest cov≥80 + 行为评测 + validate 三件套）。验收：发版链全绿。
+- [x] **T31 ZCode 面扩展**：MCP 5 个治理只读工具 + 4 条新命令 + userConfig 两项 + 书项目 AGENTS.md 模板。验收：全部有 CLI 等价物（P7 复查）。
+  - 证据 56ac680：mcp 9→14 工具（materials_status/materials_assemble/power_check/foreshadow_scan 只读 --no-apply/reader_signals，薄壳转发 CLI 子命令）；commands 9→13（materials/forge/power/style）；userConfig 增 draftsPerChapter（D0-4）与 materialTopK；templates/book-AGENTS.md 模板 + domains init 接线（缺失创建、永不覆盖）；mcp 测试断言 14 工具 + 新 builder 用例全绿；P7 等价物逐一对得上。
+- [x] **T32 dashboard 治理视图组**：六视图（只读）。验收：F-14 视图可用。
+  - 证据 2c35af0：dashboard/governance.py 治理快照（总纲三区/冻结进度/journal 时间线/素材热力/通胀曲线/stale-逾期红点，缺文件优雅降级）+ GET /api/governance；前端 GovernancePage 六段面板 + 导航 + 路由，vite build 重建 dist；端点测试新增全绿。
+- [x] **T33 300 章规模演练**：脚本合成 300 章书仓 → doctor/sync/scan/装配全链性能与正确性。验收：01 §6 成功标准 5。
+  - 证据 2392f7e（+411e4ae 末卷推算修复）：scale_drill 确定性合成 + 全链计时；实测 300 章 **总计 1.64s**（doctor 0.34s / timeline 0.45s / 逾期扫描 0.19s / 装配 0.17s / 对账 0.17s），逾期 15 条全检出、装配十表、6 卷对账——分钟级预算内两个数量级，无超线性退化。
+  - 演练暴露并修复两个真实集成缺口：timeline-check 时间线文件位置兼容 T9 卷纲子目录；_parse_chapter_axis_rows 兼容 T9 视图表头/行格式。CI 用 40 章 drill 测试 4 个全绿。
+- [x] **T34 文档与发版**：README/CHANGELOG/releases/v8.0.0.md + guides 更新 + 全量回归（pytest cov≥80 + 行为评测 + validate 三件套）。验收：发版链全绿。
+  - 证据 cff0ef0：版本 7.1.0→8.0.0 三处同步（plugin.json/marketplace 双位置/mcp SERVER_VERSION/README 徽章与版本表）；releases/v8.0.0.md + CHANGELOG 段（发版范围含上个正式 tag v7.0.0）。
+  - 发版链全绿：pytest 1452 passed（82.05%）／行为评测 22 PASS／validate_plugin_package 0 错／validate_release_notes 通过／sync_plugin_version --check 一致／validate_reference_wiring drift=0。
 
 ## 里程碑与依赖
 

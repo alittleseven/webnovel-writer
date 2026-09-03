@@ -152,18 +152,33 @@ def cmd_where(args: argparse.Namespace) -> int:
     return 0
 
 
+def _resolve_root_lenient(raw: str) -> Path:
+    """宽松解析：v6 项目走 _resolve_root；纯 v7 story-repo（book.yaml）直接用给定目录。"""
+    try:
+        return _resolve_root(raw)
+    except FileNotFoundError:
+        candidate = Path(raw)
+        if candidate.is_dir():
+            from data_modules import domain_contract
+
+            if domain_contract.is_story_repo(candidate):
+                return candidate
+        raise
+
+
+def cmd_impact(args: argparse.Namespace) -> int:
+    """影响反查（T5）：对指定文件路径输出受影响面与三选项建议（只读）。"""
+    from data_modules import impact_analyzer
+
+    root = _resolve_root_lenient(args.project_root)
+    return impact_analyzer.main(["--path", args.path, "--project-root", str(root), "--format", args.format])
+
+
 def cmd_author_sync(args: argparse.Namespace) -> int:
     """author-sync：作者修改留账（T3/T4，解析放宽同 domains）。"""
-    from data_modules import author_sync, domain_contract
+    from data_modules import author_sync
 
-    try:
-        root = _resolve_root(args.project_root)
-    except FileNotFoundError:
-        candidate = Path(args.project_root)
-        if candidate.is_dir() and domain_contract.is_story_repo(candidate):
-            root = candidate
-        else:
-            raise
+    root = _resolve_root_lenient(args.project_root)
     argv = ["--project-root", str(root), "--format", args.format]
     if args.confirm_migration:
         argv.append("--confirm-migration")
@@ -177,14 +192,7 @@ def cmd_domains(args: argparse.Namespace) -> int:
     """
     from data_modules import domain_contract
 
-    try:
-        root = _resolve_root(args.project_root)
-    except FileNotFoundError:
-        candidate = Path(args.project_root)
-        if candidate.is_dir() and domain_contract.is_story_repo(candidate):
-            root = candidate
-        else:
-            raise
+    root = _resolve_root_lenient(args.project_root)
     argv = [args.action, "--project-root", str(root), "--format", args.format]
     return domain_contract.main(argv)
 
@@ -689,6 +697,11 @@ def _main_impl() -> None:
     p_doctor.add_argument("--deep", action="store_true", help="包含 dashboard 等较深检查")
     p_doctor.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_doctor.set_defaults(func=cmd_doctor)
+
+    p_impact = sub.add_parser("impact", help="影响反查：路径→受影响章/资产+三选项裁决建议（只读）")
+    p_impact.add_argument("--path", required=True, help="书仓内相对路径")
+    p_impact.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    p_impact.set_defaults(func=cmd_impact)
 
     p_author_sync = sub.add_parser("author-sync", help="作者修改留账：git diff→六域分类→journal+stale（0 token）")
     p_author_sync.add_argument("--confirm-migration", action="store_true", help="批量变更（>100 文件）确认记录为汇总事件")

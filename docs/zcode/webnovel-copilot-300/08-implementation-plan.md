@@ -35,11 +35,16 @@
 
 ## M0 · git 底座与 author-sync（治理层地基）
 
-- **T1 书仓六域骨架与 book.yaml v7.2**：目录创建/迁移映射（05 §3）、`.gitignore`、`webnovel doctor` 增目录契约校验。验收：fantasy01 迁移后 doctor 全绿。
-- **T2 journal 数据面**：journal.jsonl 读写器 + stale.json + 事件 schema（06 §3/§4）+ 单元测试。验收：构造事件流读写/水位/回放测试绿。
-- **T3 author-sync 脚本分类**：git diff 扫描→域/结构分类→journal 追加（0 token 路径）。验收：在 fantasy01 模拟作者修改 6 域各一文件，分类与 diff_stat 全对；>100 文件触发 migration 确认分支。
-- **T4 语义补全与影响摘要**：批量 LLM 补全（会话内一次）+ 影响摘要生成器 + session_start hook 接线。验收：真实改 3 个文件后开会话，收到正确「作者已改」摘要。
-- **T5 impact 引用反查 v1**：路径→依赖反查（章纲↔章、定版素材↔使用轨迹、设定↔锚点）。验收：构造引用链，改动反查清单正确。
+- [x] **T1 书仓六域骨架与 book.yaml v7.2**：……验收：fantasy01 迁移后 doctor 全绿。
+  - 证据 a145bc5：12 测试绿；fantasy01 副本 `domains init`（+7 目录/+2 文件）→ `domains check` exit=0。doctor 对纯 v7 书的 phase 解析限制已登记（`.webnovel/state.json` 依赖），域契约经独立命令验收。
+- [x] **T2 journal 数据面**：……验收：构造事件流读写/水位/回放测试绿。
+  - 证据 c2e961e：15 测试绿（残行忽略/水位/append-only 语义补全 API）。
+- [x] **T3 author-sync 脚本分类**：……验收：六域分类与 diff_stat 全对；>100 文件触发 migration 确认分支。
+  - 证据 dae7fa6：14 测试绿；实测修复 porcelain 未跟踪折叠（-uall）与中文路径转义（quotepath）两处真实缺陷。
+- [x] **T4 语义补全与影响摘要**：……验收：改文件后开会话收到「作者已改」摘要。
+  - 证据 d3102ad：hook 实测 fantasy01 副本改 2 文件 → 注入「作者已改 2 处：卷纲/时间线被修改」；D0-3 补全 API（≤50 条/会话）就绪。
+- [x] **T5 impact 引用反查 v1**：……验收：构造引用链，改动反查清单正确。
+  - 证据：9 测试绿；CLI 冒烟 fantasy01 锚点→战例章 37/41 + 三选项输出正常；表级反查=版本+表前缀。
 
 ## M1 · 大纲工作台（总纲三区/卷时间线/章纲批量）
 

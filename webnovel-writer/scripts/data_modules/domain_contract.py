@@ -166,23 +166,32 @@ def check_domain_contract(project_root: str | Path) -> dict[str, Any]:
 
 
 def domain_contract_checks(project_root: str | Path) -> list[dict[str, str]]:
-    """doctor 接线形态：契约报告展平为 doctor 检查项（只读、无副作用）。"""
+    """doctor 接线形态：单项汇总（避免 doctor 报告膨胀触发 CLI 外置化）。
+
+    详情用 `webnovel.py domains check` 获取逐项报告。
+    """
     report = check_domain_contract(project_root)
-    severity_by_status = {"ok": "info", "info": "info", "warning": "warning"}
-    checks: list[dict[str, str]] = []
-    for item in report["items"]:
-        status = item["status"]
-        checks.append(
-            {
-                "id": item["id"],
-                "status": status,
-                "severity": severity_by_status.get(status, "info"),
-                "message": item["id"],
-                "expected": item["expected"],
-                "actual": item["actual"],
-            }
-        )
-    return checks
+    missing = report["missing_required"]
+    advisory_missing = [
+        item["id"].removeprefix("advisory.")
+        for item in report["items"]
+        if item["id"].startswith("advisory.") and item["status"] != "ok"
+    ]
+    actual = "complete"
+    if missing:
+        actual = "missing: " + "、".join(missing[:6]) + ("…" if len(missing) > 6 else "")
+    elif advisory_missing:
+        actual = "required ok; advisory pending: " + str(len(advisory_missing))
+    return [
+        {
+            "id": "domains.contract",
+            "status": "ok" if not missing else "warning",
+            "severity": "info" if not missing else "warning",
+            "message": "六域目录契约",
+            "expected": "六域骨架完整（素材/作者/文风等）",
+            "actual": actual,
+        }
+    ]
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -83,10 +83,19 @@
 
 ## M4 · 设定工坊与战力体系
 
-- **T18 力量锚点抽取**：从力量体系.md 半自动抽锚点（作者确认）+ schema。验收：fantasy01 锚点表建立，境界链校验绿。
-- **T19 战例账本与 power_check**：data-agent 战例提取 + 硬/软校验 + 通胀曲线。验收：F-09；构造越级无依据样章被阻断为 high issue。
-- **T20 工坊四生成器（提案模式）**：F-08 全流程 + 采纳登记三处同步。验收：四类各生成 5 提案，采纳≥1 登记完整；红线测试（不出数值/灵魂设定标注）。
-- **T21 设定域扩展**：信息差.md + knowledge 边界输出 + reviewer 证据源接线（A1）。验收：构造「角色用了不该知信息」样章被 reviewer 报出。
+- [x] **T18 力量锚点抽取**：从力量体系.md 半自动抽锚点（作者确认）+ schema。验收：fantasy01 锚点表建立，境界链校验绿。
+  - 证据 cc18f66：9 测试绿；`extract_candidates`（等级顺序行定序 + 能力行补差距描述/寿元，0 token）→ `--apply` 作者确认落盘（既有表拒绝覆盖）；validate_chain（序单调/名唯一）；06 §8 schema 含默认越级规则；内置最小 YAML 读写器。
+  - fantasy01 实测：7 级链（炼气/筑基/金丹/元婴带描述+寿元，化神/大乘/渡劫无描述）抽取→apply→validate 绿。
+- [x] **T19 战例账本与 power_check**：data-agent 战例提取 + 硬/软校验 + 通胀曲线。验收：F-09；构造越级无依据样章被阻断为 high issue。
+  - 证据 cc18f66：10 测试绿；`record_battle/record_inflation` 账本回写（F-09④）；硬①依据完备性（跨1阶任一依据/跨2阶金手指+代价双列且预告）+硬②境界链矛盾 → high+blocking；软③通胀偏差连续超阈值 → medium 非阻断；CLI check 发现硬问题以非零退出码阻断；reviewer.md §6 战力证据源接线（A2）。
+  - fantasy01 实测：无依据跨1阶战例 → check exit=1 报 high。
+- [x] **T20 工坊四生成器（提案模式）**：F-08 全流程 + 采纳登记三处同步。验收：四类各生成 5 提案，采纳≥1 登记完整；红线测试（不出数值/灵魂设定标注）。
+  - 证据 1695242：11 测试绿；prepare（装配简报：素材零件+雷点+红线+模板）→ save（红线程序化强制：恰 5 提案/战力数值检出即拒/境界功法必带灵魂设定标注）→ adopt（扩写草案二次确认）→ confirm（设定域 md 落盘 + power_anchor_sync/contract_rebuild 标记 + 采纳率入 signals.jsonl）；交互红线 LLM 只提议、作者只确认。
+  - fantasy01 实测：功法 5 提案 → 画廊 → 提案5草案 → confirm 登记完整。
+- [x] **T21 设定域扩展**：信息差.md + knowledge 边界输出 + reviewer 证据源接线（A1）。验收：构造「角色用了不该知信息」样章被 reviewer 报出。
+  - 证据 0ea7c67：5 测试绿；`parse_info_gap`（信息点/知晓者/知晓章/泄露禁忌，残行忽略）+ `boundary`（按章知晓状态 + unknown_at_chapter 未知清单 = reviewer 违例证据）；实体过滤（A1 口径）；`knowledge boundary` CLI 宽松解析（纯 v7 书仓可用）；reviewer.md §6 知识边界取数指引。
+  - fantasy01 实测：第 40 章口径下「账本真相（知晓章 41）」正确标为未知（若角色提前使用即违例证据）。
+  - 收尾：全量 1371 passed，覆盖率 81.76%。
 
 ## M5 · 质量轨整编（吸收 W1-W10）
 

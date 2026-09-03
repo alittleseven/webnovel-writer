@@ -30,9 +30,10 @@ PARAGRAPH_CAP = 300
 
 # said-tag 判定的口播动词（正文中「X说/X道」类对白引导语）
 _SAID_VERBS = ("说", "道", "问", "答", "喊", "叫", "骂", "念", "嘀咕", "吩咐", "回答", "嚷", "嘀咕")
-_DIALOGUE_RE = re.compile(r"「([^」]*)」|“([^”]*)”")
+# 对话段：直角/弯弯/半角引号（fantasy01 等实跑书多用半角 "..." 写对话）
+_DIALOGUE_RE = re.compile(r"「([^」]*)」|“([^”]*)”|\"([^\"\n]*)\"")
 _SENT_SPLIT_RE = re.compile(r"[。！？!?]+")
-_PUNCT_STRIP_RE = re.compile(r"[，。！？!?：:；;、「」“”\s—…·\n\r]")
+_PUNCT_STRIP_RE = re.compile(r"[，。！？!?：:；;、「」“”‘’\"'\s—…·\n\r]")
 # 二字口头禅统计时排除的常用虚词组合（单字虚词集合，双字含任一即排除）
 _STOPWORD_CHARS = set("的了是在不在有着就和但也都很之乎者把被而为这那又再才只更还会要能可是就")
 

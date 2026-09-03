@@ -142,6 +142,19 @@ class TestFingerprint:
         fp = read_fingerprint(book)
         assert fp["金句样本"] == [{"章": 37, "摘录": "纸比人命贵。"}]
 
+    def test_straight_quote_dialogue_counted(self, book: Path):
+        """fantasy01 实跑书用半角引号写对话——必须计入对话占比，且引号不进口头禅二字统计。"""
+        from data_modules.style_domain import read_fingerprint, write_fingerprint_from_book
+
+        body = '早班的人没来。夜班经理隔着门喊了一嗓子："小白，路上小心啊。"\n\n他应了一声："这就走。"\n'
+        _write_chapter(book, 1, "天裂", body)
+        write_fingerprint_from_book(book)
+
+        fp = read_fingerprint(book)
+        assert fp["对话占比"] > 0.1, "半角引号对话必须计入"
+        grams = [g["词"] for g in fp["高频口头禅"]]
+        assert all('"' not in gram for gram in grams), "引号残片不得成为口头禅"
+
 
 class TestGoldenLibrary:
     def test_add_golden_assigns_ids(self, book: Path):

@@ -26,6 +26,9 @@ SECTION_QUOTAS: dict[str, int] = {
     "genre_profile_excerpt": 1500,
     "author_style_patterns": 2000,
     "style_contract": 2000,
+    # M5/T22（R1/W1）：上一章原文尾段与作者已改提醒
+    "prev_chapter_tail": 1700,
+    "stale_notes": 1200,
 }
 
 # 嵌套 section 的子配额（memory_pack / story_contracts 内部）
@@ -47,10 +50,18 @@ KEY_PRIORITY: dict[str, list[str]] = {
     "review": ["meta", "must_cover_nodes", "blocking_rules", "forbidden_zones"],
 }
 
-# 超总预算时的丢弃顺序（低价值优先）；story_contracts / runtime_status 为硬约束类，不在表内
+# 超总预算时的丢弃顺序（低价值优先）；story_contracts / runtime_status 为硬约束类，不在表内。
+# M5/T22（R5/F-04）：文风层（author_style_patterns / style_contract）与连续性层
+# （prev_chapter_tail / stale_notes）提为不可丢——长篇后期恰是最需要文风稳定与
+# 上章原文的时期，不再被整体丢弃（超预算走 memory_pack 比例压缩消化）。
+PROTECTED_PATHS: tuple[str, ...] = (
+    "prev_chapter_tail",
+    "stale_notes",
+    "author_style_patterns",
+    "style_contract",
+)
 DROP_ORDER: list[str] = [
     "memory_pack.episodic_memory",
-    "author_style_patterns",
     "genre_profile_excerpt",
     "progress",
     "active_rules",
@@ -208,7 +219,19 @@ def enforce_budget(sections: dict[str, Any], *, total_budget: int) -> tuple[dict
     def used() -> int:
         return sum(estimate_tokens(v) for v in sections.values())
 
-    # 第二层：总预算 — 按 DROP_ORDER 丢低价值路径；硬约束类不在表内，永不整体丢弃
+    # R5/F-04 第二层前半：总预算仍超时，先按比例压缩 memory_pack 子层配额（0.8 步进至 0.4）
+    factor = 0.8
+    while used() > total_budget and factor >= 0.39 and isinstance(sections.get("memory_pack"), dict):
+        scaled = {key: max(200, int(quota * factor)) for key, quota in SUB_QUOTAS["memory_pack"].items()}
+        pack = sections["memory_pack"]
+        sections["memory_pack"] = {
+            key: apply_quota(value, scaled.get(key, 500))
+            for key, value in pack.items()
+            if key != "stats"
+        }
+        factor -= 0.2
+
+    # 第二层后半：总预算 — 按 DROP_ORDER 丢低价值路径；硬约束类与 PROTECTED_PATHS 不在表内，永不整体丢弃
     while used() > total_budget and dropped != DROP_ORDER:
         next_path = next((p for p in DROP_ORDER if p not in dropped and _get_path(sections, p) is not None), None)
         if next_path is None:

@@ -30,6 +30,44 @@ from .urgency_utils import coerce_urgency
 logger = logging.getLogger(__name__)
 
 
+def read_prev_chapter_tail(project_root: Path | str, chapter: int, chars: int) -> str:
+    """上一章定稿正文尾段原文（W1/R1）。
+
+    双布局：v7 `定稿/正文/NNNN-*.md` 优先，回退 v6 `正文/第NNNN章*.md`
+    （chapter_paths.find_chapter_file，含卷布局）。front matter 剥离，
+    返回「……」前缀的尾段；无正文返回空串。
+    """
+    root = Path(project_root)
+    prev = max(1, int(chapter) - 1)
+    body_path: Path | None = None
+    v7_dir = root / "定稿" / "正文"
+    if v7_dir.is_dir():
+        matches = sorted(v7_dir.glob(f"{prev:04d}-*.md"))
+        if matches:
+            body_path = matches[0]
+    if body_path is None:
+        try:
+            from chapter_paths import find_chapter_file
+
+            body_path = find_chapter_file(root, prev)
+        except Exception as exc:  # pragma: no cover - scripts 布局缺失时降级
+            logger.debug("read_prev_chapter_tail: chapter_paths unavailable: %s", exc)
+    if body_path is None or not Path(body_path).is_file():
+        return ""
+    text = Path(body_path).read_text(encoding="utf-8")
+    if text.startswith("---"):
+        parts = text.split("---", 2)
+        if len(parts) == 3:
+            text = parts[2]
+    text = text.strip()
+    if not text:
+        return ""
+    keep = max(0, int(chars))
+    if keep == 0:
+        return ""
+    return "……" + text[-keep:]
+
+
 class MemoryContractAdapter:
     """满足 MemoryContract Protocol 的具体实现。"""
 
@@ -198,10 +236,10 @@ class MemoryContractAdapter:
         except Exception as e:
             logger.warning("load_context: outline failed: %s", e)
 
-        # 3. 最近摘要
+        # 3. 最近摘要（R10/F-11：新章优先组装——ch-1 在前，配额截断时 ch-2 先承受截断）
         try:
             summaries = {}
-            for prev_ch in range(max(1, chapter - 2), chapter):
+            for prev_ch in range(chapter - 1, max(1, chapter - 2) - 1, -1):
                 text = self.read_summary(prev_ch)
                 if text:
                     summaries[f"ch{prev_ch:04d}"] = text[:500]
@@ -209,6 +247,25 @@ class MemoryContractAdapter:
                 sections["recent_summaries"] = summaries
         except Exception as e:
             logger.warning("load_context: summaries failed: %s", e)
+
+        # W1/R1：上一章原文尾段（语气/钩子连续性第一手依据；PROTECTED，不参与整体丢弃）
+        try:
+            tail_chars = int(getattr(self.config, "context_prev_chapter_tail_chars", 1600) or 1600)
+            tail = read_prev_chapter_tail(self.config.project_root, chapter, tail_chars)
+            if tail:
+                sections["prev_chapter_tail"] = tail
+        except Exception as e:
+            logger.warning("load_context: prev_chapter_tail failed: %s", e)
+
+        # W1/F-11 增强：stale_notes 前置段（作者已改未消费提醒，context-agent 任务书前置消费）
+        try:
+            from .author_journal import unconsumed_stale
+
+            stale = unconsumed_stale(self.config.project_root)
+            if stale:
+                sections["stale_notes"] = stale[:10]
+        except Exception as e:
+            logger.warning("load_context: stale_notes failed: %s", e)
 
         # 4. 主角状态 + 进度
         try:

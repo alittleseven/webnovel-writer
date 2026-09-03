@@ -167,12 +167,55 @@ def test_enforce_budget_total_drop_order():
 
     out, stats = enforce_budget(sections, total_budget=500)
 
-    # 丢弃顺序：低价值 section 先消失，硬约束类保留到最后
-    assert "author_style_patterns" not in out
+    # R5/F-04：文风层受保护不再进 DROP_ORDER；低价值 section 先消失
+    assert "author_style_patterns" in out, "文风层提为不可丢"
+    assert "author_style_patterns" not in DROP_ORDER
     assert "genre_profile_excerpt" not in out
     assert "story_contracts" in out and "runtime_status" in out
-    assert stats["dropped"][:2] == ["memory_pack.episodic_memory", "author_style_patterns"]
+    assert stats["dropped"][0] == "memory_pack.episodic_memory"
     assert stats["used"] == sum(estimate_tokens(v) for v in out.values())
+
+
+def test_enforce_budget_protects_continuity_pack_under_saturation():
+    """M5/T22 验收：饱和压力下 prev_chapter_tail / author_style_patterns / style_contract 三段保全。"""
+    sections = {
+        "story_contracts": {
+            "master": {"meta": {}, "route": {"g": 1}, "base_context": "背" * 2400},
+            "chapter": {"meta": {}, "chapter_directive": {"goal": "目标"}, "dynamic_context": "动" * 5200},
+            "volume": {"meta": {}},
+            "review": {"meta": {}},
+        },
+        "runtime_status": {"chapter": 35, "primary_write_source": "chapter_commit"},
+        "memory_pack": {
+            "semantic_memory": [{"id": f"m{i}", "v": "事" * 120} for i in range(30)],
+            "working_memory": [{"source": "state_export", "content": {"p": "状" * 2000}}],
+            "episodic_memory": [{"id": i, "v": "情" * 80} for i in range(10)],
+            "recent_changes": [{"row": i, "v": "变" * 80} for i in range(10)],
+        },
+        "prev_chapter_tail": "……" + "文" * 1600,
+        "stale_notes": [{"target": "chapter:0035", "reason": "章纲被作者修改"}],
+        "author_style_patterns": [{"pattern_type": "dialogue", "description": "风" * 1800}],
+        "style_contract": "短句为主，克制形容词。" + "约" * 1800,
+        "recent_summaries": {"ch0034": "摘" * 400},
+        "genre_profile_excerpt": "题" * 1400,
+        "progress": {"a": 1},
+        "active_rules": [{"rule": "规" * 200}],
+        "urgent_loops": [{"loop": "伏" * 100}],
+        "protagonist": {"name": "苏小白"},
+    }
+
+    out, stats = enforce_budget(sections, total_budget=8000)
+
+    assert "prev_chapter_tail" in out, "饱和下上一章原文尾段保全"
+    assert "author_style_patterns" in out, "饱和下文风记忆保全"
+    assert "style_contract" in out, "饱和下风格契约保全"
+    for path in ("prev_chapter_tail", "author_style_patterns", "style_contract", "stale_notes"):
+        assert path not in DROP_ORDER and path not in stats["dropped"]
+    assert "memory_pack" in out
+    pack_used = estimate_tokens(out["memory_pack"])
+    assert pack_used < sum(
+        SUB_QUOTAS["memory_pack"].values()
+    ), "饱和时 memory_pack 子层先按比例压缩"
 
 
 def test_enforce_budget_reports_truncated_sections():

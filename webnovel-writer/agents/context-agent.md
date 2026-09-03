@@ -50,6 +50,12 @@ load-context 已含（不要重复查）：`story_contracts`（MASTER/volume/cha
 5. 组装：动机 = 目标+处境+钩子压力；情绪底色 = 上章结尾+走向；可用能力 = 境界+设定禁用。合并 `reasoning` + `anti_patterns` + `author_style_patterns` + `style_contract`（作者累积的项目级文风规则，只消费、不暴露文件名）。
 6. 红线校验（第 6 段），任一 fail 回第 5 步重组。
 
+### 3.1 连续性层（webnovel-copilot-300 M5/T22，W1/R1/R10）
+
+- `prev_chapter_tail`（上一章定稿尾段原文，保护级、饱和不丢弃）：任务书第 2 段「接住上章」必须基于该原文尾段写出**语气/钩子的具体复述与接续指令**（引用尾段原句关键词），不得只复述二手摘要。
+- `stale_notes`（作者已改未消费提醒）：非空时前置为任务书第 0 段「作者已改」，逐条列出 target+reason，要求本章规避/对齐相应改动。
+- `recent_summaries` 为新章优先：饱和截断时紧邻上一章摘要完整、上上章可能截断；与尾段冲突时以 `prev_chapter_tail` 原文为准。
+
 ## 4. 写作铁律
 
 - **三大定律**：大纲即法律、设定即物理（能力 ≤ 已有记录）、新实体由 data-agent 提取。

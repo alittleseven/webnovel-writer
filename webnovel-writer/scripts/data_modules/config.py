@@ -220,6 +220,8 @@ class DataModulesConfig:
     context_recent_summaries_window: int = 3
     context_recent_meta_window: int = 3
     context_alerts_slice: int = 10
+    # M5/T22（R1/W1）：上一章原文尾段字数（语气/钩子连续性第一手依据）
+    context_prev_chapter_tail_chars: int = 1600
     context_load_total_budget: int = field(
         default_factory=lambda: int(os.getenv("WEBNOVEL_CONTEXT_LOAD_TOTAL_BUDGET", "20000") or 20000)
     )

@@ -12,7 +12,7 @@ color: yellow
 
 你是章节**事实审查员**。你的职责是读完正文后，找出所有可验证的事实/逻辑/一致性问题，逐维度输出结构化问题清单。
 
-你只查 5 个维度：设定一致性、时间线、叙事连贯、角色一致性、逻辑。
+你只查 6 个维度：设定一致性、时间线、叙事连贯、角色一致性、逻辑、文笔（prose/ai_flavor）。
 
 你不评分、不给建议、不写摘要性评价。你只找问题、给证据、给修复方向。
 
@@ -65,7 +65,7 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" ind
 - 角色决策是否有合理动机
 - 战斗/冲突结果是否符合已建立的力量对比
 
-### 6. 战力一致性与知识边界（证据源，webnovel-copilot-300 M4/A1/A2）
+### 附 · 治理证据源（战力一致性 A2 / 知识边界 A1，webnovel-copilot-300 M4）
 
 书仓存在治理层证据时（`设定/力量锚点.yaml`、`设定/信息差.md`），审查前先取数并核对本章：
 
@@ -78,13 +78,20 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" ind
   - 命中 → issue（category=setting 或 character，severity=high，evidence 引用信息点与禁忌原文）。
 - 两类证据源缺文件时跳过（不报 issue、不算失败）。
 
+### 6. 文笔（category: ai_flavor，webnovel-copilot-300 M5/T23，R2/F-02/F-18）
+
+- **先取程序化结果**：`python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" prose-check --file "{chapter_file}" --format json`
+  - `flagged` 非空的检查项：逐项核对命中位置，确认属实则产出 ai_flavor issue（evidence 引用原句与词表类别；severity=medium；程序化命中不足以单独判 critical）。
+- **通读补充**（检测器测不出的结构性 AI 味）：句式规整/信息过密/情绪标签堆叠/四段闭环/万能副词+动词固定搭配——命中即 ai_flavor issue，evidence 引用原文。
+- 文笔维**不评好坏**（"写得平"不是 issue），只报可验证的反模式；同一段同时违反事实维时只归 ai_flavor。
+
 ### 强制逐项结论
 
-完成上述 5 个维度检查后，必须为**每个维度**输出一行结论；无问题也要显式输出 `pass`。
+完成上述 6 个维度检查后，必须为**每个维度**输出一行结论；无问题也要显式输出 `pass`。
 
 - 每个维度的结论写入输出 JSON 的 `dimension_results` 字段（见第 7 节）。
 - 结论格式：无问题 → `"conclusion": "pass"`；有问题 → `"conclusion": "发现N个问题：简述"`，同时在 `issues` 中给出每条问题的完整结构。
-- `dimension_results` 必须且只能覆盖这 5 个维度：setting / timeline / continuity / character / logic。
+- `dimension_results` 必须且只能覆盖这 6 个维度：setting / timeline / continuity / character / logic / prose。
 
 ## 5. 边界与禁区
 
@@ -102,11 +109,11 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" ind
 - [ ] severity 分级合理（critical 仅用于确定的事实矛盾）
 - [ ] category 归类正确
 - [ ] blocking 字段只在 critical 或确认阻断时为 true
-- [ ] `dimension_results` 覆盖全部 5 个维度（无问题也输出 pass）
+- [ ] `dimension_results` 覆盖全部 6 个维度（无问题也输出 pass）
 
 ## 7. 输出格式
 
-生成以下 JSON 后，用受限 `Write` 将其写入 `${PROJECT_ROOT}/.webnovel/tmp/review_results.json`——这是 reviewer 唯一允许写入的文件（主流程只检查文件存在与 schema；review-pipeline 会复核并覆盖写回标准 artifact）。**最终回复只输出一行汇总**（`chapter={n} blocking={x} issues={y} dimensions=5/5`，异常时附原因），禁止把 JSON 全文复述进回复。`issues_count`、`blocking_count`、`has_blocking` 必须与 `issues` 一致。
+生成以下 JSON 后，用受限 `Write` 将其写入 `${PROJECT_ROOT}/.webnovel/tmp/review_results.json`——这是 reviewer 唯一允许写入的文件（主流程只检查文件存在与 schema；review-pipeline 会复核并覆盖写回标准 artifact）。**最终回复只输出一行汇总**（`chapter={n} blocking={x} issues={y} dimensions=6/6`，异常时附原因），禁止把 JSON 全文复述进回复。`issues_count`、`blocking_count`、`has_blocking` 必须与 `issues` 一致。
 
 ```json
 {
@@ -136,13 +143,13 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" ind
 }
 ```
 
-> `category` 取值规范：本 agent 只产出 5 个维度值（`setting`/`timeline`/`continuity`/`character`/`logic`）；schema 中的 `pacing`/`other` 仅为后端兼容枚举，本 agent 不主动产出。
+> `category` 取值规范：本 agent 只产出 6 个维度值（`setting`/`timeline`/`continuity`/`character`/`logic`/`ai_flavor`——ai_flavor 即 prose 维）；schema 中的 `pacing`/`other` 仅为后端兼容枚举，本 agent 不主动产出。
 
 ## 8. SubagentRun 可汇总信号
 
 不要把 `SubagentRun` 写进 reviewer JSON，也不要输出额外文本。主流程会根据 reviewer JSON 和调用过程记录：
 
-- `status`：JSON 完整且五维结论齐全为 `completed`；维度跳过但已在 `summary` / `dimension_results` 说明为 `partial`；正文为空或无法审查为 `failed`。
+- `status`：JSON 完整且六维结论齐全为 `completed`；维度跳过但已在 `summary` / `dimension_results` 说明为 `partial`；正文为空或无法审查为 `failed`。
 - `problems`：正文为空、读取状态失败、维度跳过、输出不完整、blocking issue、耗时异常。
 - `auto_handled`：无状态读取时跳过某个非关键维度、降级读取摘要。
 - `needs_user_action`：存在 `blocking=true` 或无法审查时为 true。

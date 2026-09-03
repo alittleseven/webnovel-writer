@@ -183,6 +183,12 @@ python -X utf8 -c "import json,os; from pathlib import Path; root=Path(os.enviro
 
 只改表达不改事实。`anti_ai_force_check=fail` 时不进 Step 5。`--minimal` 仅排版。
 
+**程序化文笔检测（webnovel-copilot-300 M5/T23，R2）**：Anti-AI 终检完成后必须运行
+`python -X utf8 "${SCRIPTS_DIR}/webnovel.py" prose-check --file "{chapter_file}" --format json`，
+`anti_ai_force_check` 从自报改为**必附 prose_check 结果**——`flagged` 非空时逐项修复命中
+（或写入 deviation：位置+原因+代价）后复跑至通过（或仅剩已记录 deviation 的提醒级项）；
+`--fast/--minimal` 可跳过检测但不产出 pass 结论。
+
 ### Step 5：提交
 
 #### 5.1 Data Agent 提取事实
@@ -375,7 +381,7 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" met
 1. 正文文件存在且非空
 2. 审查已落库（`--minimal` 除外）
 3. blocking=true 必须在 Step 3 定点修复或经用户裁决
-4. anti_ai_force_check=pass（`--minimal` 除外）
+4. anti_ai_force_check=pass 且附 prose_check 结果（`--minimal` 除外）
 5. accepted CHAPTER_COMMIT，projection 五项 done/skipped
 6. chapter_status=committed（projection 自动推进）
 7. `write-gate` 的 prewrite / precommit / postcommit 均通过

@@ -59,7 +59,7 @@ REGISTERED_CLI_SUBCOMMANDS = {
     "story-system", "chapter-commit", "story-events", "knowledge", "timeline-check",
     "meter", "setting-read",
     "materials",
-    "style-domain", "learn", "power", "forge",
+    "style-domain", "learn", "power", "forge", "prose-check",
 }
 
 

@@ -344,6 +344,18 @@ def cmd_forge(args: argparse.Namespace) -> int:
     return setting_forge.main(argv)
 
 
+def cmd_prose_check(args: argparse.Namespace) -> int:
+    """程序化文笔检测（webnovel-copilot-300 M5/T23，R2）。"""
+    from data_modules import prose_check
+
+    root = _resolve_root_lenient(args.project_root)
+    file_path = Path(args.file)
+    if not file_path.is_absolute():
+        file_path = root / file_path
+    argv = ["--file", str(file_path)]
+    return prose_check.main(argv)
+
+
 def _project_root_diagnostic(
     explicit_project_root: Optional[str], exc: FileNotFoundError
 ) -> str:
@@ -942,6 +954,10 @@ def _main_impl() -> None:
     p_forge.add_argument("--draft", default="", help="confirm：草案文件")
     p_forge.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_forge.set_defaults(func=cmd_forge)
+
+    p_prose_check = sub.add_parser("prose-check", help="程序化文笔检测（T23/R2）：高频词库/长句/同句式/说明腔六项")
+    p_prose_check.add_argument("--file", required=True, help="正文文件（md/txt）")
+    p_prose_check.set_defaults(func=cmd_prose_check)
 
     p_timeline_check = sub.add_parser("timeline-check", help="程序化校验卷时间线（单调递增/倒计时算术）")
     p_timeline_check.add_argument("--volume", type=int, required=True, help="卷号")

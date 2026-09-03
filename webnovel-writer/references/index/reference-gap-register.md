@@ -50,7 +50,7 @@
 | `writing/dialogue-writing.md` (231 行)         | 写作技法.csv（分类=对话）      | 同上            |
 | `writing/emotion-psychology.md` (265 行)       | 写作技法.csv（分类=情感）      | 同上            |
 | `writing/scene-description.md` (263 行)        | 写作技法.csv（分类=场景）      | 同上            |
-| `writing/desire-description.md` (311 行)       | 写作技法.csv（分类=情感）      | 保守保留原文；CSV 尚未覆盖欲念描写细节 |
+| `writing/desire-description.md` (311 行)       | write Step 4（言情/狗血类按需读） | 已接线（M5/T26，R7） |
 | `writing/genre-hook-payoff-library.md` (85 行) | 场景写法.csv（场景类型=钩子/兑现） | 保守保留原文；CSV 仅覆盖部分钩子/兑现条目 |
 
 
@@ -73,7 +73,7 @@
 |------|------|------|
 | `references/review/blocking-override-guidelines.md` | 已完成 | review blocking 决策参考已落位 |
 | `references/outlining/plot-signal-vs-spoiler.md` | 已完成 | plan 章纲拆分参考已落位 |
-| `references/shared/naming-and-voice-gaps.md` | 已完成 | 命名与口吻缺陷补偿参考已落位 |
+| `references/shared/naming-and-voice-gaps.md` | 已完成 | 命名与口吻缺陷补偿参考已落位，且已接线（M5/T26：context-agent 人物段按需读） |
 | `references/README.md` | 已完成 | 顶层 references 索引已新增 |
 | `references/csv/genre-canonical.md` | 已完成 | 15 个 canonical genre + platform_tag 映射已落位 |
 | `reference_search.py` canonical 题材解析 | 已完成 | 支持 canonical、platform_tag、legacy 值归一 |

@@ -46,6 +46,8 @@ load-context 已含（不要重复查）：`story_contracts`（MASTER/volume/cha
 1. `load-context --chapter {NNNN}` 取基础包；`Read` 章纲原文（load-context 的 outline 可能截断）。
 2. 确定卷号：优先 runtime contracts / latest commit；必要时兼容读取 `state.json` 投影。
 3. 按需深查：配角 → `query-entity`；规则 → `query-rules`；时间跨度 → `get-timeline` 或读时间线文件。时间规则：跨夜须过渡、倒计时不跳跃、不回跳。
+   - **人物资产（M5/T26，R7）**：多角色同场对话或新角色命名时，Read `${SCRIPTS_DIR}/../references/shared/naming-and-voice-gaps.md`（对话声线/命名缺陷正反例），用于防止多角色同腔与命名同质化。
+   - **CSV 按需补查（M5/T26，R8，write 触发面 5→9）**：`python -X utf8 "${SCRIPTS_DIR}/reference_search.py" --skill write --table {表名} --query "{关键词}" --genre {题材}`——高潮/打脸/兑现场景→`爽点与节奏`；进入已知桥段（章纲标注或合同命中）→`桥段套路`；新配角/关系冲突→`人设与关系`；金手指/设定展开→`金手指与设定`。检索结果进入任务书相应段落。
 4. 伏笔：`urgent_loops` 已在基础包；`remaining ≤ 5` 或超期的必须处理，可选伏笔最多 5 条。
 5. 组装：动机 = 目标+处境+钩子压力；情绪底色 = 上章结尾+走向；可用能力 = 境界+设定禁用。合并 `reasoning` + `anti_patterns` + `author_style_patterns` + `style_contract`（作者累积的项目级文风规则，只消费、不暴露文件名）。
 6. 红线校验（第 6 段），任一 fail 回第 5 步重组。

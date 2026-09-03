@@ -37,7 +37,7 @@ argument-hint: "[章号] [--fast|--minimal]"
 python -X utf8 "${SCRIPTS_DIR}/reference_search.py" --skill write --table {表名} --query "{关键词}" --genre {题材}
 ```
 
-触发条件：新角色→命名规则，战斗→场景写法，多角色对话→写作技法，情感描写→写作技法，高频桥段→场景写法。
+触发条件（M5/T26 扩容 5→9，R8）：新角色→命名规则，战斗→场景写法，多角色对话→写作技法，情感描写→写作技法，高频桥段→场景写法，高潮/打脸/兑现场景→爽点与节奏，进入已知桥段（章纲标注或合同命中）→桥段套路，新配角/关系冲突→人设与关系，金手指/设定展开→金手指与设定。
 
 ## 执行流程
 
@@ -190,6 +190,8 @@ python -X utf8 -c "import json,os; from pathlib import Path; root=Path(os.enviro
 顺序：修复非 blocking issue → 风格适配 → 排版 → Anti-AI 终检。
 
 只改表达不改事实。`anti_ai_force_check=fail` 时不进 Step 5。`--minimal` 仅排版。
+
+言情/狗血/情感浓度高的章（题材标签或章纲含情感戏）：区段读 `references/writing/desire-description.md`（M5/T26，R7 接线）——亲密戏尺度分级写法与欲念描写技法，润色时按需对照。
 
 **程序化文笔检测（webnovel-copilot-300 M5/T23，R2）**：Anti-AI 终检完成后必须运行
 `python -X utf8 "${SCRIPTS_DIR}/webnovel.py" prose-check --file "{chapter_file}" --format json`，

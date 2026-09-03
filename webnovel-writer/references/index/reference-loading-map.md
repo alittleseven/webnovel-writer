@@ -93,12 +93,24 @@
 
 ## 当前非直接调用项
 
+### M5/T26 接线（2026-09-03，R7/R8）
+
+| Skill/Agent | 阶段 | 触发 | Reference | 读取方式 |
+|-------------|------|------|-----------|---------|
+| webnovel-write | Step 2 | 高潮/打脸/兑现、已知桥段、新配角/关系冲突、金手指展开（触发面 5→9） | `references/csv/{爽点与节奏,桥段套路,人设与关系,金手指与设定}.csv` | `reference_search.py --skill write` |
+| agents/context-agent | 第 3 段 人物组装 | 多角色同场对话/新角色命名 | `references/shared/naming-and-voice-gaps.md` | 全文 |
+| agents/context-agent | 第 3 段 按需补查 | 同上四触发（R8） | `references/csv/{爽点与节奏,桥段套路,人设与关系,金手指与设定}.csv` | `reference_search.py --skill write` |
+| webnovel-init | Step 4 金手指 | always | `templates/golden-finger-templates.md` | 区段 |
+| webnovel-write | Step 4 | 言情/狗血/情感浓度高的章 | `skills/webnovel-write/references/writing/desire-description.md` | 区段 |
+
+> 退役登记：`templates/market-positioning.md`、`templates/plot-frameworks.md`、`templates/outline-structure.md`
+> 已在 2026-08-30 S5 死 reference 清理中删除（F-09 审计时点的三孤儿不复存在）。
+
 以下文件当前存在，但没有被当前 `SKILL.md` 明确要求直接加载；除非后续 skill 增加触发条件，否则不计入 direct loading map：
 
 | 文件 | 现状 |
 |------|------|
 | `skills/webnovel-write/references/style-variants.md` | 未在当前 write 流程中直接加载 |
-| `skills/webnovel-write/references/writing/desire-description.md` | 保守保留原文（2026-08-30 复核：CSV `写作技法`/`场景写法` 各仅 1 处「欲」相关行，覆盖不成立）；当前未被 SKILL.md 直接加载 |
 | `skills/webnovel-write/references/writing/genre-hook-payoff-library.md` | 保守保留原文（2026-08-30 复核：电竞/直播/克苏鲁在 CSV 为部分覆盖）；当前未被 SKILL.md 直接加载 |
 | `skills/webnovel-review/references/common-mistakes.md` | 未在当前 review 流程中直接加载 |
 | `skills/webnovel-review/references/pacing-control.md` | 未在当前 review 流程中直接加载 |

@@ -310,6 +310,20 @@ def cmd_learn(args: argparse.Namespace) -> int:
     return author_model.main(argv)
 
 
+def cmd_power(args: argparse.Namespace) -> int:
+    """战力域（webnovel-copilot-300 M4/T18-T19，F-09）：锚点抽取/校验/战例/通胀/power-check。"""
+    from data_modules import power_anchor
+
+    root = _resolve_root_lenient(args.project_root)
+    rest = list(getattr(args, "power_args", []) or [])
+    if rest[:1] == ["--"]:
+        rest = rest[1:]
+    argv = [args.action, *rest, "--project-root", str(root)]
+    if "--format" not in rest:
+        argv.extend(["--format", args.format])
+    return power_anchor.main(argv)
+
+
 def _project_root_diagnostic(
     explicit_project_root: Optional[str], exc: FileNotFoundError
 ) -> str:
@@ -892,6 +906,12 @@ def _main_impl() -> None:
     p_learn.add_argument("--suggestion", default="", help="apply 的建议文件")
     p_learn.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_learn.set_defaults(func=cmd_learn)
+
+    p_power = sub.add_parser("power", help="战力域（T18/T19，F-09）：extract/validate 锚点、battle/inflate 账本、check 校验")
+    p_power.add_argument("action", choices=["extract", "validate", "battle", "inflate", "check"], help="子动作")
+    p_power.add_argument("power_args", nargs=argparse.REMAINDER, help="子动作参数（--chapter/--matchup/--apply 等）")
+    p_power.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    p_power.set_defaults(func=cmd_power)
 
     p_timeline_check = sub.add_parser("timeline-check", help="程序化校验卷时间线（单调递增/倒计时算术）")
     p_timeline_check.add_argument("--volume", type=int, required=True, help="卷号")

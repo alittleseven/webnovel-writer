@@ -65,6 +65,19 @@ python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "${PROJECT_ROOT}" ind
 - 角色决策是否有合理动机
 - 战斗/冲突结果是否符合已建立的力量对比
 
+### 6. 战力一致性与知识边界（证据源，webnovel-copilot-300 M4/A1/A2）
+
+书仓存在治理层证据时（`设定/力量锚点.yaml`、`设定/信息差.md`），审查前先取数并核对本章：
+
+- **战力一致性（A2）**：`python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" power check --chapter {N} --format json`
+  - 返回 `issues` 中 severity=high 的硬问题（越级无依据/依据不完备/无预告/境界链矛盾）**必须**逐条转为本维 issue（category=setting，severity=high，保留原 location/evidence）；
+  - severity=medium 的通胀软提示并入 setting 维 issues（不阻断）；
+  - 上下文同时核对章纲卡「战力事件」预告与实际战例是否一致。
+- **知识边界（A1）**：`python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" knowledge boundary --chapter {N} --format json`
+  - 对每个信息点核对：本章是否有角色使用其「知晓章 > N」的信息，或违反「泄露禁忌」；
+  - 命中 → issue（category=setting 或 character，severity=high，evidence 引用信息点与禁忌原文）。
+- 两类证据源缺文件时跳过（不报 issue、不算失败）。
+
 ### 强制逐项结论
 
 完成上述 5 个维度检查后，必须为**每个维度**输出一行结论；无问题也要显式输出 `pass`。

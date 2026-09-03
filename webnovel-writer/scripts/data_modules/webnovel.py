@@ -401,6 +401,15 @@ def cmd_promise_ledger(args: argparse.Namespace) -> int:
     return promise_ledger.crud_main(argv)
 
 
+def cmd_name_check(args: argparse.Namespace) -> int:
+    """命名冲突检查（webnovel-copilot-300 M6/T29，A5）：新名 vs 名册正名/别名。"""
+    from data_modules import continuity_check
+
+    root = _resolve_root_lenient(args.project_root)
+    argv = ["--name", args.name, "--project-root", str(root)]
+    return continuity_check.main(argv)
+
+
 def _project_root_diagnostic(
     explicit_project_root: Optional[str], exc: FileNotFoundError
 ) -> str:
@@ -1033,6 +1042,11 @@ def _main_impl() -> None:
     p_ledger.add_argument("--chapter", type=int, default=None, help="update：回收章（已回收时）")
     p_ledger.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_ledger.set_defaults(func=cmd_promise_ledger)
+
+    p_name_check = sub.add_parser("name-check", help="命名冲突检查（T29/A5）：新名 vs 名册正名/别名（编辑距离+相似度+包含）")
+    p_name_check.add_argument("--name", required=True, help="待检新名字")
+    p_name_check.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    p_name_check.set_defaults(func=cmd_name_check)
 
     p_timeline_check = sub.add_parser("timeline-check", help="程序化校验卷时间线（单调递增/倒计时算术）")
     p_timeline_check.add_argument("--volume", type=int, required=True, help="卷号")

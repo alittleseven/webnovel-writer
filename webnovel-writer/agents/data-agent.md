@@ -89,7 +89,8 @@ hook_strength: "strong"
 ### 7.1 字段命名
 
 - **state_deltas 子项**：`entity_id` + `field` + `old` + `new`。简单字段直接写（`realm`），嵌套用点号（`power.realm`、`location.current`），投影器自动展开。
-- **entity_deltas 子项**：`entity_id` + `action` + `entity_type`（值为 `角色|组织|地点|物品|势力`，非默认 `"角色"`）+ `payload`；`is_protagonist: true` 标主角（同步到 `state.protagonist_state`）。**新实体 `payload.aliases` 必须预注册 3-5 个别名**（全名、简称、称号/职业称谓、英文名或拼音等变体，如「周建军」→["老周","周建军","周总务"]），只有 1-2 个会触发 `new_entity_few_aliases` 警告——后续章节的指称消歧依赖这批别名。
+- **entity_deltas 子项**：`entity_id` + `action` + `entity_type`（值为 `角色|组织|地点|物品|势力`，非默认 `"角色"`）+ `payload`；`is_protagonist: true` 标主角（同步到 `state.protagonist_state`）。
+- **新实体登记前必跑命名冲突检查（M6/T29，A5）**：`python -X utf8 "${SCRIPTS_DIR}/webnovel.py" --project-root "{project_root}" name-check --name "{正名}" --format json`——`conflicts` 非空时改用既有实体（get-by-alias 复用）或换名，禁止登记近重复实体。**新实体 `payload.aliases` 必须预注册 3-5 个别名**（全名、简称、称号/职业称谓、英文名或拼音等变体，如「周建军」→["老周","周建军","周总务"]），只有 1-2 个会触发 `new_entity_few_aliases` 警告——后续章节的指称消歧依赖这批别名。
 - **accepted_events 子项**：每条必含 `event_id`（章内稳定 ID 如 `evt-ch100-001`）+ `chapter`（当前章号）+ `event_type`（枚举见下）+ `subject`（主体 entity_id，非中文名）+ `payload`。
 - **event_type 枚举**：`character_state_changed`、`power_breakthrough`、`relationship_changed`、`world_rule_revealed`、`world_rule_broken`、`open_loop_created`、`open_loop_closed`、`promise_created`、`promise_paid_off`、`artifact_obtained`。
 - **各 event_type payload 必备字段**：

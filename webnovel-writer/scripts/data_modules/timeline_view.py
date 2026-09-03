@@ -77,16 +77,39 @@ def build_timeline_view(project_root: str | Path, *, volume: int) -> dict[str, A
 
     import datetime as _dt
 
+    # M6/T29（A4）：book.yaml 配置了 主角年龄 时追加 年龄/修龄 推演列
+    age_note = ""
+    age_columns: list[dict[str, Any]] = []
+    try:
+        from .continuity_check import _book_age_base, build_age_columns
+
+        age_base = _book_age_base(Path(project_root))
+        if age_base and rows:
+            age_columns = build_age_columns([(int(r[0]), r[1]) for r in rows], age_base)
+    except Exception:
+        age_columns = []
+    if age_columns:
+        age_by_chapter = {c["章"]: c for c in age_columns}
+        age_note = "> 年龄列：由 book.yaml 主角年龄/觉醒日 与时间锚「第N天」推演；锚不可解析为「—」。\n\n"
+
     header = (
         f"<!-- timeline-view: v1 volume={volume} generated={_dt.datetime.now().astimezone().isoformat(timespec='seconds')} -->\n"
         f"# 第 {volume} 卷 · 时间线视图\n\n"
-        "> 本视图由章纲卡导出；作者直接修改本表后运行 `webnovel.py timeline sync` 可把时间锚回写章纲卡。\n\n"
+        "> 本视图由章纲卡导出；作者直接修改本表后运行 `webnovel.py timeline sync` 可把时间锚回写章纲卡。\n"
+        f"{age_note}\n"
     )
     if not rows:
         header += "> 暂无章纲卡（本卷）\n\n"
-    table = "| 章 | 故事内时间 | 事件（节点） | 伏笔/承诺 | 战力事件 |\n|---|---|---|---|---|\n"
-    for row in rows:
-        table += "| " + " | ".join(row) + " |\n"
+    if age_columns:
+        table = "| 章 | 故事内时间 | 主角年龄 | 修龄 | 事件（节点） | 伏笔/承诺 | 战力事件 |\n|---|---|---|---|---|---|---|\n"
+        for row in rows:
+            chapter_no = int(row[0])
+            age = age_by_chapter.get(chapter_no, {})
+            table += "| " + " | ".join([row[0], row[1], str(age.get("年龄", "—")), str(age.get("修龄", "—")), row[2], row[3], row[4]]) + " |\n"
+    else:
+        table = "| 章 | 故事内时间 | 事件（节点） | 伏笔/承诺 | 战力事件 |\n|---|---|---|---|---|\n"
+        for row in rows:
+            table += "| " + " | ".join(row) + " |\n"
 
     _view_path(project_root, volume).parent.mkdir(parents=True, exist_ok=True)
     _view_path(project_root, volume).write_text(header + table, encoding="utf-8", newline="\n")

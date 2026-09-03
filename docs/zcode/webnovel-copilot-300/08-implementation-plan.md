@@ -61,10 +61,15 @@
 
 ## M2 · 成长素材库
 
-- **T11 素材数据面**：material_store（10 张表读写/装配选择器/来源与状态字段）+ init 播种（题材包）。验收：新 init 项目含播种素材；装配器只取定版+活层 top-K 被测试锁定。
-- **T12 使用轨迹与写作接线**：data-agent 轨迹写入 + 章纲卡素材引用消费 + settle 联动。验收：写一章后轨迹正确落账。
-- **T13 素材入口三通道**：作者直编（sync 已兜）/ AI 归纳画廊 / 拆书投喂（deconstruction-agent 扩展）。验收：三通道各入一条，来源标记正确。
-- **T14 material-review**：统计+建议+裁决执行。验收：F-06 流程 + 使用率统计正确。
+- [x] **T11 素材数据面**：material_store（10 张表读写/装配选择器/来源与状态字段）+ init 播种（题材包）。验收：新 init 项目含播种素材；装配器只取定版+活层 top-K 被测试锁定。
+  - 证据 a56bda2：17 测试绿；assemble 只出定版（带版本）+活层 active top-K（低使用优先），归档/衰减不进装配；init 播种 D0-5（4 张核心表 × ≤30 条，来源=播种:<题材>，既有表不覆盖）；init_project 接线六域骨架+播种（git 初始化前）；CLI `materials list|validate|assemble|seed`。
+- [x] **T12 使用轨迹与写作接线**：data-agent 轨迹写入 + 章纲卡素材引用消费 + settle 联动。验收：写一章后轨迹正确落账。
+  - 证据 6b0fbc1：12 测试绿；`素材/使用轨迹.jsonl` append-only（残行容错）；`materials log` 消费章纲卡 `素材引用`（短名别名归一，活层→定版版本判定，一章一批幂等，缺失只告警）；chapter-commit projections 后自动落账（静默失败不阻断事务）；data-agent.md §5.1。
+- [x] **T13 素材入口三通道**：作者直编（sync 已兜）/ AI 归纳画廊 / 拆书投喂（deconstruction-agent 扩展）。验收：三通道各入一条，来源标记正确。
+  - 证据 02e1d52：12 测试绿（含三通道验收用例）；`素材/regen/{slug}-v{N}.csv` 画廊 propose/candidates/adopt/discard；通道白名单（AI归纳/拆书:*/工坊采纳:*），采纳来源随行入库，重复 id 跳过，画廊只增不改；deconstruction-agent.md §9 素材投喂模式。
+- [x] **T14 material-review**：统计+建议+裁决执行。验收：F-06 流程 + 使用率统计正确。
+  - 证据 4c4e92b（+ef47c7d 注册表补录）：12 测试绿；review_stats（使用率/最近使用章/来源分布，0 token）；衰减=N 卷未用（章→卷换算优先 book.yaml 卷规模）；确定性候选（衰减归档+同表同名合并，LLM 建议会话侧）；apply-rulings archive/delete/merge（非法整体拒绝，裁决留 journal）；CLI `materials review|apply-ruling`。
+  - 收尾：prompt 完整性注册表补录 `materials`（ef47c7d）；fantasy01 副本实测全链（播种 120 条 → 章纲引用落账/缺失告警 → freeze v01 → 定版装配 → 卷审衰减 → 裁决归档）；全量 1303 passed，覆盖率 81.49%。
 
 ## M3 · 作者模型与文风域
 

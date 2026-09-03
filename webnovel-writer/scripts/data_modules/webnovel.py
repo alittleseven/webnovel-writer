@@ -410,6 +410,15 @@ def cmd_name_check(args: argparse.Namespace) -> int:
     return continuity_check.main(argv)
 
 
+def cmd_volume_reconcile(args: argparse.Namespace) -> int:
+    """卷纲-实际对账（webnovel-copilot-300 M6/T30，A7）。"""
+    from data_modules import volume_reconcile
+
+    root = _resolve_root_lenient(args.project_root)
+    argv = ["--volume", str(args.volume), "--project-root", str(root), "--format", args.format]
+    return volume_reconcile.main(argv)
+
+
 def _project_root_diagnostic(
     explicit_project_root: Optional[str], exc: FileNotFoundError
 ) -> str:
@@ -1047,6 +1056,11 @@ def _main_impl() -> None:
     p_name_check.add_argument("--name", required=True, help="待检新名字")
     p_name_check.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_name_check.set_defaults(func=cmd_name_check)
+
+    p_reconcile = sub.add_parser("volume-reconcile", help="卷纲-实际对账（T30/A7）：节点覆盖率/伏笔兑现/战力里程碑 → 对账报告")
+    p_reconcile.add_argument("--volume", type=int, required=True, help="卷号")
+    p_reconcile.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    p_reconcile.set_defaults(func=cmd_volume_reconcile)
 
     p_timeline_check = sub.add_parser("timeline-check", help="程序化校验卷时间线（单调递增/倒计时算术）")
     p_timeline_check.add_argument("--volume", type=int, required=True, help="卷号")

@@ -111,6 +111,18 @@ def freeze_volume(project_root: str | Path, *, volume: int, force: bool = False)
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8", newline="\n"
     )
 
+    # M6/T30（A7）：冻结后产出卷纲-实际对账报告（失败不阻断冻结事务）
+    reconcile_hint = ""
+    try:
+        from .volume_reconcile import reconcile_volume
+
+        reconcile_report = reconcile_volume(root, volume=int(volume))
+        if reconcile_report.get("ok"):
+            reconcile_hint = reconcile_report["report_path"]
+            warnings.append(f"卷纲-实际对账已产出：{reconcile_hint}")
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(f"卷纲-实际对账失败：{exc}")
+
     return {
         "ok": True,
         "schema_version": FREEZE_SCHEMA_VERSION,
@@ -118,6 +130,7 @@ def freeze_volume(project_root: str | Path, *, volume: int, force: bool = False)
         "target": str(target),
         "files": len(live_files),
         "warnings": warnings,
+        "reconcile_report": reconcile_hint,
     }
 
 

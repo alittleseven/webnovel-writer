@@ -2,6 +2,14 @@
 
 这里记录每个正式版本对作者和维护者的影响。发布说明优先面向中文网文作者：先说写作体验有什么变化，再补维护者关心的技术细节。
 
+## v8.0.0 - 作者主权 + 300 章连贯（webnovel-copilot-300 工程落地）
+
+> 本次发布覆盖上个正式 tag `v7.0.0` 之后的 `v7.1.0..v8.0.0`（v8-author 分支，单线队列 T1-T34）。发布说明详见 `releases/v8.0.0.md`；方案文档集见 `docs/zcode/webnovel-copilot-300/`。
+
+**写作体验**：书仓六域骨架一键补齐（作者手改永不覆盖）；作者修改自动留账并影响下一章；总纲三区 + regen 画廊；素材十表（活层/定版/使用轨迹 + AI 归纳与拆书画廊入库）；作者模型与文风指纹进写前上下文；设定工坊四生成器（提案模式）；战力校验、伏笔逾期扫描、命名冲突检查、卷纲-实际对账四类机器闸；prose_check 文笔检测 + 第 6 维审查 + 双稿择优。
+
+**维护者**：CLI 新增 11 个治理子命令（materials/style-domain/learn/power/forge/prose-check/drafts/foreshadow-scan/promise-ledger/name-check/volume-reconcile）；MCP 9→14 只读工具；/webnovel:* 命令 9→13；dashboard 治理面板六视图；300 章规模演练 1.64s 全链 PASS；测试 1452 passed（覆盖率 82.05%）。
+
 ## v7.1.0 - ZCode 原生化（MCP 服务 + 斜杠命令 + userConfig）
 
 > 本次发布覆盖 `v7.0.0..v7.1.0`（tmp/zcode 分支，单线队列 S1-S16）。发布说明详见 `releases/v7.1.0.md`；方案文档集见 `docs/zcode/zcode-native-adaptation/`。

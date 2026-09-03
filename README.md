@@ -1,14 +1,14 @@
 # Webnovel Writer
 
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-7.1.0-brightgreen.svg)](marketplace.json)
+[![Version](https://img.shields.io/badge/version-8.0.0-brightgreen.svg)](marketplace.json)
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![ZCode](https://img.shields.io/badge/ZCode-Native-blue.svg)](https://cdn-zcode.z.ai)
 [![Marketplace](https://img.shields.io/badge/ZCode-Marketplace-black.svg)](marketplace.json)
 
 <a href="https://trendshift.io/repositories/22487" target="_blank"><img src="https://trendshift.io/api/badge/repositories/22487" alt="lingfengQAQ%2Fwebnovel-writer | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-一个跑在 ZCode 上的长篇网文创作插件（v7.1.0 起 ZCode 原生：自带 MCP 查询服务与 /webnovel:* 命令）。从初始化设定、规划卷纲，到写章、审查、沉淀记忆、查询状态，再到一个只读的可视化面板——整条创作流程都给你串好了。
+一个跑在 ZCode 上的长篇网文创作插件（v8.0.0「作者主权+300章连贯」：六域书仓治理 + MCP 治理查询 + /webnovel:* 命令）。从初始化设定、规划卷纲，到写章、审查、沉淀记忆、查询状态，再到一个只读的可视化面板——整条创作流程都给你串好了。
 
 它想解决的其实就一件事：**让 AI 写到几百章，依然记得住设定、接得住伏笔、守得住大纲。**
 
@@ -329,7 +329,8 @@ git push origin feature/your-feature
 
 | 版本 | 主要变化 |
 |------|----------|
-| **v7.1.0 (当前)** | ZCode 原生化：.zcode-plugin 清单、webnovel MCP 服务、/webnovel:* 命令、userConfig 书项目根配置 |
+| **v8.0.0 (当前)** | 「作者主权+300章连贯」工程落地（webnovel-copilot-300） |
+| **v7.1.0** | ZCode 原生化：.zcode-plugin 清单、webnovel MCP 服务、/webnovel:* 命令、userConfig 书项目根配置 |
 | **v7.0.0** | v7 Story-Repo 新架构上线：一键迁移、双格式守卫、两章实跑落定，上下文配额按书校准 |
 | **v6.5.0** | Phase C/D 收官：上下文预算实装（−68%）、L0 设定摘要（−93%）、往返压缩与大输出外置化、读侧提速 |
 | **v6.4.0** | 写章上下文瘦身：门禁/提交/审查一行结论、load-context 去重（实测 −72%）、中文参数乱码误报修复 |

@@ -152,6 +152,24 @@ def cmd_where(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_author_sync(args: argparse.Namespace) -> int:
+    """author-sync：作者修改留账（T3/T4，解析放宽同 domains）。"""
+    from data_modules import author_sync, domain_contract
+
+    try:
+        root = _resolve_root(args.project_root)
+    except FileNotFoundError:
+        candidate = Path(args.project_root)
+        if candidate.is_dir() and domain_contract.is_story_repo(candidate):
+            root = candidate
+        else:
+            raise
+    argv = ["--project-root", str(root), "--format", args.format]
+    if args.confirm_migration:
+        argv.append("--confirm-migration")
+    return author_sync.main(argv)
+
+
 def cmd_domains(args: argparse.Namespace) -> int:
     """六域目录契约（webnovel-copilot-300 T1）：init 幂等建骨架 / check 只读体检。
 
@@ -671,6 +689,11 @@ def _main_impl() -> None:
     p_doctor.add_argument("--deep", action="store_true", help="包含 dashboard 等较深检查")
     p_doctor.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_doctor.set_defaults(func=cmd_doctor)
+
+    p_author_sync = sub.add_parser("author-sync", help="作者修改留账：git diff→六域分类→journal+stale（0 token）")
+    p_author_sync.add_argument("--confirm-migration", action="store_true", help="批量变更（>100 文件）确认记录为汇总事件")
+    p_author_sync.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    p_author_sync.set_defaults(func=cmd_author_sync)
 
     p_domains = sub.add_parser("domains", help="书仓六域目录契约（init 建骨架 / check 体检）")
     p_domains.add_argument("action", choices=["init", "check"], help="init=幂等创建缺失骨架；check=只读契约检查")

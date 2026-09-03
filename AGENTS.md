@@ -67,4 +67,5 @@ webnovel-writer/              ← 外层仓库根（marketplace.json 双位置�
 - Windows 下运行 Python 脚本必须加 `-X utf8` 避免 GBK 编码问题
 - 中文 commit message 用 UTF-8 文件 + `git commit -F` 方式提交
 - `.tmp/` 和 `.tmp_story_system_engine/` 是临时目录，已在 .gitignore 中
+- 宿主产出文档按宿主分目录：ZCode 方案集放 `docs/zcode/<任务名>/`，Cursor 产出（审查报告 / 分析 / 计划）放 `docs/cursor/<任务名>/`；跨宿主的正式产出仍按工作区分级归 `docs/{research,reports,plans,decisions}/`
 - 修改插件组件（skills/hooks/commands/MCP）后需重启 ZCode 会话生效；改 scripts/*.py 则即时生效（每次调用都是新进程）

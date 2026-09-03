@@ -101,7 +101,7 @@ def _levenshtein(a: str, b: str) -> int:
 
 
 def load_known_names(project_root: str | Path) -> list[dict[str, str]]:
-    """已知名字池：v7 名册 front matter（正名+别名 JSON）+ 名册.md 表（正名列）。"""
+    """已知名字池：v7 名册 front matter（正名+别名 JSON）+ 名册.md 总表（中文名单元格）。"""
     root = Path(project_root)
     known: list[dict[str, str]] = []
     roster_dir = root / "定稿" / "设定" / "名册"
@@ -129,6 +129,19 @@ def load_known_names(project_root: str | Path) -> list[dict[str, str]]:
             for alias in aliases:
                 if alias:
                     known.append({"name": alias, "alias": canonical, "source": path.name})
+    # 名册.md 总表（历史形态：列对齐不稳，直接取行内的中文名单元格）
+    roster_md = root / "定稿" / "设定" / "名册.md"
+    if roster_md.is_file():
+        seen = {k["name"] for k in known}
+        for line in roster_md.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line.startswith("|") or set(line) <= {"|", "-", " ", ":"}:
+                continue
+            for cell in line.strip("|").split("|"):
+                cell = cell.strip()
+                if cell and _NAME_RE.fullmatch(cell) and cell not in seen and cell not in ("正名", "别名", "首现章"):
+                    known.append({"name": cell, "alias": "", "source": "名册.md"})
+                    seen.add(cell)
     return known
 
 

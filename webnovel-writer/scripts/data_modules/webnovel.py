@@ -838,7 +838,7 @@ def _main_impl() -> None:
     p_materials = sub.add_parser("materials", help="素材工作台（T11 数据面 / T12 轨迹 / T13 入库画廊 / T14 卷审）")
     p_materials.add_argument(
         "action",
-        choices=["list", "validate", "assemble", "seed", "log", "trajectory", "propose", "candidates", "adopt", "discard"],
+        choices=["list", "validate", "assemble", "seed", "log", "trajectory", "propose", "candidates", "adopt", "discard", "review", "apply-ruling"],
         help="子动作",
     )
     p_materials.add_argument("material_args", nargs=argparse.REMAINDER, help="子动作参数（--table/--k/--genre 等）")

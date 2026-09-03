@@ -58,6 +58,7 @@ REGISTERED_CLI_SUBCOMMANDS = {
     "placeholder-scan", "master-outline-sync",
     "story-system", "chapter-commit", "story-events", "knowledge", "timeline-check",
     "meter", "setting-read",
+    "materials",
 }
 
 

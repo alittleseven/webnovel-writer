@@ -63,6 +63,8 @@ create_chapter_batch 不读详细大纲（无论叫什么名字）→ 标题自�
 
 **实测**（fantasy01 真仓跑 `build_doctor_report`）：只有 8 个环境检查（python.version / 依赖导入×7），**零治理检查**。MCP `webnovel_doctor` 暴露的也是这个空壳版本。
 
+> **勘误 2026-09-04（复审 §6）**：「零治理检查」属实；「只有环境检查」是表象——`build_doctor_report`（`doctor.py:861-945`）本有 12 组项目检查（preflight / file / json / story_runtime / sqlite / total_words / projection_log / extraction / contract_version / run_log / rag / domain_contract），在 fantasy01 只跑出环境组是因为 doctor **对纯 v7 书仓解析不到项目根**（依赖 `.webnovel/state.json`，08 计划 T1 证据行已登记「phase 解析限制」但未排任务）。`_python_checks` 实为 version + 6 import = 7 项。修复见 P4-0。
+
 ### 2.2 06 §12 六条数据不变量仅 1 条实现
 
 | # | 不变量 | 实现 |
@@ -171,7 +173,8 @@ create_chapter_batch 不读详细大纲（无论叫什么名字）→ 标题自�
 
 | 任务 | 内容 | 验收 |
 |------|------|------|
-| **P4-1 doctor 治理检查组** | doctor 增 8 组检查（F-13）：journal 水位/stale 积压/轨迹-manifest/锚点-正文/条目状态机/素材健康（复用 material_review stats）/画廊积压/合同对账（调 P2-3）；MCP webnovel_doctor 自动受益 | fantasy01 doctor 输出治理组结论 |
+| **P4-0 v7 书仓项目根解析（P4-1 前置，复审 P1-9）** | `build_doctor_report` 在纯 v7 书仓（无 `.webnovel/state.json`）解析不到项目根，既有 12 组检查整体跳过、只剩 python 依赖组——这是 §2.1「只看到环境检查」的真实原因。改 doctor 根解析兼容 `book.yaml` 书仓（phase 推导走 v7 定稿目录），并把 §2.1 措辞修正为「零治理检查」（既有组并非不存在，是没跑到） | fantasy01 doctor 输出 ≥12 组既有检查而非仅 python.* |
+| **P4-1 doctor 治理检查组** | doctor 增 8 组检查（F-13）：journal 水位/stale 积压/轨迹-manifest/锚点-正文/条目状态机/素材健康（复用 material_review stats）/画廊积压/合同对账（调 P2-3）；MCP webnovel_doctor 自动受益。**F-13 在 08 计划中从未排期**（对账见 `docs/cursor/项目复审/2026-09-04-copilot-300-规格对账表.md`），本项即其唯一落地点 | fantasy01 doctor 输出治理组结论 |
 | **P4-2 dashboard 账本视图** | governance.py 增承诺账本视图（各状态计数+逾期列表）；GovernancePage 增第七段 | 面板可见 F-001~S-001 状态 |
 | **P4-3 播种复合题材 + name-check 绰号** | ①seed 支持复合键（都市+仙侠+科幻 → 三键并集）；②name-check 增正文浮动名扫描（最近 N 章高频专名，warning 级） | fantasy01 播种含仙侠素材；「铁牙」类绰号被提示 |
 
@@ -181,6 +184,7 @@ create_chapter_batch 不读详细大纲（无论叫什么名字）→ 标题自�
 P1-1 ──→ P1-2 ──→ P3-1（settle 门禁先于后置钩子）
 P2-1 ──→ P2-2（路径统一先于标题闸）
 P2-3 ──→ P4-1（不变量器被 doctor 复用）
+P4-0 ──→ P4-1（根解析不修，治理组在 v7 书仓上同样跑不到）
 P3-3 / P4-2 / P4-3 独立
 ```
 

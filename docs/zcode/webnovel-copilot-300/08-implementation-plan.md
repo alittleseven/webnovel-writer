@@ -5,6 +5,8 @@
 > 动工前必须先过 §0 决策门。
 >
 > **✅ 2026-09-03：T1-T34 全部完成（M0-M7 七个里程碑勾选完毕），v8.0.0 已发版（发版链全绿）。**
+>
+> **⚠️ 2026-09-04 覆盖范围声明（复审 P0-4）**：本计划 T1-T34 **不覆盖 07 方案 F-13「doctor 治理层体检」**（从未排期，非实现失误）；F-04 / F-05 / F-08 / F-11 / F-14 仅部分覆盖。逐项 F→T 对账见 `docs/cursor/项目复审/2026-09-04-copilot-300-规格对账表.md`；缺口的修复排期见 `docs/zcode/v8-gap-review-3rounds/README.md`（F-13 → P4-1，前置「v7 书仓项目根解析」）。「全队列完毕」指 T 层，不等于 07 方案全覆盖。
 
 > **✅ D-0 已裁决（2026-09-03，作者）**：D0-4 = **2**（`--drafts` 默认 2，质量优先）；其余 D0-1/2/3/5/6/7 按方案建议生效（v8.0.0 线、`.story-system/` 入库+对账、journal 补全每会话一次 ≤50 条、素材按题材子集播种、fantasy01 验收场、D1-D8 核对完成）。D0-7 核对结果见 §0.1。
 
@@ -53,7 +55,7 @@
 - [x] **T6 总纲三区结构与分区迁移**：……验收：迁移后 regen 只作用于乙/丙区被测试锁定。
   - 证据 e8ee13b：14 测试绿；fantasy01 实测 卷1 活跃、卷2-5 锚点、二次迁移幂等跳过。
 - [x] **T7 regen 画廊**：……验收：总纲与章纲画廊流程（F-02/F-04 单章）走通，采纳留痕。
-  - 证据 8f0a5c9（见 git log，提交信息含 T7）：10 测试绿；D3 上限 3 版；D7 current 指针。
+  - 证据 78a8a16（原写 8f0a5c9，该 hash 在本仓不存在，2026-09-04 勘误）：10 测试绿；D3 上限 3 版；D7 current 指针。
 - [x] **T8 章纲批量生成**：……验收：一批 8 卡自检报告正确（合同编译联动于 M1 skill 层接续）。
   - 证据 970ff4a：12 测试绿；必填字段/重复章号/超批拒绝；自检 warning 不阻断；confirm 留 journal。
 - [x] **T9 卷纲时间线视图**：……验收：F-03 全流程（年龄推演按计划移至 M6/T29）。
@@ -137,7 +139,8 @@
   - 证据 2392f7e（+411e4ae 末卷推算修复）：scale_drill 确定性合成 + 全链计时；实测 300 章 **总计 1.64s**（doctor 0.34s / timeline 0.45s / 逾期扫描 0.19s / 装配 0.17s / 对账 0.17s），逾期 15 条全检出、装配十表、6 卷对账——分钟级预算内两个数量级，无超线性退化。
   - 演练暴露并修复两个真实集成缺口：timeline-check 时间线文件位置兼容 T9 卷纲子目录；_parse_chapter_axis_rows 兼容 T9 视图表头/行格式。CI 用 40 章 drill 测试 4 个全绿。
 - [x] **T34 文档与发版**：README/CHANGELOG/releases/v8.0.0.md + guides 更新 + 全量回归（pytest cov≥80 + 行为评测 + validate 三件套）。验收：发版链全绿。
-  - 证据 cff0ef0：版本 7.1.0→8.0.0 三处同步（plugin.json/marketplace 双位置/mcp SERVER_VERSION/README 徽章与版本表）；releases/v8.0.0.md + CHANGELOG 段（发版范围含上个正式 tag v7.0.0）。
+  - 证据 cff0ef0：版本 7.1.0→8.0.0 三处同步（plugin.json/marketplace 双位置/~~mcp SERVER_VERSION~~/README 徽章与版本表）；releases/v8.0.0.md + CHANGELOG 段（发版范围含上个正式 tag v7.0.0）。
+  - **勘误 2026-09-04（W3）**：`git show --stat cff0ef0` 未触碰 `mcp/server.py`，`SERVER_VERSION` 实际停在 7.1.0；已在 `1cc23ce` 同步为 8.0.0 并把 `server.py` 纳入 `sync_plugin_version.py --check`（此前对该处假阴性）。「guides 更新」同样未发生，`docs/guides/commands.md` 在 `d726307` 才补齐 v8 命令面。
   - 发版链全绿：pytest 1452 passed（82.05%）／行为评测 22 PASS／validate_plugin_package 0 错／validate_release_notes 通过／sync_plugin_version --check 一致／validate_reference_wiring drift=0。
 
 ## 里程碑与依赖

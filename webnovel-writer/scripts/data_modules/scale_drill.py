@@ -100,15 +100,15 @@ def synthesize_book(target: Path, *, chapters: int, seed_repo: Path | None = Non
             nodes += f"| {index + 1} | 危机{index + 1}（第{n_start}-{n_end}章） | 变化{index + 1} |\n"
         _write(target / "大纲" / "卷纲" / f"第{volume:02d}卷-节拍表.md", "# 节拍表\n\n" + nodes)
 
-    # 承诺账本：30 条，其中 10 条相对第 300 章已逾期
+    # 承诺账本：30 条，dues 随总章数比例展开（约半数在扫描点前已回收，其余为逾期）
     for index in range(1, 31):
-        due = 40 + index * 8
+        due = max(5, int(chapters * index / 31))
         status = "open"
         recovered = ""
         if due < chapters:
             # 一半在到期后 5 章内回收，另一半遗留为逾期
             if index % 2 == 0:
-                status, recovered = "已回收", str(due + 5)
+                status, recovered = "已回收", str(min(due + 5, chapters))
         _write(
             target / "大纲" / "条目" / "伏笔" / f"F-{index:03d}-伏笔{index}.md",
             f"---\n编号: F-{index:03d}\n类型: 伏笔\n名称: 伏笔{index}\n状态: {status}\n"

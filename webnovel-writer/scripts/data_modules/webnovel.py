@@ -166,6 +166,23 @@ def _resolve_root_lenient(raw: str) -> Path:
         raise
 
 
+def cmd_freeze(args: argparse.Namespace) -> int:
+    """卷收尾冻结与 retcon 裁决（T10）。"""
+    from data_modules import freeze_manager
+
+    root = _resolve_root_lenient(args.project_root)
+    argv = [args.action, "--volume", str(args.volume), "--project-root", str(root), "--format", args.format]
+    if args.force:
+        argv.append("--force")
+    if args.choice:
+        argv.extend(["--choice", args.choice])
+    if args.reason:
+        argv.extend(["--reason", args.reason])
+    if args.affected:
+        argv.extend(["--affected", args.affected])
+    return freeze_manager.main(argv)
+
+
 def cmd_timeline(args: argparse.Namespace) -> int:
     """卷纲时间线视图（T9）：build 导出 / sync 反向回写（默认 dry-run）。"""
     from data_modules import timeline_view
@@ -744,6 +761,16 @@ def _main_impl() -> None:
     p_doctor.add_argument("--deep", action="store_true", help="包含 dashboard 等较深检查")
     p_doctor.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_doctor.set_defaults(func=cmd_doctor)
+
+    p_freeze = sub.add_parser("freeze", help="卷收尾冻结与 retcon 三选项裁决（T10）")
+    p_freeze.add_argument("action", choices=["freeze", "retcon"])
+    p_freeze.add_argument("--volume", type=int, required=True)
+    p_freeze.add_argument("--force", action="store_true")
+    p_freeze.add_argument("--choice", choices=["forward", "full", "revert"])
+    p_freeze.add_argument("--reason", default="")
+    p_freeze.add_argument("--affected", default="")
+    p_freeze.add_argument("--format", choices=["text", "json"], default="text")
+    p_freeze.set_defaults(func=cmd_freeze)
 
     p_timeline = sub.add_parser("timeline", help="卷纲时间线视图（build 导出 / sync 反向对账回写）")
     p_timeline.add_argument("action", choices=["build", "sync"])

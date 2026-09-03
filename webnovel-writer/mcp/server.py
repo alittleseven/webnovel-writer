@@ -145,6 +145,54 @@ def _build_context(params: dict[str, Any]) -> list[str]:
     ]
 
 
+# ---------------------------------------------------------------------------
+# 治理只读工具（webnovel-copilot-300 M7/T31：M2-M6 治理层的 ZCode 只读面）
+# ---------------------------------------------------------------------------
+
+
+def _build_materials_status(params: dict[str, Any]) -> list[str]:
+    args = _base_args(params.get("project_root")) + ["materials", "list", "--format", "json"]
+    if params.get("table"):
+        for table in params["table"]:
+            args.extend(["--table", str(table)])
+    return args
+
+
+def _build_materials_assemble(params: dict[str, Any]) -> list[str]:
+    args = _base_args(params.get("project_root")) + ["materials", "assemble", "--format", "json"]
+    if params.get("k") is not None:
+        args.extend(["--k", str(int(params["k"]))])
+    if params.get("table"):
+        for table in params["table"]:
+            args.extend(["--table", str(table)])
+    return args
+
+
+def _build_power_check(params: dict[str, Any]) -> list[str]:
+    args = _base_args(params.get("project_root")) + ["power", "check", "--format", "json"]
+    if params.get("chapter") is not None:
+        args.extend(["--chapter", str(int(params["chapter"]))])
+    return args
+
+
+def _build_foreshadow_scan(params: dict[str, Any]) -> list[str]:
+    args = _base_args(params.get("project_root")) + [
+        "foreshadow-scan",
+        "scan",
+        "--chapter",
+        str(int(params["chapter"])),
+        "--no-apply",  # MCP 只读面：只报告不标记
+        "--format",
+        "json",
+    ]
+    return args
+
+
+def _build_reader_signals(params: dict[str, Any]) -> list[str]:
+    args = _base_args(params.get("project_root")) + ["index", "get-reader-signals", "--limit", "5", "--last-n", "20"]
+    return args
+
+
 _OBJECT_SCHEMA = {"type": "object", "properties": {}, "additionalProperties": False}
 _PROJECT_ROOT_PROP = {
     "type": "string",
@@ -254,6 +302,48 @@ TOOLS: list[dict[str, Any]] = [
             required=["chapter"],
         ),
         "build": _build_context,
+    },
+    {
+        "name": "webnovel_materials_status",
+        "description": "素材活层十表状态（各表条数/active 数，只读）。",
+        "inputSchema": _schema(
+            {"table": {"type": "array", "items": {"type": "string"}, "description": "限定表名（可多选，缺省全部）"}},
+        ),
+        "build": _build_materials_status,
+    },
+    {
+        "name": "webnovel_materials_assemble",
+        "description": "写作装配预览：定版快照（带版本）+ 活层 active top-K（只读）。",
+        "inputSchema": _schema(
+            {
+                "k": {"type": "integer", "description": "每表活层 top-K（默认 20）"},
+                "table": {"type": "array", "items": {"type": "string"}, "description": "限定表名（可多选，缺省全部）"},
+            },
+        ),
+        "build": _build_materials_assemble,
+    },
+    {
+        "name": "webnovel_power_check",
+        "description": "战力校验（A2）：跨阶依据/境界链矛盾（high）/通胀曲线（medium）。",
+        "inputSchema": _schema(
+            {"chapter": {"type": "integer", "description": "只查该章战例（缺省全量）"}},
+        ),
+        "build": _build_power_check,
+    },
+    {
+        "name": "webnovel_foreshadow_scan",
+        "description": "伏笔/承诺逾期扫描（A3，只读报告模式，不标记状态）。",
+        "inputSchema": _schema(
+            {"chapter": {"type": "integer", "description": "当前章号（扫描基准）"}},
+            required=["chapter"],
+        ),
+        "build": _build_foreshadow_scan,
+    },
+    {
+        "name": "webnovel_reader_signals",
+        "description": "追读力信号：近期追读力/钩子分布/爽点统计/审查趋势（只读）。",
+        "inputSchema": _schema({}),
+        "build": _build_reader_signals,
     },
 ]
 

@@ -44,6 +44,20 @@
       "title": "书项目根目录",
       "description": "当前工作区绑定的书项目路径；留空则按 cwd 向上探测 + 全局指针解析。",
       "required": false
+    },
+    "draftsPerChapter": {
+      "type": "integer",
+      "title": "写章默认稿数",
+      "description": "起草-自评-择优的稿数（D0-4 裁决：默认 2，质量优先；--fast/--minimal 固定 1）。",
+      "default": 2,
+      "required": false
+    },
+    "materialTopK": {
+      "type": "integer",
+      "title": "素材装配 top-K",
+      "description": "写前装配每张素材表注入的活层条目上限（默认 20；定版快照不受此限）。",
+      "default": 20,
+      "required": false
     }
   }
 }

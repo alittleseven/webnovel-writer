@@ -56,14 +56,21 @@ def test_unknown_method_returns_error():
     assert response["error"]["code"] == -32601
 
 
-def test_tools_list_contains_nine_tools():
+def test_tools_list_contains_fourteen_tools():
     response = server.handle_request({"jsonrpc": "2.0", "id": 4, "method": "tools/list"})
     tools = response["result"]["tools"]
-    assert len(tools) == 9
+    assert len(tools) == 14, "M7/T31：9 基础 + 5 治理只读工具"
     names = {tool["name"] for tool in tools}
     assert "webnovel_where" in names
     assert "webnovel_doctor" in names
     assert "webnovel_rag_search" in names
+    assert {
+        "webnovel_materials_status",
+        "webnovel_materials_assemble",
+        "webnovel_power_check",
+        "webnovel_foreshadow_scan",
+        "webnovel_reader_signals",
+    } <= names, "T31 五个治理只读工具"
     for tool in tools:
         assert tool["inputSchema"]["type"] == "object"
         assert "project_root" in tool["inputSchema"]["properties"]
@@ -88,6 +95,13 @@ def test_tools_list_contains_nine_tools():
         ("webnovel_knowledge", {"entity": "E1", "at_chapter": 5}, ["knowledge", "query-entity-state", "--entity", "E1", "--at-chapter", "5"]),
         ("webnovel_knowledge", {"entity": "E1", "at_chapter": 5, "mode": "relationships"}, ["query-relationships"]),
         ("webnovel_context", {"chapter": 30}, ["context", "--chapter", "30"]),
+        ("webnovel_materials_status", {}, ["materials", "list", "--format", "json"]),
+        ("webnovel_materials_status", {"table": ["桥段"]}, ["--table", "桥段"]),
+        ("webnovel_materials_assemble", {"k": 5, "table": ["桥段", "梗与反差"]}, ["assemble", "--k", "5"]),
+        ("webnovel_power_check", {}, ["power", "check", "--format", "json"]),
+        ("webnovel_power_check", {"chapter": 37}, ["--chapter", "37"]),
+        ("webnovel_foreshadow_scan", {"chapter": 60}, ["foreshadow-scan", "scan", "--chapter", "60", "--no-apply"]),
+        ("webnovel_reader_signals", {}, ["index", "get-reader-signals", "--limit", "5"]),
     ],
 )
 def test_tool_builders_map_to_cli(name, arguments, expected_fragment):

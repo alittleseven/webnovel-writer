@@ -106,6 +106,19 @@ def init_domain_skeleton(project_root: str | Path) -> dict[str, Any]:
         target.write_text(file_seeds.get(rel, ""), encoding="utf-8", newline="\n")
         created_files.append(rel)
 
+    # M7/T31：书项目 AGENTS.md 模板（作者主权速览 + 常用命令；已存在永不覆盖）
+    agents_md = root / "AGENTS.md"
+    if not agents_md.is_file():
+        template = Path(__file__).resolve().parent.parent.parent / "templates" / "book-AGENTS.md"
+        agents_md.write_text(
+            template.read_text(encoding="utf-8") if template.is_file() else "",
+            encoding="utf-8",
+            newline="\n",
+        )
+        created_files.append("AGENTS.md")
+    else:
+        skipped.append("AGENTS.md")
+
     _ensure_gitignore(root)
 
     return {

@@ -627,6 +627,23 @@ def init_project(
         + "\n",
     )
 
+    # 六域骨架 + 素材播种（webnovel-copilot-300 T1/T11，非阻断：失败不影响 v7 初始化；
+    # 必须在 git 初始化前执行，让骨架与播种进入首个提交）
+    try:
+        from data_modules.domain_contract import init_domain_skeleton
+        from data_modules.material_store import seed_materials
+
+        domain_report = init_domain_skeleton(project_path)
+        print(
+            f"Domains: +{len(domain_report['created_dirs'])} dirs, "
+            f"+{len(domain_report['created_files'])} files (已存在不动)"
+        )
+        seed_report = seed_materials(project_path, genre=canonical_genre)
+        if seed_report["seeded"]:
+            print(f"Materials: 播种 {sum(seed_report['seeded'].values())} 条（题材 {canonical_genre}）")
+    except Exception as e:
+        print(f"Domain skeleton / material seeding failed (non-fatal): {e}")
+
     # Git 初始化（仅当项目目录内尚无 .git 且 Git 可用）
     git_dir = project_path / ".git"
     if not git_dir.exists():

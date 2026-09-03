@@ -261,6 +261,24 @@ def cmd_domains(args: argparse.Namespace) -> int:
     return domain_contract.main(argv)
 
 
+def cmd_materials(args: argparse.Namespace) -> int:
+    """素材工作台（webnovel-copilot-300 M2/T11-T14，流程 F-05/F-06）。
+
+    解析放宽同 domains：纯 v7 story-repo 直接按给定目录操作。
+    action 专属参数由 material_store.main 自行解析，这里只转发。
+    """
+    from data_modules import material_store
+
+    root = _resolve_root_lenient(args.project_root)
+    rest = list(getattr(args, "material_args", []) or [])
+    if rest[:1] == ["--"]:
+        rest = rest[1:]
+    argv = [args.action, *rest, "--project-root", str(root)]
+    if "--format" not in rest:
+        argv.extend(["--format", args.format])
+    return material_store.main(argv)
+
+
 def _project_root_diagnostic(
     explicit_project_root: Optional[str], exc: FileNotFoundError
 ) -> str:
@@ -816,6 +834,12 @@ def _main_impl() -> None:
     p_domains.add_argument("action", choices=["init", "check"], help="init=幂等创建缺失骨架；check=只读契约检查")
     p_domains.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
     p_domains.set_defaults(func=cmd_domains)
+
+    p_materials = sub.add_parser("materials", help="素材工作台（list/validate/assemble/seed，M2 后续扩展 log/propose/review 等）")
+    p_materials.add_argument("action", choices=["list", "validate", "assemble", "seed"], help="子动作")
+    p_materials.add_argument("material_args", nargs=argparse.REMAINDER, help="子动作参数（--table/--k/--genre 等）")
+    p_materials.add_argument("--format", choices=["text", "json"], default="text", help="输出格式")
+    p_materials.set_defaults(func=cmd_materials)
 
     p_timeline_check = sub.add_parser("timeline-check", help="程序化校验卷时间线（单调递增/倒计时算术）")
     p_timeline_check.add_argument("--volume", type=int, required=True, help="卷号")

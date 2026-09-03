@@ -93,6 +93,12 @@
 
 ## 当前非直接调用项
 
+### M5/T27 接线（2026-09-03，R11）
+
+| Skill/Agent | 阶段 | 触发 | Reference | 读取方式 |
+|-------------|------|------|-----------|---------|
+| webnovel-write | Step 2/4 | 多视角群像章 / 视角越界自检 | `references/shared/pov-management.md` | 全文 |
+
 ### M5/T26 接线（2026-09-03，R7/R8）
 
 | Skill/Agent | 阶段 | 触发 | Reference | 读取方式 |

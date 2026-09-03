@@ -145,7 +145,7 @@ class TestChecks:
     def test_clean_draft_passes(self, tmp_path):
         repo = _v7_repo(tmp_path)
         d = _decision()
-        draft = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 120
+        draft = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 180
 
         report = run_checks(repo, d, draft)
 
@@ -180,7 +180,7 @@ class TestSettle:
     def test_settle_writes_files_and_commits(self, tmp_path):
         repo = _v7_repo(tmp_path)
         d = _decision()
-        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 120
+        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 180
         (repo / "工作区" / "草稿-0037.md").write_text(body, encoding="utf-8")
 
         result = settle(repo, d, draft_path=repo / "工作区" / "草稿-0037.md", summary="内患收拢，备战开始。", commit=True)
@@ -197,7 +197,7 @@ class TestSettle:
     def test_settle_refuses_when_already_settled(self, tmp_path):
         repo = _v7_repo(tmp_path)
         d = _decision()
-        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 120
+        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 180
         (repo / "工作区" / "草稿-0037.md").write_text(body, encoding="utf-8")
         (repo / "定稿" / "正文" / "0037-不眠夜.md").write_text(body, encoding="utf-8")
 
@@ -220,7 +220,7 @@ class TestSettle:
         """spec 不变量：settle 要么完成 commit，要么不落任何定稿文件。"""
         repo = _v7_repo(tmp_path)
         d = _decision()
-        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 120
+        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 180
         draft = repo / "工作区" / "草稿-0037.md"
         draft.write_text(body, encoding="utf-8")
         # 第二个新实体的落点被目录占位 → 写入中途失败，模拟崩溃
@@ -241,7 +241,7 @@ class TestSettle:
         repo = _v7_repo(tmp_path)
         rebuild_cache(repo)  # settle 前的缓存：不含第 37 章
         d = _decision()
-        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 120
+        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 180
         (repo / "工作区" / "草稿-0037.md").write_text(body, encoding="utf-8")
 
         result = settle(
@@ -257,7 +257,7 @@ class TestSettle:
         """增量审阅 P2-1：同章改标题不得绕过防双写（章号前缀判重，非精确文件名）。"""
         repo = _v7_repo(tmp_path)
         d = _decision()
-        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 120
+        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 180
         (repo / "工作区" / "草稿-0037.md").write_text(body, encoding="utf-8")
         (repo / "定稿" / "正文" / "0037-旧标题.md").write_text(body, encoding="utf-8")
 
@@ -278,7 +278,7 @@ class TestSettle:
         assert "大纲/总纲.md" in _git_porcelain(repo)
 
         d = _decision()
-        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 120
+        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 180
         draft = repo / "工作区" / "草稿-0037.md"
         draft.write_text(body, encoding="utf-8")
 
@@ -322,7 +322,7 @@ class TestSettle:
         monkeypatch.setenv("GIT_CONFIG_SYSTEM", str(empty_cfg))
 
         d = _decision()
-        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 120
+        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 180
         (repo / "工作区" / "草稿-0037.md").write_text(body, encoding="utf-8")
 
         result = settle(repo, d, draft_path=repo / "工作区" / "草稿-0037.md", summary="s", commit=True)
@@ -346,7 +346,7 @@ class TestSettle:
         _git(repo, "config", "dualformat.v6root", str(v6))
 
         d = _decision()  # 不含 v6_project_root
-        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 120
+        body = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 180
         (repo / "工作区" / "草稿-0037.md").write_text(body, encoding="utf-8")
 
         with pytest.raises(RuntimeError, match="唯一写入路径"):
@@ -408,3 +408,89 @@ class TestContextPackBookBudget:
 
         assert "prev_chapter_tail" in stats["truncated_sections"]
         assert 0 < stats["budget_used_ratio"] <= 1.0
+
+
+class TestChecksR12:
+    """M5/T27（R12/F-15）：机检上限闸/承诺推进/口径统一/占位符扩容。"""
+
+    def test_over_hard_cap_flags_water_issue_not_blocking(self, tmp_path):
+        repo = _v7_repo(tmp_path)
+        d = _decision()
+        draft = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 900  # 远超 6000 硬顶
+
+        report = run_checks(repo, d, draft)
+
+        assert report["word_count"] > 6000
+        assert report["ok"] is True, "上限闸不阻断（进审查）"
+        assert any(i["severity"] == "high" and "灌水" in i["description"] for i in report["issues"])
+
+    def test_over_book_max_flags_even_below_hard_cap(self, tmp_path):
+        repo = _v7_repo(tmp_path)
+        d = _decision()
+        body = "苏小白看着围墙外的风暴云。" * 250  # ~3250 字：低于 6000 硬顶，高于书史 max(2802)
+        draft = "# 不眠夜\n\n" + body
+
+        report = run_checks(repo, d, draft)
+
+        assert report["word_count"] < 6000
+        assert report["word_count"] > 2802
+        assert any("疑似灌水" in i["description"] for i in report["issues"])
+
+    def test_word_count_uses_body_clean_consistent_with_settle(self, tmp_path):
+        repo = _v7_repo(tmp_path)
+        d = _decision()
+        front_matter = "---\n章号: 37\n字数: 9999\n---\n# 不眠夜\n\n"
+        body = "苏小白看着围墙外的风暴云。" * 100
+        draft = front_matter + body
+
+        report = run_checks(repo, d, draft)
+
+        # 净稿口径 = settle 落盘口径（剥 front matter + 首行标题）
+        assert report["word_count"] == len(body.replace("\n", "").replace(" ", ""))
+
+    def test_min_words_falls_back_to_book_mean(self, tmp_path):
+        repo = _v7_repo(tmp_path)
+        d = _decision()
+        assert d.get("target_words") in (None, 0)
+        draft = "# 不眠夜\n\n" + "苏小白看着围墙外的风暴云。" * 50  # ~600 字
+
+        report = run_checks(repo, d, draft)
+
+        assert report["min_words_source"] == "book_mean"
+        assert report["min_words"] == int(2802 * 0.75), "书史均值 2802×0.75"
+        assert report["ok"] is False, "低于书史口径下限仍然阻断"
+
+    def test_placeholder_patterns_extended(self, tmp_path):
+        repo = _v7_repo(tmp_path)
+        d = _decision()
+        draft = "# 不眠夜\n\n" + "正文" * 500 + "XXX{此处补打斗}？？未完待续"
+
+        report = run_checks(repo, d, draft)
+
+        joined = " ".join(report["placeholders"])
+        assert "XXX" in joined and "未完待续" in joined and "此处补打斗" in joined
+
+    def test_promise_progress_existence_matching(self, tmp_path):
+        repo = _v7_repo(tmp_path)
+        d = _decision()
+        d["promises"] = ["P-031 灭门真凶浮出水面"]
+        d["waiver"] = ""
+        body = "苏小白终于查清了灭门真凶的下落。" * 60
+        draft = "# 不眠夜\n\n" + body
+
+        report = run_checks(repo, d, draft)
+
+        assert report["promise_progress"][0]["found"] is True
+        assert report["issues"] == []
+
+    def test_missing_promise_progress_reported_high(self, tmp_path):
+        repo = _v7_repo(tmp_path)
+        d = _decision()
+        d["promises"] = ["P-031 灭门真凶浮出水面"]
+        d["waiver"] = ""
+        draft = "# 不眠夜\n\n" + "无关剧情。" * 200
+
+        report = run_checks(repo, d, draft)
+
+        assert report["promise_progress"][0]["found"] is False
+        assert any(i["severity"] == "high" and "承诺未见推进" in i["description"] for i in report["issues"])

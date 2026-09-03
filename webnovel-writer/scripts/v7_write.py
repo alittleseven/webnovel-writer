@@ -20,7 +20,8 @@ from typing import Any, Optional
 
 from data_modules.context_budget import apply_quota, estimate_tokens
 
-PLAN_PLACEHOLDER_RE = re.compile(r"\[[^\]]*待[^\]]*\]|TODO|FIXME|\(待补\)|（待补充）")
+# R12/F-15：占位符正则补 XXX / ??? / {…} / 未完待续
+PLAN_PLACEHOLDER_RE = re.compile(r"\[[^\]]*待[^\]]*\]|TODO|FIXME|\(待补\)|（待补充）|XXX|\?\?\?|\{[^{}\n]{0,40}\}|未完待续")
 QUOTED_NAME_RE = re.compile(r"「([一-鿿]{2,4})」")
 MIN_WORDS, MAX_WORDS = 800, 6000
 TOTAL_BUDGET_DEFAULT = 20000
@@ -240,15 +241,22 @@ def _render_pack_markdown(chapter: int, sections: dict[str, Any]) -> str:
 # ---------- 机检 ----------
 
 
+def body_clean_of(text: str) -> str:
+    """正文净稿口径（R12/F-15）：剥 front matter 与首行标题——机检 check 与 settle 统一。"""
+    body = text.split("---", 2)[-1].lstrip() if text.startswith("---") else text
+    return re.sub(r"^#\s*.*?\n", "", body, count=1).lstrip()
+
+
 def run_checks(repo: Path, decision: dict[str, Any], draft_text: str) -> dict[str, Any]:
     repo = Path(repo)
-    body = draft_text
+    body = body_clean_of(draft_text)
     word_count = len(re.sub(r"\s", "", body))
     placeholders = sorted(set(PLAN_PLACEHOLDER_RE.findall(body)))
 
     title = str(decision.get("title") or "")
-    first_line = next((ln.strip().lstrip("# ").strip() for ln in body.splitlines() if ln.strip()), "")
-    title_ok = (not title) or (title in first_line) or (title in body[:200])
+    # 标题核对用原稿（含首行标题）；净稿口径只用于字数/占位/承诺检查
+    first_line = next((ln.strip().lstrip("# ").strip() for ln in draft_text.splitlines() if ln.strip()), "")
+    title_ok = (not title) or (title in first_line) or (title in draft_text[:200])
 
     promises = decision.get("promises") or []
     promise_ok = bool(promises) or bool(decision.get("waiver"))
@@ -257,21 +265,68 @@ def run_checks(repo: Path, decision: dict[str, Any], draft_text: str) -> dict[st
     known = set(decision.get("entities") or []) | roster_names | set((decision.get("title") or "").split())
     new_name_candidates = sorted({n for n in QUOTED_NAME_RE.findall(body) if n not in known})
 
+    book_stats = book_word_stats(repo)
     target = int(decision.get("target_words") or 0)
-    min_words = max(1, int(target * 0.75)) if target else MIN_WORDS
+    # R12/F-15：无目标字数时回退 = 书史均值×0.75（与提示词一致），无书史再退默认下限
+    if target:
+        min_words = max(1, int(target * 0.75))
+        min_words_source = "target"
+    elif book_stats["chapters"] and book_stats["mean"] > 0:
+        min_words = max(1, int(book_stats["mean"] * 0.75))
+        min_words_source = "book_mean"
+    else:
+        min_words = MIN_WORDS
+        min_words_source = "default"
+
+    # 承诺推进存在性匹配（R12/F-15）：语义判断交 reviewer，此处查关键词前缀渐进命中（6/4/2 字）
+    promise_progress = []
+    for promise in promises:
+        keyword = re.split(r"[:：]", str(promise), maxsplit=1)[-1].strip()
+        keyword = re.sub(r"^[A-Za-z]-\d+\s*", "", keyword)  # 剥承诺 ID 前缀（P-031 等）
+        found = any(keyword[:n] in body for n in (6, 4, 2) if len(keyword[:n]) >= 2)
+        promise_progress.append({"promise": str(promise), "keyword": keyword, "found": found})
+
+    issues: list[dict[str, str]] = []
+    # 上限闸（R12/F-15）：超书史 max 或 6000 硬顶 → high issue「疑似灌水」（不阻断，进审查）
+    over_book_max = bool(book_stats["chapters"]) and word_count > int(book_stats["max"])
+    over_hard = word_count > MAX_WORDS
+    if over_hard or over_book_max:
+        issues.append(
+            {
+                "severity": "high",
+                "category": "pacing",
+                "description": "疑似灌水：字数超上限",
+                "evidence": f"word_count={word_count}, book_max={book_stats['max']}, hard_cap={MAX_WORDS}",
+            }
+        )
+    for item in promise_progress:
+        if not item["found"]:
+            issues.append(
+                {
+                    "severity": "high",
+                    "category": "logic",
+                    "description": "承诺未见推进：承诺关键词在正文无存在性命中（语义复核交 reviewer）",
+                    "evidence": str(item["promise"]),
+                }
+            )
+
     ok = word_count >= min_words and not placeholders and title_ok and promise_ok
     return {
         "ok": ok,
         "word_count": word_count,
         "min_words": min_words,
+        "min_words_source": min_words_source,
         "target_words": target,
         "placeholders": placeholders,
         "title_ok": title_ok,
         "promise_ok": promise_ok,
+        "promise_progress": promise_progress,
         "new_name_candidates": new_name_candidates,
+        "issues": issues,
         "checks": {
             "min_words": MIN_WORDS,
             "max_words": MAX_WORDS,
+            "book_max": book_stats["max"],
             "placeholder_scan": "v7-write",
             "promise_waiver_reason": decision.get("waiver") or "",
         },
@@ -340,8 +395,7 @@ def settle(
         raise RuntimeError(f"唯一写入路径：该章已 settle（定稿/正文 存在 {chapter:04d}- 前缀文件），禁止双写")
     chapter_file = repo / "定稿" / "正文" / f"{chapter:04d}-{title}.md"
 
-    body = draft_text.split("---", 2)[-1].lstrip() if draft_text.startswith("---") else draft_text
-    body_clean = re.sub(r"^#\s*.*?\n", "", body, count=1).lstrip()
+    body_clean = body_clean_of(draft_text)  # R12/F-15：与机检同一净稿口径
     word_count = len(re.sub(r"\s", "", body_clean))
     front = [
         "---",

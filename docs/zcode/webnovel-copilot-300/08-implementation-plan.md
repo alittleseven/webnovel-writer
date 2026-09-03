@@ -73,9 +73,13 @@
 
 ## M3 · 作者模型与文风域
 
-- **T15 文风域**：宪法.md 迁移 + 指纹计算器（脚本）+ 金句库（素材自喂入口）。验收：指纹对 fantasy01 38 章计算稳定；金句标记入流程。
-- **T16 author_model**：learn --from-journal（卷级归纳）+ 双层回写 + 装配注入。验收：F-12 流程；归纳建议作者确认后进上下文。
-- **T17 style_anchor 接线**（=质量 W6）：高分章采样 + 装配。验收：连续 3 章后新章上下文含本书高分样本。
+- [x] **T15 文风域**：宪法.md 迁移 + 指纹计算器（脚本）+ 金句库（素材自喂入口）。验收：指纹对 fantasy01 38 章计算稳定；金句标记入流程。
+  - 证据 2cc242c（+eef9d73 半角引号修复）：13+1 测试绿；`migrate_constitution` 平移 风格契约→文风/宪法（既有宪法不覆盖，无源跳过）；指纹 06 §6 全字段纯确定性（fantasy01 38 章两次计算逐字节一致；对话占比 0.19/said_tag 0.36）；金句库 G-NNN 标记（journal learn）+ `golden-feed` 自喂入台词金句表（来源=作者手写，重复拒绝）。
+- [x] **T16 author_model**：learn --from-journal（卷级归纳）+ 双层回写 + 装配注入。验收：F-12 流程；归纳建议作者确认后进上下文。
+  - 证据 4c6be51：11 测试绿；`learn --from-journal`（0 token：域/类型分布、高频路径、删除型雷点候选；卷口径按 book.yaml 卷规模，无章锚点事件不重复计入）→ 作者/author_model-建议.md；`learn apply` 作者确认后追加 author_model.md（「已确认」标记）+ 跨书偏好.yaml 接受AI建议率统计回写（双层回写）；`load_author_model_section` 供装配。
+- [x] **T17 style_anchor 接线**（=质量 W6）：高分章采样 + 装配。验收：连续 3 章后新章上下文含本书高分样本。
+  - 证据 729a505：8 测试绿（R6 门槛 85 分锁定：84 分不采/92 分采样）；`settle_style_domain` 挂章提交链（被否决章不采；指纹增量更新）；context_manager 新增 style_anchor（≤500 字高分原文+语气参照+指纹摘要）与 author_model 两个 section（缺失时空容器不影响既有装配）；test_context_manager 回归绿。
+  - 收尾：fantasy01 副本实测（宪法无源跳过、指纹稳定）；附带修复 test_timeline_view 时间敏感断言（裸子串撞 generated 时间戳，精确匹配表格行）；全量 1336 passed，覆盖率 81.75%。
 
 ## M4 · 设定工坊与战力体系
 

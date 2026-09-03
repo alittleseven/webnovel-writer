@@ -438,3 +438,37 @@ def test_dashboard_env_status_endpoints_report_local_rag_state(monkeypatch, tmp_
     assert "embed_api_key" in check_names
     assert "rerank_api_key" in check_names
     assert "vector_db" in check_names
+
+
+def test_dashboard_governance_snapshot_endpoint(monkeypatch, tmp_path):
+    """M7/T32（F-14）：治理六视图只读端点——六键齐全且数据正确。"""
+    from data_modules.author_journal import append_events
+
+    project_root = tmp_path / "book"
+    _build_project_data(project_root)
+    append_events(
+        project_root,
+        [
+            {
+                "actor": "author",
+                "action": "edit",
+                "domain": "章纲",
+                "path": "大纲/章纲/0002.md",
+                "change_kind": "content",
+                "diff_stat": {"ins": 3, "del": 1},
+                "summary": "改钩子",
+                "impact": [],
+            }
+        ],
+    )
+    client = _create_dashboard_client(monkeypatch, project_root)
+
+    response = client.get("/api/governance")
+
+    assert response.status_code == 200
+    payload = response.json()
+    for key in ("outline_zones", "freeze", "journal", "materials", "inflation", "alerts"):
+        assert key in payload, f"治理视图缺 {key}"
+    assert payload["journal"] and payload["journal"][0]["summary"] == "改钩子"
+    assert payload["materials"]["tables"]
+    assert "stale" in payload["alerts"] and "overdue" in payload["alerts"]

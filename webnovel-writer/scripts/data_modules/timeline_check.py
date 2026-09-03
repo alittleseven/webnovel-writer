@@ -28,6 +28,10 @@ _CHAPTER_ROW_RE = re.compile(
     r"\s*([^|]*?)\s*\|"          # 倒计时状态
     r"\s*([^|]*?)\s*\|"          # 备注
 )
+# T9 时间线视图行（M1）：| N | 故事内时间 | 事件 | 伏笔/承诺 | 战力事件 |
+_T9_ROW_RE = re.compile(r"^\|\s*(\d{1,4})\s*\|\s*([^|]*?)\s*\|")
+# T9 视图表头触发：| 章 | 故事内时间 | ...
+_T9_HEADER_MARK = "故事内时间"
 # 倒计时状态：如 "物资耗尽 D-7"、"D-7"、"已触发"
 # 带事件名的形式："存粮 D-5"、"风暴 D-10 启动"；裸形式："D-7"
 _COUNTDOWN_RE = re.compile(r"(.+?)\s*D[-−](\d+)")
@@ -39,7 +43,7 @@ _YEAR_RE = re.compile(r"(\d{4})\s*年")
 
 
 def _parse_chapter_axis_rows(content: str) -> List[Dict[str, Any]]:
-    """解析章节时间轴表格，返回每章一行数据。"""
+    """解析章节时间轴表格，返回每章一行数据（兼容 legacy 与 T9 视图两种格式）。"""
     rows: List[Dict[str, Any]] = []
     in_axis_table = False
     for line in content.splitlines():
@@ -51,14 +55,24 @@ def _parse_chapter_axis_rows(content: str) -> List[Dict[str, Any]]:
         if in_axis_table and stripped.startswith("## "):
             break
         if not in_axis_table:
+            # T9 时间线视图没有该小节标题，以表头行触发
+            if _T9_HEADER_MARK in stripped and stripped.startswith("|"):
+                in_axis_table = True
+            continue
+        if stripped.startswith("|---"):
+            continue
+        if "故事内时间" in stripped and stripped.startswith("|"):
             continue
         match = _CHAPTER_ROW_RE.match(stripped)
-        if not match:
+        if match:
+            chapter = int(match.group(1))
+            anchor = match.group(2).strip()
+            countdown = match.group(5).strip()
+            rows.append({"chapter": chapter, "anchor": anchor, "countdown": countdown})
             continue
-        chapter = int(match.group(1))
-        anchor = match.group(2).strip()
-        countdown = match.group(5).strip()
-        rows.append({"chapter": chapter, "anchor": anchor, "countdown": countdown})
+        t9 = _T9_ROW_RE.match(stripped)
+        if t9:
+            rows.append({"chapter": int(t9.group(1)), "anchor": t9.group(2).strip(), "countdown": ""})
     return rows
 
 
@@ -108,7 +122,13 @@ def _extract_countdown_event(countdown: str) -> Optional[tuple[str, int]]:
 def check_timeline(project_root: Path | str, volume_id: int) -> Dict[str, Any]:
     """校验卷时间线表，返回 {ok, checks, errors} 报告。"""
     root = Path(project_root)
-    timeline_path = root / "大纲" / f"第{volume_id}卷-时间线.md"
+    # 位置兼容：legacy 大纲/第N卷-时间线.md；T9 视图 大纲/卷纲/第NN卷-时间线.md
+    candidates = [
+        root / "大纲" / f"第{volume_id}卷-时间线.md",
+        root / "大纲" / "卷纲" / f"第{volume_id:02d}卷-时间线.md",
+        root / "大纲" / "卷纲" / f"第{volume_id}卷-时间线.md",
+    ]
+    timeline_path = next((c for c in candidates if c.is_file()), candidates[0])
     if not timeline_path.is_file():
         return {
             "ok": False,
